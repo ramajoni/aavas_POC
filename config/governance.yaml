@@ -1,0 +1,76 @@
+# Who may approve what, and which gates must pass first.
+#
+# This is the design-time counterpart to pricing_policy.approval_authority, which
+# governs a single priced decision. That one answers "who signs off this rate".
+# This one answers "who signs off a change to the system that produces rates" -
+# a different question with different people and a different failure mode.
+#
+# Nothing here is enforced unless authentication is on. With
+# AAVAS_AUTH_MODE=disabled the API accepts any caller, and every surface that
+# reports governance says so rather than implying the roles are being checked.
+
+governance_config_version: "GOV-2026.09"
+
+# The roles that can sign off a change. Kept short on purpose: an approval matrix
+# nobody can recite is an approval matrix nobody follows.
+roles:
+  business:
+    label: "Business owner"
+    approves: "Commercial intent: targets, segments, product scope."
+  credit_policy:
+    label: "Credit policy"
+    approves: "Risk appetite, eligibility rules, approval authority limits."
+  model_risk:
+    label: "Model risk"
+    approves: "Model promotion, calibration, fairness, feature contracts."
+  technology:
+    label: "Technology"
+    approves: "The agent set, connectors, infrastructure configuration."
+  auditor:
+    label: "Audit"
+    approves: "Nothing. Read-only across every governance surface."
+
+# What each kind of change needs. `requires` is a list of roles, ALL of which
+# must approve - a single sign-off on a model promotion is not a control.
+artefacts:
+  model:
+    label: "Model promotion"
+    requires: [model_risk]
+    gates: [fairness_pass, card_registered, challenger_beats_champion]
+  agent_manifest:
+    label: "Agent set publication"
+    requires: [technology, model_risk]
+    gates: [manifest_registered]
+  config:
+    label: "Configuration change"
+    requires: [credit_policy, technology]
+    gates: [config_parses]
+  policy:
+    label: "Pricing policy change"
+    requires: [credit_policy, business]
+    gates: [config_parses]
+  feature:
+    label: "Feature admission"
+    # Model risk owns whether it predicts; credit policy owns whether it may be
+    # used at all and whether the reason label is honest.
+    requires: [model_risk, credit_policy]
+    gates: [feature_proposed, reason_label_authored, feature_no_leakage, feature_not_redundant]
+
+  connector:
+    label: "Connector enablement"
+    requires: [technology, credit_policy]
+    gates: [consent_store_configured]
+
+# A gate that fails blocks the request. It can be overridden, but only with an
+# explicit written justification and by model risk - and the override is recorded
+# against the approval forever. A gate that can be waived silently is decoration.
+gate_override:
+  allowed: true
+  requires_role: model_risk
+  requires_justification: true
+  min_justification_chars: 40
+
+# Self-approval. The person who requested a change may not be the person who
+# approves it, whatever their role.
+separation_of_duties:
+  forbid_self_approval: true

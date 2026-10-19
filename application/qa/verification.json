@@ -1,0 +1,75 @@
+{
+  "errors": [],
+  "requests": [
+    {
+      "url": "http://localhost:4173/api/health",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/model-cards",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/override/reasons",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/override/reasons",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/model-cards",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/health",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/pre-assessment",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/final-assessment?include_scenarios=true",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/override",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/outcome",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/audit/APP1792413072103",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/audit/APP1792413072103",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/learning/override-review",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/learning/questions",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/policy/explain?question=What%20is%20the%20branch%20manager%20discount%20limit%3F",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/learning/questions",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:4173/api/pricing/learning/override-review",
+      "status": 200
+    }
+  ],
+  "bureauScoreValidation": true,
+  "mobileOverflow": false
+}

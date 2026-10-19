@@ -1,0 +1,209 @@
+# Feature contracts per model. The feature pipeline reads ONLY this file, so a
+# feature can never silently leak from Stage-2 into Stage-1.
+feature_config_version: "FEAT-2026.09"
+
+# Fields available before documents are collected. Anything not listed here is
+# forbidden in Stage-1 - this is the guard against pre-assessment leakage.
+stage1:
+  numeric:
+    - declared_monthly_income
+    - requested_loan_amount
+    - estimated_property_value
+    - bureau_score            # soft pull is available pre-assessment
+    - requested_tenure_years
+    - applicant_age
+    - declared_obligations
+    - estimated_ltv
+    - competitor_rate
+    - sales_target_pct
+    - branch_target_pct
+  categorical:
+    - segment
+    - city
+    - channel
+    - property_type
+    - new_to_credit
+
+stage2:
+  numeric:
+    - verified_monthly_income
+    - income_verification_haircut
+    - sanctioned_loan_amount
+    - appraised_property_value
+    - ltv
+    - bureau_score
+    - bureau_vintage_months
+    - delinquency_count_24m
+    - banking_behaviour_score
+    - foir
+    - tenure_years
+    - applicant_age
+    - deviation_count
+    - legal_flag
+    - technical_flag
+    - competitor_rate
+    - sales_target_pct
+    - branch_target_pct
+  categorical:
+    - segment
+    - city
+    - channel
+    - property_type
+    - risk_grade
+    - new_to_credit
+
+# Credit-risk (PD) model. Deliberately NOT the stage2 block: risk_grade is derived
+# from this model's own output, so including it would be circular.
+risk:
+  numeric:
+    - verified_monthly_income
+    - income_verification_haircut
+    - sanctioned_loan_amount
+    - appraised_property_value
+    - ltv
+    - bureau_score
+    - bureau_vintage_months
+    - delinquency_count_24m
+    - banking_behaviour_score
+    - foir
+    - tenure_years
+    - applicant_age
+    - deviation_count
+    - legal_flag
+    - technical_flag
+  categorical:
+    - segment
+    - city
+    - channel
+    - property_type
+    - new_to_credit
+
+# Commercial context. Kept in a separate block deliberately: these features move
+# price for reasons that are NOT customer risk, and governance reporting needs to
+# be able to isolate their contribution.
+sales_context:
+  numeric:
+    - competitor_rate
+    - competitor_gap_bps
+    - sales_target_pct
+    - branch_target_pct
+    - days_to_month_end
+    - prior_negotiation_rounds
+  categorical:
+    - month_end
+    - customer_negotiating
+    - existing_relationship
+    - competitor_evidence_verified
+
+# Conversion (S2D) model. offered_rate and competitor_gap_bps carry monotone
+# constraints so the optimizer always sees a well-behaved demand curve.
+conversion:
+  numeric:
+    - offered_rate
+    - competitor_gap_bps
+    - verified_monthly_income
+    - sanctioned_loan_amount
+    - ltv
+    - foir
+    - bureau_score
+    - tenure_years
+    - prior_negotiation_rounds
+  categorical:
+    - segment
+    - city
+    - channel
+    - customer_negotiating
+    - existing_relationship
+  monotone:
+    offered_rate: -1          # never learn "more expensive converts better"
+    competitor_gap_bps: -1
+
+# Prepayment / balance-transfer-out within 24 months of disbursal.
+prepayment:
+  numeric:
+    - offered_rate
+    - competitor_gap_bps
+    - sanctioned_loan_amount
+    - ltv
+    - bureau_score
+    - verified_monthly_income
+    - tenure_years
+    - applicant_age
+  categorical:
+    - segment
+    - city
+    - channel
+  monotone:
+    offered_rate: 1           # pricier than market => more BT-out pressure
+    competitor_gap_bps: 1
+
+# Override model: will a human move the AI price, and by how much.
+override:
+  numeric:
+    - ai_recommended_rate
+    - competitor_gap_bps
+    - sales_target_pct
+    - branch_target_pct
+    - days_to_month_end
+    - ltv
+    - bureau_score
+    - sanctioned_loan_amount
+    - prior_negotiation_rounds
+  categorical:
+    - segment
+    - city
+    - channel
+    - month_end
+    - customer_negotiating
+    - existing_relationship
+    - risk_grade
+
+# Human-readable names + direction language used to turn attributions into
+# reason codes a sales or credit user can actually read.
+reason_code_labels:
+  bureau_score:            {label: "Bureau score",              up: "Weaker bureau profile", down: "Strong bureau profile"}
+  verified_monthly_income: {label: "Verified income",           up: "Lower verified income", down: "Strong verified income"}
+  declared_monthly_income: {label: "Declared income",           up: "Lower declared income", down: "Strong declared income"}
+  income_verification_haircut: {label: "Income verification gap", up: "Large gap between declared and verified income", down: "Income verified in full"}
+  ltv:                     {label: "Loan to value",             up: "Higher LTV", down: "Conservative LTV"}
+  estimated_ltv:           {label: "Indicative LTV",            up: "Higher indicative LTV", down: "Conservative indicative LTV"}
+  foir:                    {label: "Obligations to income",     up: "High existing obligations", down: "Low existing obligations"}
+  deviation_count:         {label: "Credit deviations",         up: "Credit deviations on file", down: "No credit deviations"}
+  legal_flag:              {label: "Legal assessment",          up: "Legal exception on property", down: "Clean legal report"}
+  technical_flag:          {label: "Technical assessment",      up: "Technical exception on property", down: "Clean technical report"}
+  competitor_rate:         {label: "Competitor pricing",        up: "Competitor priced above us", down: "Competitive market pressure"}
+  competitor_gap_bps:      {label: "Gap to competitor",         up: "We are priced above competitor", down: "We are priced below competitor"}
+  banking_behaviour_score: {label: "Banking behaviour",         up: "Weaker banking behaviour", down: "Strong banking behaviour"}
+  delinquency_count_24m:   {label: "Past delinquency",          up: "Recent delinquency history", down: "Clean repayment record"}
+  sanctioned_loan_amount:  {label: "Loan amount",               up: "Larger ticket", down: "Smaller ticket"}
+  requested_loan_amount:   {label: "Requested amount",          up: "Larger requested ticket", down: "Smaller requested ticket"}
+  tenure_years:            {label: "Tenure",                    up: "Longer tenure", down: "Shorter tenure"}
+  sales_target_pct:        {label: "Sales target achievement",  up: "Target pressure", down: "Target comfortably met"}
+  branch_target_pct:       {label: "Branch target achievement", up: "Branch under target pressure", down: "Branch ahead of target"}
+  segment:                 {label: "Customer segment",          up: "Segment risk loading", down: "Segment benefit"}
+
+  # Authored after the feature-card pass found 13 contract features falling back
+  # to a title-cased column name. The fallback reads like a label and is not one:
+  # a customer would have seen "Appraised Property Value" where a sentence belongs.
+  appraised_property_value: {label: "Property valuation",        up: "Valuation below expectation", down: "Valuation supports the loan"}
+  estimated_property_value: {label: "Indicative property value", up: "Indicative value below expectation", down: "Indicative value supports the loan"}
+  requested_tenure_years:  {label: "Requested tenure",           up: "Longer requested tenure", down: "Shorter requested tenure"}
+  declared_obligations:    {label: "Existing obligations",       up: "Existing EMIs reduce headroom", down: "Few existing obligations"}
+  offered_rate:            {label: "Offered rate",               up: "Higher offered rate", down: "Lower offered rate"}
+  ai_recommended_rate:     {label: "Recommended rate",           up: "Higher recommended rate", down: "Lower recommended rate"}
+  # Commercial drivers. They move price for reasons that are not risk, which is
+  # why the explanation splits them out rather than blending them in - a customer
+  # is entitled to know which part of their rate is about them and which is not.
+  customer_negotiating:    {label: "Negotiation in progress",    up: "No negotiation on file", down: "Active negotiation"}
+  prior_negotiation_rounds: {label: "Negotiation rounds",        up: "Few rounds so far", down: "Several rounds already"}
+  existing_relationship:   {label: "Existing relationship",      up: "New to us", down: "Existing relationship"}
+  month_end:               {label: "Month-end timing",           up: "Not month-end", down: "Month-end"}
+  days_to_month_end:       {label: "Days to month end",          up: "Further from month-end", down: "Close to month-end"}
+  competitor_evidence_verified: {label: "Competitor evidence", up: "Competitor claim could not be verified", down: "Competitor offer verified"}
+  city:                    {label: "Location",                  up: "Location loading", down: "Location benefit"}
+  channel:                 {label: "Sourcing channel",          up: "Channel loading", down: "Channel benefit"}
+  property_type:           {label: "Property type",             up: "Property type loading", down: "Property type benefit"}
+  risk_grade:              {label: "Risk grade",                up: "Weaker risk grade", down: "Stronger risk grade"}
+  new_to_credit:           {label: "Credit history",            up: "New to credit", down: "Established credit history"}
+  applicant_age:           {label: "Applicant age",             up: "Age loading", down: "Age benefit"}
+  bureau_vintage_months:   {label: "Credit history depth",      up: "Thin credit file", down: "Deep credit history"}

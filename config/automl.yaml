@@ -1,0 +1,92 @@
+# Agentic AutoML - search configuration
+#
+# Flow: algorithm selection -> HPO -> imbalance -> calibration -> ensemble
+#       -> fairness -> profit -> champion selection
+#
+# Candidates are scoped per contract, because the model suite is not homogeneous:
+# conversion and prepayment are monotone-constrained in price and only ever see
+# monotone-capable learners. See docs/target-architecture-gap.md section 8.2.
+
+automl_config_version: "AML-2026.09"
+
+defaults:
+  hpo_strategy: random          # grid | random | bayesian | tpe | hyperband |
+                                # successive_halving | evolutionary
+  hpo_budget: 12
+  imbalance_strategy: auto      # auto | none | smote | adasyn | random_oversample |
+                                # random_undersample | class_weight | scale_pos_weight
+  calibration_methods: [platt, isotonic, beta]
+  ensemble_methods: [voting_soft, weighted]
+  ensemble_top_k: 3
+  interpretable_only: false
+  seed: 42
+
+  # Ranking weights. Not argmax AUC - see selection.blended_score.
+  weights:
+    auc: 0.25
+    ks: 0.15
+    pr_auc: 0.10
+    calibration: 0.20
+    stability: 0.10
+    profit: 0.20
+
+  # Hard gates. A candidate that fails one goes to review regardless of rank.
+  gates:
+    min_auc: 0.60
+    max_ece: 0.05
+    max_psi: 0.25
+    require_fairness_pass: true
+    # A global average that passes while one branch fails is not a pass.
+    require_locality_pass: true
+
+  # The axis the fairness gate is computed over. `age_band` is derived from
+  # applicant_age by scripts/run_automl.py: age is a numeric pricing feature in
+  # four of the six contracts (docs/target-architecture-gap.md section 1), which
+  # is precisely why the gate is computed over it and not over a business
+  # segment. Calibration by group is the binding criterion - see fairness.py.
+  fairness_group: age_band
+
+  # Branch-level (or any operating-unit) evaluation. See automl/locality.py.
+  locality:
+    unit_column: branch_id        # branch_id | city | state | partner institution
+    min_unit_size: 150            # below this a unit returns "insufficient evidence"
+    min_unit_auc: 0.55
+    max_unit_ece: 0.08
+    max_auc_drop_vs_global: 0.07  # catches a branch materially worse than its own book
+    max_auc_spread: 0.15
+
+# ----------------------------------------------------------- per contract
+contracts:
+  conversion:
+    # Monotone is forced by the contract, not by this file.
+    hpo_strategy: tpe
+    hpo_budget: 20
+    imbalance_strategy: none      # base rate 65.9%; resampling would only hurt calibration
+    ensemble_methods: [weighted]
+
+  prepayment:
+    hpo_strategy: tpe
+    imbalance_strategy: none      # base rate 15.3%; still not severe
+    calibration_methods: [beta, isotonic]   # thin positive class favours beta
+
+  risk:
+    hpo_strategy: tpe
+    imbalance_strategy: none      # base rate 9.4%
+    gates:
+      min_auc: 0.60
+      max_ece: 0.03               # PD feeds expected loss in rupees
+      max_psi: 0.25
+      require_fairness_pass: true
+
+  override:
+    hpo_strategy: random
+
+  stage2:
+    hpo_strategy: tpe
+    hpo_budget: 20
+
+  # Glass-box only: the artefact a credit committee reads line by line.
+  scorecard:
+    interpretable_only: true
+    include: [woe_scorecard, logistic_regression, ebm, gam, decision_tree]
+    ensemble_methods: []

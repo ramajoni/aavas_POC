@@ -1,0 +1,27 @@
+# Explainability extras - the OmniXAI analysis in scripts/run_omnixai.py.
+#
+# Deliberately NOT part of requirements.txt. omnixai 1.3.1 needs dash < 3 (its
+# dashboard calls the removed app.run_server) and dash 2.x pins Flask < 2.3,
+# which is older than what a current FastAPI/Flask environment carries. So these
+# live in an overlay venv that shadows only those packages:
+#
+#   bash scripts/setup_xai_env.sh      # builds .venv-xai
+#   make xai                           # analyse every model and serve the UI
+#
+# omnixai itself is installed by that script with --no-deps: its own pins
+# (numpy < 1.24, scikit-learn < 1.2) predate this repo's stack and installing
+# them would break every artefact in models/.
+
+shap>=0.46                        # first release that supports numpy 2
+dash>=2.11,<3                     # omnixai's dashboard needs app.run_server
+dash-bootstrap-components>=1.4,<2
+jupyter-dash>=0.4                 # imported unconditionally by omnixai's dashboard
+plotly>=5.15
+lime
+SALib
+hnswlib                           # kNN retrieval behind the MACE counterfactuals
+dill
+tabulate
+statsmodels
+ipython
+openai                            # omnixai's GPT explainer imports it at module scope

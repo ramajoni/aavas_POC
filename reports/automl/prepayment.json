@@ -1,0 +1,486 @@
+{
+  "contract": "prepayment",
+  "elapsed_seconds": 3.22,
+  "candidates_considered": 2,
+  "candidates_skipped": [
+    {
+      "name": "logistic_regression",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "ridge_logistic",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "lasso_logistic",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "elastic_net_logistic",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "decision_tree",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "random_forest",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "extra_trees",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "gradient_boosting",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "xgboost",
+      "reason": "requires `pip install xgboost`"
+    },
+    {
+      "name": "lightgbm",
+      "reason": "requires `pip install lightgbm`"
+    },
+    {
+      "name": "catboost",
+      "reason": "requires `pip install catboost`"
+    },
+    {
+      "name": "ebm",
+      "reason": "requires `pip install interpret`"
+    },
+    {
+      "name": "gam",
+      "reason": "requires `pip install interpret`"
+    },
+    {
+      "name": "svm_rbf",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "linear_svm",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "knn",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "gaussian_nb",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "bernoulli_nb",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "bayesian_logistic",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "mlp",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "tabnet",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "ft_transformer",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "saint",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "tabpfn",
+      "reason": "requires `pip install tabpfn`"
+    },
+    {
+      "name": "tabicl",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "lstm",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "gru",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "tcn",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "transformer",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "gcn",
+      "reason": "no graph data in the schema"
+    },
+    {
+      "name": "graphsage",
+      "reason": "no graph data in the schema"
+    },
+    {
+      "name": "gat",
+      "reason": "no graph data in the schema"
+    },
+    {
+      "name": "balanced_random_forest",
+      "reason": "requires `pip install imblearn`"
+    },
+    {
+      "name": "easy_ensemble",
+      "reason": "requires `pip install imblearn`"
+    },
+    {
+      "name": "weighted_logistic",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "cost_sensitive_random_forest",
+      "reason": "not monotone-capable; this contract constrains price"
+    },
+    {
+      "name": "cost_sensitive_xgboost",
+      "reason": "requires `pip install xgboost`"
+    },
+    {
+      "name": "cost_sensitive_lightgbm",
+      "reason": "requires `pip install lightgbm`"
+    },
+    {
+      "name": "cost_sensitive_catboost",
+      "reason": "requires `pip install catboost`"
+    }
+  ],
+  "steps": [
+    {
+      "step": "algorithm_selection",
+      "selected": [
+        "woe_scorecard",
+        "hist_gradient_boosting"
+      ],
+      "monotone_required": true
+    },
+    {
+      "step": "imbalance",
+      "diagnosis": {
+        "positive_rate": 0.1767,
+        "minority_share": 0.1767,
+        "verdict": "mild",
+        "recommended_strategy": "none",
+        "note": "Resampling is not indicated; calibrated probabilities are worth more than a balanced training set."
+      },
+      "strategy": "none",
+      "applied": false,
+      "recalibration_required": false,
+      "n_rows": 7908,
+      "positive_rate": 0.1767,
+      "note": ""
+    },
+    {
+      "step": "validation_split",
+      "calibration_rows": 1318,
+      "evaluation_rows": 1318
+    },
+    {
+      "step": "champion_selection",
+      "champion": null,
+      "referred": 3
+    }
+  ],
+  "champion": null,
+  "best_referred": "hist_gradient_boosting",
+  "leaderboard": [
+    {
+      "name": "hist_gradient_boosting",
+      "family": "boosting",
+      "monotone": true,
+      "interpretable": false,
+      "auc": 0.63458,
+      "pr_auc": 0.27761,
+      "ks": 0.21367,
+      "ece": 0.03039,
+      "brier": 0.14195,
+      "base_rate": 0.17906,
+      "psi": 0.00813,
+      "calib_ece_before": 0.02338,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.12056,
+      "calib_brier_after": 0.1175,
+      "blended_score": 0.51156,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "woe_scorecard",
+      "family": "linear_scorecard",
+      "monotone": true,
+      "interpretable": true,
+      "auc": 0.63122,
+      "pr_auc": 0.26574,
+      "ks": 0.19183,
+      "ece": 0.03799,
+      "brier": 0.14265,
+      "base_rate": 0.17906,
+      "psi": 0.00462,
+      "calib_ece_before": 0.02135,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.11964,
+      "calib_brier_after": 0.11639,
+      "blended_score": 0.5051,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "ensemble_weighted",
+      "family": "ensemble",
+      "monotone": true,
+      "interpretable": false,
+      "auc": 0.62897,
+      "pr_auc": 0.2622,
+      "ks": 0.17604,
+      "ece": 0.03067,
+      "brier": 0.14285,
+      "base_rate": 0.17906,
+      "psi": 0.01121,
+      "calib_ece_before": 0.02132,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.12208,
+      "calib_brier_after": 0.11886,
+      "blended_score": 0.50261,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    }
+  ],
+  "pareto_front": [
+    "hist_gradient_boosting"
+  ],
+  "referred_to_review": [
+    {
+      "name": "hist_gradient_boosting",
+      "blended_score": 0.51156,
+      "failures": [
+        "fairness: calibration gap 0.051 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "woe_scorecard",
+      "blended_score": 0.5051,
+      "failures": [
+        "fairness: calibration gap 0.051 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "ensemble_weighted",
+      "blended_score": 0.50261,
+      "failures": [
+        "fairness: calibration gap 0.054 exceeds 0.05"
+      ]
+    }
+  ],
+  "weights": {
+    "auc": 0.25,
+    "ks": 0.15,
+    "pr_auc": 0.1,
+    "calibration": 0.2,
+    "stability": 0.1,
+    "profit": 0.2
+  },
+  "gates": {
+    "min_auc": 0.6,
+    "max_ece": 0.05,
+    "max_psi": 0.25,
+    "require_monotone": true,
+    "require_fairness_pass": true,
+    "require_locality_pass": true
+  },
+  "diagnostics": {
+    "candidate": "hist_gradient_boosting",
+    "admitted": false,
+    "fairness": {
+      "passed": false,
+      "per_group": {
+        "30-39": {
+          "selection_rate": 0.0051,
+          "tpr": 0.0275,
+          "fpr": 0.0,
+          "fnr": 0.9725,
+          "n": 589,
+          "mean_predicted": 0.1485,
+          "actual_rate": 0.1851,
+          "calibration_gap": -0.0366
+        },
+        "40-49": {
+          "selection_rate": 0.0068,
+          "tpr": 0.0274,
+          "fpr": 0.0027,
+          "fnr": 0.9726,
+          "n": 440,
+          "mean_predicted": 0.1523,
+          "actual_rate": 0.1659,
+          "calibration_gap": -0.0136
+        },
+        "50-59": {
+          "selection_rate": 0.0,
+          "tpr": 0.0,
+          "fpr": 0.0,
+          "fnr": 1.0,
+          "n": 71,
+          "mean_predicted": 0.1476,
+          "actual_rate": 0.1408,
+          "calibration_gap": 0.0068
+        },
+        "60 and over": {
+          "n": 4,
+          "verdict": "insufficient evidence"
+        },
+        "under 30": {
+          "selection_rate": 0.0047,
+          "tpr": 0.0238,
+          "fpr": 0.0,
+          "fnr": 0.9762,
+          "n": 214,
+          "mean_predicted": 0.1526,
+          "actual_rate": 0.1963,
+          "calibration_gap": -0.0437
+        }
+      },
+      "gaps": {
+        "comparable_groups": 4,
+        "selection_rate_gap": 0.0068,
+        "tpr_gap": 0.0275,
+        "fpr_gap": 0.0027,
+        "fnr_gap": 0.0275,
+        "calibration_gap": 0.0505
+      },
+      "reasons": [
+        "calibration gap 0.051 exceeds 0.05"
+      ],
+      "parity_note": null,
+      "primary_criterion": "calibration_by_group"
+    },
+    "locality": {
+      "passed": true,
+      "verdict": "global AUC 0.6346 and every branch clears its floor",
+      "global": {
+        "auc": 0.6346,
+        "ece": 0.0304,
+        "n": 1318
+      },
+      "per_unit": {
+        "BR001": {
+          "n": 137,
+          "verdict": "insufficient evidence"
+        },
+        "BR004": {
+          "n": 89,
+          "verdict": "insufficient evidence"
+        },
+        "BR008": {
+          "n": 60,
+          "verdict": "insufficient evidence"
+        },
+        "BR010": {
+          "n": 109,
+          "verdict": "insufficient evidence"
+        },
+        "BR011": {
+          "n": 54,
+          "verdict": "insufficient evidence"
+        },
+        "BR014": {
+          "n": 88,
+          "verdict": "insufficient evidence"
+        },
+        "BR022": {
+          "n": 71,
+          "verdict": "insufficient evidence"
+        },
+        "BR024": {
+          "n": 78,
+          "verdict": "insufficient evidence"
+        },
+        "BR025": {
+          "n": 98,
+          "verdict": "insufficient evidence"
+        },
+        "BR027": {
+          "n": 141,
+          "verdict": "insufficient evidence"
+        },
+        "BR028": {
+          "n": 49,
+          "verdict": "insufficient evidence"
+        },
+        "BR032": {
+          "n": 146,
+          "verdict": "insufficient evidence"
+        },
+        "BR037": {
+          "n": 103,
+          "verdict": "insufficient evidence"
+        },
+        "BR038": {
+          "n": 95,
+          "verdict": "insufficient evidence"
+        }
+      },
+      "variance": {
+        "comparable_units": 0
+      },
+      "failing_units": [],
+      "units_with_insufficient_evidence": [
+        "BR001",
+        "BR004",
+        "BR008",
+        "BR010",
+        "BR011",
+        "BR014",
+        "BR022",
+        "BR024",
+        "BR025",
+        "BR027",
+        "BR028",
+        "BR032",
+        "BR037",
+        "BR038"
+      ]
+    }
+  },
+  "data": {
+    "n_fit": 7908,
+    "n_valid": 2636,
+    "n_holdout_untouched": 2637,
+    "features": 11,
+    "positive_rate_fit": 0.1767,
+    "positive_rate_valid": 0.1631,
+    "fit_to": "2025-08-27 00:00:00",
+    "valid_from": "2025-08-28 00:00:00",
+    "holdout_from": "2025-12-24 00:00:00"
+  },
+  "config": {
+    "hpo_strategy": "tpe",
+    "hpo_budget": 12,
+    "imbalance_strategy": "none",
+    "monotone_required": true,
+    "calibration_methods": [
+      "beta",
+      "isotonic"
+    ],
+    "ensemble_methods": [
+      "voting_soft",
+      "weighted"
+    ]
+  }
+}

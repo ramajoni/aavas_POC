@@ -1,0 +1,55 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      AAVAS_ENV: docker
+      AAVAS_LOG_LEVEL: INFO
+      AAVAS_SEED: "42"
+      # SQLite by default; point at the postgres service below to share state.
+      AAVAS_STORE_URL: sqlite:///aavas_governance.db
+      AAVAS_VECTOR_BACKEND: memory
+      AAVAS_TRACKING_ENABLED: "false"
+    volumes:
+      # Keep the governance store and model artefacts across restarts.
+      - aavas-state:/app/models
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Phase 2: pgvector for the knowledge store and a shared governance database.
+  # Not required for the POC - start it with:  docker compose --profile phase2 up
+  postgres:
+    image: pgvector/pgvector:pg16
+    profiles: ["phase2"]
+    environment:
+      POSTGRES_USER: aavas
+      POSTGRES_PASSWORD: aavas
+      POSTGRES_DB: aavas
+    ports:
+      - "5432:5432"
+    volumes:
+      - aavas-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aavas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Experiment tracking, off by default.
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.12.1
+    profiles: ["tracking"]
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:////mlflow/mlflow.db
+    ports:
+      - "5000:5000"
+    volumes:
+      - aavas-mlflow:/mlflow
+
+volumes:
+  aavas-state:
+  aavas-pgdata:
+  aavas-mlflow:

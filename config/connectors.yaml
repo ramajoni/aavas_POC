@@ -1,0 +1,153 @@
+# External systems this engine reads from.
+#
+# Five systems, three layers. Treating them as one kind of source would be the
+# first mistake: a WhatsApp thread is a customer's own words and belongs in the
+# acceptance *signal* vocabulary; Salesforce is the system of record for the
+# application itself; Oracle Fusion carries the cost of a rupee lent. They enter
+# the engine at different points and carry different authority.
+#
+# `consumes` is the load-bearing field:
+#   acceptance_signals - free text -> extraction agent -> SIGNAL_SPEC vocabulary.
+#                        Never a model feature. See docs/agentic-os-flow-gap.md 4.1.
+#   application_record - structured fields on the application, subject to the
+#                        feature contract and its leakage guard.
+#   economics          - the cost inputs pricing_policy.yaml declares.
+#   outcomes           - what actually happened: disbursal, repayment, default.
+#
+# Transport is MCP for all of them: one client, one audit path, one place to
+# revoke. The servers themselves are the bank's to run - nothing here ships a
+# credential or assumes a vendor endpoint.
+#
+# Everything is disabled. A connector is switched on only when its MCP server
+# exists AND, where personal communication is involved, a consent record does.
+
+connectors_config_version: "CONN-2026.09"
+
+defaults:
+  transport: mcp
+  timeout_seconds: 15
+  max_documents: 5
+  # Ask the server only for what the signal vocabulary can use. A connector that
+  # returns an entire mailbox has collected far more than it can lawfully justify.
+  minimise: true
+
+connectors:
+
+  # ------------------------------------------------- communication channels
+  # These carry the customer's own words. Each needs consent on record before a
+  # single message is read, and each lands as a signal with a verbatim quote.
+
+  whatsapp:
+    enabled: false
+    system: "WhatsApp Business"
+    supplies: communication
+    consumes: acceptance_signals
+    reliability: customer_reported
+    consent_required: true
+    personal_data: true
+    description: "Customer chat thread: competitor mentions, urgency, objections."
+    transport:
+      kind: mcp
+      server: whatsapp
+      tool: list_messages
+      arguments: {thread_by: loan_id, limit: 25}
+
+  gmail:
+    enabled: false
+    system: "Gmail"
+    supplies: communication
+    consumes: acceptance_signals
+    reliability: customer_reported
+    consent_required: true
+    personal_data: true
+    description: "Email thread with the applicant: quoted offers, response speed."
+    transport:
+      kind: mcp
+      server: gmail
+      tool: search_threads
+      arguments: {query_by: loan_id, limit: 10}
+
+  outlook:
+    enabled: false
+    system: "Microsoft Outlook / Exchange"
+    supplies: communication
+    consumes: acceptance_signals
+    reliability: customer_reported
+    consent_required: true
+    personal_data: true
+    description: "The same thread where the branch runs on Microsoft 365."
+    transport:
+      kind: mcp
+      server: microsoft-365
+      tool: search_messages
+      arguments: {query_by: loan_id, limit: 10}
+
+  # ------------------------------------------------------ systems of record
+  # Not signals. These supply facts the engine already has a typed column for,
+  # so they enter through the application record and the feature contract - an
+  # LLM is never asked to re-read a number a system holds in a field.
+
+  salesforce_lms:
+    enabled: false
+    system: "Salesforce (LOS / LMS)"
+    supplies: application
+    consumes: application_record
+    reliability: verified
+    consent_required: false
+    personal_data: true
+    description: >-
+      System of record for the lead and the loan: applicant profile, requested
+      terms, lead source, sales owner, branch, stage and TAT.
+    transport:
+      kind: mcp
+      server: salesforce
+      tool: get_opportunity
+      arguments: {by: loan_id}
+    # Which columns it may write onto the application. Anything not listed is
+    # dropped: a connector must not be able to widen the feature contract.
+    fields:
+      - declared_monthly_income
+      - requested_loan_amount
+      - requested_tenure_years
+      - property_type
+      - estimated_property_value
+      - channel
+      - branch_id
+      - applicant_age
+      - segment
+
+  oracle_fusion:
+    enabled: false
+    system: "Oracle Fusion (ERP / financials)"
+    supplies: economics
+    consumes: economics
+    reliability: verified
+    consent_required: false
+    personal_data: false
+    description: >-
+      The cost of a rupee lent - funding, servicing, acquisition and capital
+      charge - and the disbursement/repayment ledger.
+    transport:
+      kind: mcp
+      server: oracle-fusion
+      tool: get_cost_of_funds
+      arguments: {product: home_loan}
+    # Read into the economics block of pricing_policy.yaml. A change here moves
+    # every price, so it is proposed for approval, never applied on read.
+    proposes:
+      - economics.funding_cost_pct
+      - economics.servicing_cost_pct
+      - economics.acquisition_cost_pct
+      - economics.capital_charge_pct
+
+# ------------------------------------------------------------------ consent
+# A connector marked consent_required may not be collected from unless consent
+# is recorded for that customer and that channel. There is no consent store in
+# this repository yet, so those connectors are blocked even when enabled - which
+# is the correct failure. `backend: none` is a statement, not a placeholder.
+consent:
+  backend: none
+  purposes: [pricing, acceptance_scoring]
+  # Read no message older than this even with consent: a two-year-old thread is
+  # not evidence about today's decision.
+  max_message_age_days: 180

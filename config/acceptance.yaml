@@ -1,0 +1,119 @@
+# Loan Acceptance Confidence - configuration
+#
+# Everything a business user would want to change lives here, per the repo rule
+# that nothing in src/ hard-codes a threshold. See docs/target-architecture-gap.md
+# section 10 for why the LLM produces *signals* and the calibrated conversion
+# model produces the *probability*.
+
+acceptance_config_version: "ACC-2026.09"
+
+# --------------------------------------------------------------- data sources
+# One source, several, or none. Each is independently switchable; the agent runs
+# on whatever is enabled and reachable, and records what was missing.
+#
+# reliability tiers (FR-05), strongest first:
+#   verified              - documented, e.g. a competitor sanction letter on file
+#   customer_reported     - the customer said it
+#   salesperson_estimate  - the officer's read
+#   market_benchmark      - aggregate market data, not this customer
+sources:
+  structured_application:
+    enabled: true
+    kind: structured
+    reliability: verified
+    description: "Competitor and negotiation fields already on the application record"
+
+  inline_notes:
+    enabled: true
+    kind: text
+    reliability: salesperson_estimate
+    description: "Free text passed on the scoring request (CRM comment, branch note)"
+
+  sales_note_history:
+    enabled: true
+    kind: text
+    reliability: market_benchmark
+    description: "Comparable past negotiations from the knowledge store"
+    max_documents: 3
+
+  call_transcript:
+    enabled: false
+    kind: text
+    reliability: customer_reported
+    description: "Call transcript text; enable once a transcription feed exists"
+
+  whatsapp_thread:
+    enabled: false
+    kind: text
+    reliability: customer_reported
+    description: "Customer chat thread; enable once a connector exists"
+
+# ------------------------------------------------------------------ extraction
+extraction:
+  # false => deterministic rule extractor only. The engine must price with no LLM.
+  llm_enabled: false
+  model: claude-opus-5
+  max_tokens: 1500
+  temperature: 0.0
+  timeout_seconds: 20
+  max_input_chars: 12000
+  # Every extracted signal must quote the span it came from, and that span must
+  # appear verbatim in the source. Signals failing this check are dropped.
+  require_verbatim_quote: true
+
+# ------------------------------------------------------------------- signals
+# Weights drive the evidence-coverage score, NOT the acceptance probability.
+# The probability comes from the fitted conversion model.
+signals:
+  customer_urgency:       {weight: 0.10, type: level}
+  rate_sensitivity:       {weight: 0.15, type: level}
+  expected_rate:          {weight: 0.20, type: rate}
+  competitor_present:     {weight: 0.05, type: flag}
+  competitor_rate:        {weight: 0.20, type: rate}
+  customer_intent:        {weight: 0.15, type: level}
+  timeline_sensitivity:   {weight: 0.05, type: level}
+  expected_emi:           {weight: 0.05, type: amount}
+  required_amount:        {weight: 0.05, type: amount}
+
+# ------------------------------------------------------------------- evidence
+evidence:
+  # Same shape as the Stage-1 confidence score in features/stage1_features.py:
+  # part "how much is present", part "how good is what is present".
+  coverage_weight: 0.55
+  quality_weight: 0.45
+  floor: 0.15
+  ceiling: 0.95
+
+  reliability_score:
+    verified: 1.00
+    customer_reported: 0.70
+    salesperson_estimate: 0.55
+    market_benchmark: 0.35
+
+  # Evidence decays: a note from six months ago is weaker than one from today.
+  recency_half_life_days: 45
+  # Assumed age when a source carries no timestamp.
+  unknown_age_days: 30
+
+# ------------------------------------------------------------------ scoring
+scoring:
+  # When evidence is thin, shrink the estimate toward the portfolio base rate
+  # rather than "being conservative" in some unspecified way.
+  # p_final = p_model * w + base_rate * (1 - w),  w = evidence ** shrinkage_exponent
+  shrinkage_exponent: 1.0
+  # Fallback only; the live value is read from the conversion model card.
+  fallback_base_rate: 0.6585
+  # Band reported alongside the point estimate, because AUC 0.700 does not
+  # support reading a three-point difference as a real distinction.
+  report_band_pts: 0.06
+
+# ---------------------------------------------------------------- governance
+governance:
+  # Pricing on urgency is pricing on vulnerability. Cap how much uplift may be
+  # attributed to urgency/timeline signals before a human has to look.
+  # See docs/target-architecture-gap.md section 10.5.
+  max_urgency_attributed_uplift_bps: 10
+  urgency_review_reason: "urgency_driven_uplift_review_required"
+  # Signals are persisted on the decision record and replayed from storage.
+  # Audit must never re-call the LLM. See section 10.4.
+  persist_signals: true

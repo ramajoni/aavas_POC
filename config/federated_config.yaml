@@ -1,0 +1,45 @@
+# Phase 2. Today this runs as an in-process simulation over regional partitions;
+# the client/server seams match Flower's NumPyClient so swapping in real
+# transport is a wiring change, not a rewrite.
+federated_config_version: "FED-2026.09"
+enabled: false
+
+partition_key: state
+regions:
+  - Rajasthan
+  - Gujarat
+  - Maharashtra
+  - Madhya Pradesh
+  - Uttar Pradesh
+
+strategy: fedavg                 # fedavg | fedavg_weighted | uniform | trimmed_mean | fedprox
+# FedProx is not a different aggregation - it is FedAvg plus a proximal penalty
+# in the *client* objective that keeps a region from wandering away from the
+# global parameters between rounds. It only applies when strategy is fedprox;
+# under any other strategy this value is ignored and the term is off.
+proximal_mu: 0.01
+rounds: 30
+local_epochs: 5
+learning_rate: 0.30              # features are standardised per client, so this is stable
+l2: 0.001
+holdout_fraction: 0.25           # per-region test split; personalization must be judged out of sample
+min_clients_per_round: 3
+min_rows_per_client: 300         # a thin region does not get to move the global model
+
+# Regional personalization: the served model is a blend of the global model and
+# the region's own model. alpha = weight on the global model.
+personalization:
+  enabled: true
+  alpha: 0.6
+  # Regions with enough local data lean more local; thin regions lean global.
+  adaptive_alpha: true
+  rows_for_full_local: 3000
+
+privacy:
+  secure_aggregation: false      # phase-2 with real transport
+  dp_noise_multiplier: 0.0
+  max_grad_norm: 1.0
+
+# Federated learning applies to the parametric regional adjustment model only.
+# The central GBM models stay centrally trained in phase 1.
+federated_target: regional_rate_adjustment

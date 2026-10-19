@@ -1,0 +1,1075 @@
+{
+  "contract": "override",
+  "elapsed_seconds": 364.09,
+  "candidates_considered": 18,
+  "candidates_skipped": [
+    {
+      "name": "xgboost",
+      "reason": "requires `pip install xgboost`"
+    },
+    {
+      "name": "lightgbm",
+      "reason": "requires `pip install lightgbm`"
+    },
+    {
+      "name": "catboost",
+      "reason": "requires `pip install catboost`"
+    },
+    {
+      "name": "ebm",
+      "reason": "requires `pip install interpret`"
+    },
+    {
+      "name": "gam",
+      "reason": "requires `pip install interpret`"
+    },
+    {
+      "name": "svm_rbf",
+      "reason": "impractical above 5,000 rows (11,997 given)"
+    },
+    {
+      "name": "tabnet",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "ft_transformer",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "saint",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "tabpfn",
+      "reason": "requires `pip install tabpfn`"
+    },
+    {
+      "name": "tabicl",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "lstm",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "gru",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "tcn",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "transformer",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "gcn",
+      "reason": "no graph data in the schema"
+    },
+    {
+      "name": "graphsage",
+      "reason": "no graph data in the schema"
+    },
+    {
+      "name": "gat",
+      "reason": "no graph data in the schema"
+    },
+    {
+      "name": "balanced_random_forest",
+      "reason": "requires `pip install imblearn`"
+    },
+    {
+      "name": "easy_ensemble",
+      "reason": "requires `pip install imblearn`"
+    },
+    {
+      "name": "cost_sensitive_xgboost",
+      "reason": "requires `pip install xgboost`"
+    },
+    {
+      "name": "cost_sensitive_lightgbm",
+      "reason": "requires `pip install lightgbm`"
+    },
+    {
+      "name": "cost_sensitive_catboost",
+      "reason": "requires `pip install catboost`"
+    }
+  ],
+  "steps": [
+    {
+      "step": "algorithm_selection",
+      "selected": [
+        "logistic_regression",
+        "ridge_logistic",
+        "lasso_logistic",
+        "elastic_net_logistic",
+        "woe_scorecard",
+        "decision_tree",
+        "random_forest",
+        "extra_trees",
+        "hist_gradient_boosting",
+        "gradient_boosting",
+        "linear_svm",
+        "knn",
+        "gaussian_nb",
+        "bernoulli_nb",
+        "bayesian_logistic",
+        "mlp",
+        "weighted_logistic",
+        "cost_sensitive_random_forest"
+      ],
+      "monotone_required": false
+    },
+    {
+      "step": "imbalance",
+      "diagnosis": {
+        "positive_rate": 0.3607,
+        "minority_share": 0.3607,
+        "verdict": "balanced",
+        "recommended_strategy": "none",
+        "note": "Resampling is not indicated; calibrated probabilities are worth more than a balanced training set."
+      },
+      "strategy": "none",
+      "applied": false,
+      "recalibration_required": false,
+      "n_rows": 11997,
+      "positive_rate": 0.3607,
+      "note": ""
+    },
+    {
+      "step": "validation_split",
+      "calibration_rows": 2001,
+      "evaluation_rows": 2002
+    },
+    {
+      "step": "champion_selection",
+      "champion": null,
+      "referred": 20
+    }
+  ],
+  "champion": null,
+  "best_referred": "lasso_logistic",
+  "leaderboard": [
+    {
+      "name": "lasso_logistic",
+      "family": "linear_scorecard",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.68471,
+      "pr_auc": 0.53669,
+      "ks": 0.28827,
+      "ece": 0.03864,
+      "brier": 0.20956,
+      "base_rate": 0.36364,
+      "psi": 0.00301,
+      "calib_ece_before": 0.0269,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21401,
+      "calib_brier_after": 0.21025,
+      "blended_score": 0.56006,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR001"
+    },
+    {
+      "name": "gradient_boosting",
+      "family": "boosting",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.68592,
+      "pr_auc": 0.53586,
+      "ks": 0.2863,
+      "ece": 0.04432,
+      "brier": 0.2097,
+      "base_rate": 0.36364,
+      "psi": 0.00171,
+      "calib_ece_before": 0.01956,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21311,
+      "calib_brier_after": 0.20953,
+      "blended_score": 0.55897,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR001"
+    },
+    {
+      "name": "ensemble_weighted",
+      "family": "ensemble",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.68201,
+      "pr_auc": 0.53357,
+      "ks": 0.27865,
+      "ece": 0.03985,
+      "brier": 0.21034,
+      "base_rate": 0.36364,
+      "psi": 0.00253,
+      "calib_ece_before": 0.02886,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21476,
+      "calib_brier_after": 0.21141,
+      "blended_score": 0.55743,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR001"
+    },
+    {
+      "name": "ensemble_voting_soft",
+      "family": "ensemble",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.67898,
+      "pr_auc": 0.5252,
+      "ks": 0.281,
+      "ece": 0.03571,
+      "brier": 0.21087,
+      "base_rate": 0.36364,
+      "psi": 0.00124,
+      "calib_ece_before": 0.02628,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21443,
+      "calib_brier_after": 0.21039,
+      "blended_score": 0.55715,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR001"
+    },
+    {
+      "name": "hist_gradient_boosting",
+      "family": "boosting",
+      "monotone": true,
+      "interpretable": false,
+      "auc": 0.67996,
+      "pr_auc": 0.5321,
+      "ks": 0.27512,
+      "ece": 0.0366,
+      "brier": 0.21152,
+      "base_rate": 0.36364,
+      "psi": 0.00084,
+      "calib_ece_before": 0.02895,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21467,
+      "calib_brier_after": 0.21104,
+      "blended_score": 0.55706,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR001"
+    },
+    {
+      "name": "woe_scorecard",
+      "family": "linear_scorecard",
+      "monotone": true,
+      "interpretable": true,
+      "auc": 0.67578,
+      "pr_auc": 0.51533,
+      "ks": 0.26217,
+      "ece": 0.02085,
+      "brier": 0.21226,
+      "base_rate": 0.36364,
+      "psi": 0.00402,
+      "calib_ece_before": 0.01786,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21365,
+      "calib_brier_after": 0.21087,
+      "blended_score": 0.55523,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR032"
+    },
+    {
+      "name": "random_forest",
+      "family": "tree",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.67744,
+      "pr_auc": 0.5235,
+      "ks": 0.26452,
+      "ece": 0.04034,
+      "brier": 0.21093,
+      "base_rate": 0.36364,
+      "psi": 0.00195,
+      "calib_ece_before": 0.02985,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21551,
+      "calib_brier_after": 0.21138,
+      "blended_score": 0.55312,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR032"
+    },
+    {
+      "name": "logistic_regression",
+      "family": "linear_scorecard",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.6678,
+      "pr_auc": 0.50929,
+      "ks": 0.26197,
+      "ece": 0.03066,
+      "brier": 0.21408,
+      "base_rate": 0.36364,
+      "psi": 0.00516,
+      "calib_ece_before": 0.02234,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21803,
+      "calib_brier_after": 0.21523,
+      "blended_score": 0.55053,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR037"
+    },
+    {
+      "name": "ridge_logistic",
+      "family": "linear_scorecard",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.6678,
+      "pr_auc": 0.50929,
+      "ks": 0.26197,
+      "ece": 0.03066,
+      "brier": 0.21408,
+      "base_rate": 0.36364,
+      "psi": 0.00516,
+      "calib_ece_before": 0.02234,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21803,
+      "calib_brier_after": 0.21523,
+      "blended_score": 0.55053,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR037"
+    },
+    {
+      "name": "bayesian_logistic",
+      "family": "probabilistic",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.6678,
+      "pr_auc": 0.50929,
+      "ks": 0.26197,
+      "ece": 0.03066,
+      "brier": 0.21408,
+      "base_rate": 0.36364,
+      "psi": 0.00516,
+      "calib_ece_before": 0.02234,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21803,
+      "calib_brier_after": 0.21523,
+      "blended_score": 0.55053,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR037"
+    },
+    {
+      "name": "weighted_logistic",
+      "family": "cost_sensitive",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.65716,
+      "pr_auc": 0.50533,
+      "ks": 0.23783,
+      "ece": 0.02107,
+      "brier": 0.21421,
+      "base_rate": 0.36364,
+      "psi": 0.00675,
+      "calib_ece_before": 0.11924,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.23256,
+      "calib_brier_after": 0.21552,
+      "blended_score": 0.54561,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR037"
+    },
+    {
+      "name": "decision_tree",
+      "family": "tree",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.64436,
+      "pr_auc": 0.48343,
+      "ks": 0.2033,
+      "ece": 0.01893,
+      "brier": 0.21603,
+      "base_rate": 0.36364,
+      "psi": 0.00168,
+      "calib_ece_before": 0.04464,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.22632,
+      "calib_brier_after": 0.22011,
+      "blended_score": 0.53597,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR032"
+    },
+    {
+      "name": "bernoulli_nb",
+      "family": "probabilistic",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.63222,
+      "pr_auc": 0.46968,
+      "ks": 0.22841,
+      "ece": 0.03009,
+      "brier": 0.22174,
+      "base_rate": 0.36364,
+      "psi": 0.00457,
+      "calib_ece_before": 0.06734,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.22833,
+      "calib_brier_after": 0.22059,
+      "blended_score": 0.53281,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR001"
+    },
+    {
+      "name": "gaussian_nb",
+      "family": "probabilistic",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.62266,
+      "pr_auc": 0.46918,
+      "ks": 0.19015,
+      "ece": 0.02053,
+      "brier": 0.22089,
+      "base_rate": 0.36364,
+      "psi": 0.00368,
+      "calib_ece_before": 0.01919,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.22589,
+      "calib_brier_after": 0.22228,
+      "blended_score": 0.52663,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR037"
+    },
+    {
+      "name": "extra_trees",
+      "family": "tree",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.67564,
+      "pr_auc": 0.52946,
+      "ks": 0.26589,
+      "ece": 0.03311,
+      "brier": 0.21206,
+      "base_rate": 0.36364,
+      "psi": 0.52548,
+      "calib_ece_before": 0.02414,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21738,
+      "calib_brier_after": 0.21396,
+      "blended_score": 0.50257,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR001"
+    },
+    {
+      "name": "elastic_net_logistic",
+      "family": "linear_scorecard",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.5098,
+      "pr_auc": 0.36679,
+      "ks": 0.02276,
+      "ece": 0.01185,
+      "brier": 0.23162,
+      "base_rate": 0.36364,
+      "psi": 0.00065,
+      "calib_ece_before": 0.0393,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.23626,
+      "calib_brier_after": 0.23254,
+      "blended_score": 0.46511,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR032"
+    },
+    {
+      "name": "linear_svm",
+      "family": "kernel",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.50639,
+      "pr_auc": 0.36507,
+      "ks": 0.01177,
+      "ece": 0.00939,
+      "brier": 0.23147,
+      "base_rate": 0.36364,
+      "psi": 0.00022,
+      "calib_ece_before": 0.0698,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.23836,
+      "calib_brier_after": 0.23244,
+      "blended_score": 0.46297,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR027"
+    },
+    {
+      "name": "mlp",
+      "family": "neural_tabular",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.5,
+      "pr_auc": 0.36364,
+      "ks": 0.0,
+      "ece": 0.00818,
+      "brier": 0.23147,
+      "base_rate": 0.36364,
+      "psi": 0.0,
+      "calib_ece_before": 0.62819,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.62819,
+      "calib_brier_after": 0.23357,
+      "blended_score": 0.45973,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR001"
+    },
+    {
+      "name": "knn",
+      "family": "instance",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.48764,
+      "pr_auc": 0.3584,
+      "ks": 0.0206,
+      "ece": 0.00982,
+      "brier": 0.2328,
+      "base_rate": 0.36364,
+      "psi": 0.00031,
+      "calib_ece_before": 0.05384,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.23931,
+      "calib_brier_after": 0.23306,
+      "blended_score": 0.45884,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR027"
+    },
+    {
+      "name": "cost_sensitive_random_forest",
+      "family": "cost_sensitive",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.66969,
+      "pr_auc": 0.52349,
+      "ks": 0.26001,
+      "ece": 0.02816,
+      "brier": 0.21175,
+      "base_rate": 0.36364,
+      "psi": 3.84015,
+      "calib_ece_before": 0.02035,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.21818,
+      "calib_brier_after": 0.21575,
+      "blended_score": 0.45314,
+      "fairness_passed": false,
+      "locality_passed": false,
+      "worst_unit": "BR001"
+    }
+  ],
+  "pareto_front": [
+    "lasso_logistic",
+    "gradient_boosting",
+    "ensemble_voting_soft",
+    "hist_gradient_boosting",
+    "woe_scorecard",
+    "decision_tree",
+    "elastic_net_logistic",
+    "linear_svm",
+    "mlp"
+  ],
+  "referred_to_review": [
+    {
+      "name": "lasso_logistic",
+      "blended_score": 0.56006,
+      "failures": [
+        "fairness: calibration gap 0.077 exceeds 0.05",
+        "branch BR001: calibration error 0.093 exceeds 0.08",
+        "branch BR037: calibration error 0.099 exceeds 0.08",
+        "branch <across units>: AUC spread 0.155 across branches exceeds 0.15"
+      ]
+    },
+    {
+      "name": "gradient_boosting",
+      "blended_score": 0.55897,
+      "failures": [
+        "fairness: calibration gap 0.077 exceeds 0.05",
+        "branch BR001: calibration error 0.149 exceeds 0.08",
+        "branch BR027: calibration error 0.098 exceeds 0.08",
+        "branch BR037: calibration error 0.104 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "ensemble_weighted",
+      "blended_score": 0.55743,
+      "failures": [
+        "fairness: calibration gap 0.077 exceeds 0.05",
+        "branch BR001: calibration error 0.109 exceeds 0.08",
+        "branch BR010: calibration error 0.086 exceeds 0.08",
+        "branch BR027: calibration error 0.092 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "ensemble_voting_soft",
+      "blended_score": 0.55715,
+      "failures": [
+        "fairness: calibration gap 0.075 exceeds 0.05",
+        "branch BR001: calibration error 0.115 exceeds 0.08",
+        "branch BR010: calibration error 0.082 exceeds 0.08",
+        "branch BR027: calibration error 0.087 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "hist_gradient_boosting",
+      "blended_score": 0.55706,
+      "failures": [
+        "fairness: calibration gap 0.078 exceeds 0.05",
+        "branch BR001: calibration error 0.143 exceeds 0.08",
+        "branch BR010: calibration error 0.113 exceeds 0.08",
+        "branch BR027: calibration error 0.089 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "woe_scorecard",
+      "blended_score": 0.55523,
+      "failures": [
+        "fairness: calibration gap 0.074 exceeds 0.05",
+        "branch BR037: calibration error 0.101 exceeds 0.08",
+        "branch <across units>: AUC spread 0.168 across branches exceeds 0.15"
+      ]
+    },
+    {
+      "name": "random_forest",
+      "blended_score": 0.55312,
+      "failures": [
+        "fairness: calibration gap 0.077 exceeds 0.05",
+        "branch BR001: calibration error 0.122 exceeds 0.08",
+        "branch BR010: calibration error 0.109 exceeds 0.08",
+        "branch BR027: calibration error 0.098 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "logistic_regression",
+      "blended_score": 0.55053,
+      "failures": [
+        "fairness: calibration gap 0.073 exceeds 0.05",
+        "branch BR001: calibration error 0.116 exceeds 0.08",
+        "branch BR010: calibration error 0.111 exceeds 0.08",
+        "branch BR032: calibration error 0.094 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "ridge_logistic",
+      "blended_score": 0.55053,
+      "failures": [
+        "fairness: calibration gap 0.073 exceeds 0.05",
+        "branch BR001: calibration error 0.116 exceeds 0.08",
+        "branch BR010: calibration error 0.111 exceeds 0.08",
+        "branch BR032: calibration error 0.094 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "bayesian_logistic",
+      "blended_score": 0.55053,
+      "failures": [
+        "fairness: calibration gap 0.073 exceeds 0.05",
+        "branch BR001: calibration error 0.116 exceeds 0.08",
+        "branch BR010: calibration error 0.111 exceeds 0.08",
+        "branch BR032: calibration error 0.094 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "weighted_logistic",
+      "blended_score": 0.54561,
+      "failures": [
+        "fairness: calibration gap 0.078 exceeds 0.05",
+        "branch BR001: calibration error 0.095 exceeds 0.08",
+        "branch BR010: calibration error 0.114 exceeds 0.08",
+        "branch BR037: calibration error 0.096 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "decision_tree",
+      "blended_score": 0.53597,
+      "failures": [
+        "fairness: calibration gap 0.071 exceeds 0.05",
+        "branch BR001: calibration error 0.122 exceeds 0.08",
+        "branch BR010: calibration error 0.082 exceeds 0.08",
+        "branch BR037: calibration error 0.144 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "bernoulli_nb",
+      "blended_score": 0.53281,
+      "failures": [
+        "fairness: calibration gap 0.078 exceeds 0.05",
+        "branch BR001: calibration error 0.113 exceeds 0.08",
+        "branch BR010: calibration error 0.083 exceeds 0.08",
+        "branch BR027: calibration error 0.088 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "gaussian_nb",
+      "blended_score": 0.52663,
+      "failures": [
+        "fairness: calibration gap 0.068 exceeds 0.05",
+        "branch BR001: calibration error 0.091 exceeds 0.08",
+        "branch BR010: calibration error 0.094 exceeds 0.08",
+        "branch BR037: AUC 0.526 below the 0.55 local floor"
+      ]
+    },
+    {
+      "name": "extra_trees",
+      "blended_score": 0.50257,
+      "failures": [
+        "PSI 0.525 exceeds 0.25",
+        "fairness: calibration gap 0.081 exceeds 0.05",
+        "branch BR001: AUC 0.600 is 0.076 below the global 0.676",
+        "branch BR037: calibration error 0.115 exceeds 0.08"
+      ]
+    },
+    {
+      "name": "elastic_net_logistic",
+      "blended_score": 0.46511,
+      "failures": [
+        "AUC 0.510 below the 0.6 floor",
+        "fairness: calibration gap 0.070 exceeds 0.05",
+        "branch BR001: AUC 0.478 below the 0.55 local floor",
+        "branch BR010: calibration error 0.084 exceeds 0.08",
+        "branch BR027: AUC 0.492 below the 0.55 local floor"
+      ]
+    },
+    {
+      "name": "linear_svm",
+      "blended_score": 0.46297,
+      "failures": [
+        "AUC 0.506 below the 0.6 floor",
+        "fairness: calibration gap 0.069 exceeds 0.05",
+        "branch BR001: AUC 0.541 below the 0.55 local floor",
+        "branch BR010: AUC 0.529 below the 0.55 local floor",
+        "branch BR027: AUC 0.461 below the 0.55 local floor"
+      ]
+    },
+    {
+      "name": "mlp",
+      "blended_score": 0.45973,
+      "failures": [
+        "AUC 0.500 below the 0.6 floor",
+        "fairness: calibration gap 0.070 exceeds 0.05",
+        "branch BR001: AUC 0.500 below the 0.55 local floor",
+        "branch BR010: AUC 0.500 below the 0.55 local floor",
+        "branch BR027: AUC 0.500 below the 0.55 local floor"
+      ]
+    },
+    {
+      "name": "knn",
+      "blended_score": 0.45884,
+      "failures": [
+        "AUC 0.488 below the 0.6 floor",
+        "fairness: calibration gap 0.070 exceeds 0.05",
+        "branch BR001: AUC 0.540 below the 0.55 local floor",
+        "branch BR010: AUC 0.488 below the 0.55 local floor",
+        "branch BR027: AUC 0.438 below the 0.55 local floor"
+      ]
+    },
+    {
+      "name": "cost_sensitive_random_forest",
+      "blended_score": 0.45314,
+      "failures": [
+        "PSI 3.840 exceeds 0.25",
+        "fairness: calibration gap 0.071 exceeds 0.05",
+        "branch BR001: calibration error 0.110 exceeds 0.08",
+        "branch BR037: calibration error 0.137 exceeds 0.08"
+      ]
+    }
+  ],
+  "weights": {
+    "auc": 0.25,
+    "ks": 0.15,
+    "pr_auc": 0.1,
+    "calibration": 0.2,
+    "stability": 0.1,
+    "profit": 0.2
+  },
+  "gates": {
+    "min_auc": 0.6,
+    "max_ece": 0.05,
+    "max_psi": 0.25,
+    "require_monotone": false,
+    "require_fairness_pass": true,
+    "require_locality_pass": true
+  },
+  "diagnostics": {
+    "candidate": "lasso_logistic",
+    "admitted": false,
+    "fairness": {
+      "passed": false,
+      "per_group": {
+        "30-39": {
+          "selection_rate": 0.1243,
+          "tpr": 0.2262,
+          "fpr": 0.0619,
+          "fnr": 0.7738,
+          "n": 885,
+          "mean_predicted": 0.3687,
+          "actual_rate": 0.3797,
+          "calibration_gap": -0.0109
+        },
+        "40-49": {
+          "selection_rate": 0.1446,
+          "tpr": 0.244,
+          "fpr": 0.0855,
+          "fnr": 0.756,
+          "n": 671,
+          "mean_predicted": 0.3669,
+          "actual_rate": 0.3726,
+          "calibration_gap": -0.0056
+        },
+        "50-59": {
+          "selection_rate": 0.1333,
+          "tpr": 0.2162,
+          "fpr": 0.0882,
+          "fnr": 0.7838,
+          "n": 105,
+          "mean_predicted": 0.3614,
+          "actual_rate": 0.3524,
+          "calibration_gap": 0.009
+        },
+        "60 and over": {
+          "n": 8,
+          "verdict": "insufficient evidence"
+        },
+        "under 30": {
+          "selection_rate": 0.1562,
+          "tpr": 0.301,
+          "fpr": 0.0913,
+          "fnr": 0.699,
+          "n": 333,
+          "mean_predicted": 0.3759,
+          "actual_rate": 0.3093,
+          "calibration_gap": 0.0666
+        }
+      },
+      "gaps": {
+        "comparable_groups": 4,
+        "selection_rate_gap": 0.0319,
+        "tpr_gap": 0.0848,
+        "fpr_gap": 0.0294,
+        "fnr_gap": 0.0848,
+        "calibration_gap": 0.0775
+      },
+      "reasons": [
+        "calibration gap 0.077 exceeds 0.05"
+      ],
+      "parity_note": null,
+      "primary_criterion": "calibration_by_group"
+    },
+    "locality": {
+      "passed": false,
+      "verdict": "global AUC 0.6847 passes, but 3 unit(s) fail: BR001, BR037, <across units>. Do not promote on the global number alone.",
+      "global": {
+        "auc": 0.6847,
+        "ece": 0.0386,
+        "n": 2002
+      },
+      "per_unit": {
+        "BR001": {
+          "auc": 0.6317,
+          "ks": 0.2693,
+          "ece": 0.0927,
+          "tpr": 0.1887,
+          "fpr": 0.0504,
+          "selection_rate": 0.0885,
+          "mean_predicted": 0.3443,
+          "actual_rate": 0.276,
+          "calibration_gap": 0.0683,
+          "n": 192
+        },
+        "BR004": {
+          "n": 139,
+          "verdict": "insufficient evidence"
+        },
+        "BR008": {
+          "n": 86,
+          "verdict": "insufficient evidence"
+        },
+        "BR010": {
+          "auc": 0.787,
+          "ks": 0.4744,
+          "ece": 0.0761,
+          "tpr": 0.1731,
+          "fpr": 0.0427,
+          "selection_rate": 0.0828,
+          "mean_predicted": 0.3322,
+          "actual_rate": 0.3077,
+          "calibration_gap": 0.0245,
+          "n": 169
+        },
+        "BR011": {
+          "n": 87,
+          "verdict": "insufficient evidence"
+        },
+        "BR014": {
+          "n": 130,
+          "verdict": "insufficient evidence"
+        },
+        "BR022": {
+          "n": 110,
+          "verdict": "insufficient evidence"
+        },
+        "BR024": {
+          "n": 105,
+          "verdict": "insufficient evidence"
+        },
+        "BR025": {
+          "n": 141,
+          "verdict": "insufficient evidence"
+        },
+        "BR027": {
+          "auc": 0.6774,
+          "ks": 0.2817,
+          "ece": 0.0739,
+          "tpr": 0.3556,
+          "fpr": 0.089,
+          "selection_rate": 0.1907,
+          "mean_predicted": 0.4039,
+          "actual_rate": 0.3814,
+          "calibration_gap": 0.0226,
+          "n": 236
+        },
+        "BR028": {
+          "n": 71,
+          "verdict": "insufficient evidence"
+        },
+        "BR032": {
+          "auc": 0.6397,
+          "ks": 0.2486,
+          "ece": 0.0498,
+          "tpr": 0.2778,
+          "fpr": 0.1181,
+          "selection_rate": 0.1795,
+          "mean_predicted": 0.3856,
+          "actual_rate": 0.3846,
+          "calibration_gap": 0.001,
+          "n": 234
+        },
+        "BR037": {
+          "auc": 0.6919,
+          "ks": 0.3067,
+          "ece": 0.0987,
+          "tpr": 0.2353,
+          "fpr": 0.0336,
+          "selection_rate": 0.0784,
+          "mean_predicted": 0.3119,
+          "actual_rate": 0.2222,
+          "calibration_gap": 0.0897,
+          "n": 153
+        },
+        "BR038": {
+          "n": 149,
+          "verdict": "insufficient evidence"
+        }
+      },
+      "variance": {
+        "comparable_units": 5,
+        "auc": {
+          "min": 0.6317,
+          "max": 0.787,
+          "spread": 0.1553,
+          "std": 0.0555,
+          "worst_unit": "BR001",
+          "worst_value": 0.6317
+        },
+        "ece": {
+          "min": 0.0498,
+          "max": 0.0987,
+          "spread": 0.0489,
+          "std": 0.0171,
+          "worst_unit": "BR037",
+          "worst_value": 0.0987
+        },
+        "fpr": {
+          "min": 0.0336,
+          "max": 0.1181,
+          "spread": 0.0845,
+          "std": 0.0319,
+          "worst_unit": "BR032",
+          "worst_value": 0.1181
+        },
+        "calibration_gap": {
+          "min": 0.001,
+          "max": 0.0897,
+          "spread": 0.0887,
+          "std": 0.0326,
+          "worst_unit": "BR037",
+          "worst_value": 0.0897
+        }
+      },
+      "failing_units": [
+        {
+          "unit": "BR001",
+          "n": 192,
+          "reasons": [
+            "calibration error 0.093 exceeds 0.08"
+          ]
+        },
+        {
+          "unit": "BR037",
+          "n": 153,
+          "reasons": [
+            "calibration error 0.099 exceeds 0.08"
+          ]
+        },
+        {
+          "unit": "<across units>",
+          "n": null,
+          "reasons": [
+            "AUC spread 0.155 across branches exceeds 0.15"
+          ]
+        }
+      ],
+      "units_with_insufficient_evidence": [
+        "BR004",
+        "BR008",
+        "BR011",
+        "BR014",
+        "BR022",
+        "BR024",
+        "BR025",
+        "BR028",
+        "BR038"
+      ]
+    }
+  },
+  "data": {
+    "n_fit": 11997,
+    "n_valid": 4003,
+    "n_holdout_untouched": 4000,
+    "features": 16,
+    "positive_rate_fit": 0.3607,
+    "positive_rate_valid": 0.3677,
+    "fit_to": "2025-08-27 00:00:00",
+    "valid_from": "2025-08-28 00:00:00",
+    "holdout_from": "2025-12-24 00:00:00"
+  },
+  "config": {
+    "hpo_strategy": "random",
+    "hpo_budget": 12,
+    "imbalance_strategy": "auto",
+    "monotone_required": false,
+    "calibration_methods": [
+      "platt",
+      "isotonic",
+      "beta"
+    ],
+    "ensemble_methods": [
+      "voting_soft",
+      "weighted"
+    ]
+  }
+}

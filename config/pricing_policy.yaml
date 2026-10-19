@@ -1,0 +1,142 @@
+# Business-owned pricing policy. Credit/Product edit this file; no code change required.
+# Every rate in this file is an annual percentage (9.75 == 9.75% p.a.), spreads are in bps.
+policy_version: "HL-POLICY-2026.09"
+product: home_loan
+effective_from: "2026-09-01"
+
+# ---------------------------------------------------------------- reference rate
+reference:
+  plr: 14.50                 # published prime lending rate
+  card_rate_floor: 8.60      # no customer may be priced below this, ever
+  card_rate_ceiling: 16.50   # regulatory / product ceiling
+
+# ------------------------------------------------------------- cost of a rupee lent
+# Used by the yield calculator. Business must own these; they drive "is this price
+# actually profitable", not just "is this price allowed".
+economics:
+  funding_cost_pct: 7.90     # marginal cost of funds
+  servicing_cost_pct: 0.45   # opex to service the loan, annualised on outstanding
+  acquisition_cost_pct: 0.55 # one-off sourcing/DSA/processing cost, % of disbursal
+  processing_fee_pct: 0.50   # one-off income, % of disbursal
+  capital_charge_pct: 0.35   # cost of regulatory capital held against the exposure
+  discount_rate_pct: 9.00    # for NPV of the cash-flow stream
+  behavioural_horizon_years: 8   # cap on modelled loan life (HL contractual is longer)
+
+# ------------------------------------------------------------- permissible spreads
+# Base spread over card_rate_floor by segment, then risk/LTV/property loadings.
+base_spread_bps:
+  salaried_formal: 55
+  salaried_informal: 140
+  self_employed_professional: 120
+  self_employed_non_professional: 185
+
+risk_grade_loading_bps:     # from the risk agent's grade
+  A: 0
+  B: 35
+  C: 85
+  D: 150
+  E: 240
+
+ltv_loading_bps:
+  - {max_ltv: 0.60, bps: 0}
+  - {max_ltv: 0.70, bps: 20}
+  - {max_ltv: 0.80, bps: 45}
+  - {max_ltv: 0.90, bps: 90}
+
+property_type_loading_bps:
+  resale_flat: 0
+  builder_flat: 10
+  self_construction: 35
+  plot_plus_construction: 55
+
+deviation_loading_bps:      # per approved credit deviation carried on the file
+  per_deviation: 25
+  max_total: 100
+
+# --------------------------------------------------------------- hard constraints
+constraints:
+  max_ltv: 0.90
+  max_foir: 0.55            # fixed-obligation-to-income ratio
+  max_tenure_years: 30
+  min_credit_score: 620     # below this, new-to-credit path or decline
+  new_to_credit_allowed: true
+  new_to_credit_min_spread_bps: 75   # NTC files cannot be priced at the thin end
+  max_loan_amount: 7500000
+  # A file may never be priced below its own risk-based floor, even by a human.
+  absolute_discount_floor_bps: 60     # max total discount from the policy card rate
+
+# --------------------------------------------------- who may discount, and how much
+# The recommendation engine never approves; it routes to the right human authority.
+approval_authority:
+  - {level: "sales_officer",     max_discount_bps: 10, max_premium_bps: 100}
+  - {level: "branch_manager",    max_discount_bps: 25, max_premium_bps: 100}
+  - {level: "regional_manager",  max_discount_bps: 40, max_premium_bps: 100}
+  - {level: "credit_head",       max_discount_bps: 60, max_premium_bps: 100}
+  - {level: "pricing_committee", max_discount_bps: 999, max_premium_bps: 999}
+
+# ------------------------------------------------------------------ override rules
+override:
+  reason_mandatory: true
+  allowed_reasons:
+    - competitor_lower_rate
+    - customer_threatening_bt
+    - strong_negotiation
+    - branch_competitive_pressure
+    - month_end_target
+    - salesperson_incentive
+    - improve_s2d_conversion
+    - relationship_value
+    - local_market_knowledge
+    - other
+  # Reasons that must be evidenced (competitor sanction letter etc.) before they
+  # are allowed to move the price. Unverified market claims are captured as
+  # context and flagged, never applied automatically.
+  evidence_required_reasons:
+    - competitor_lower_rate
+    - customer_threatening_bt
+  max_unevidenced_discount_bps: 15
+
+# --------------------------------------------------- Stage-1 customer-facing rules
+stage1:
+  quantile_low: 0.10
+  quantile_high: 0.90
+  min_band_width_bps: 25     # never quote a falsely precise band
+  max_band_width_bps: 125    # a band wider than this is not credible; widen confidence caveat instead
+  round_to_bps: 5
+  eligibility_foir_cap: 0.50 # more conservative than underwriting, pre-verification
+
+# ------------------------------------------------------------- fair pricing
+# Commercial context (competitor pressure, branch targets, month end) normally
+# prices a customer DOWN. When it prices a customer UP, that is a different kind
+# of decision and a fair-lending reviewer should see it, so it is flagged rather
+# than left as a number inside the explanation payload.
+fair_pricing:
+  commercial_uplift_review_bps: 10
+  # Rate quotes are only meaningful for a bounded period.
+  quote_validity_days: 30
+  risk_grade_scale:
+    A: "Strongest repayment profile"
+    B: "Strong repayment profile"
+    C: "Moderate repayment profile"
+    D: "Elevated risk profile"
+    E: "High risk profile"
+
+# ------------------------------------------------------- yield-optimizer behaviour
+optimizer:
+  step_bps: 5
+  # Where the optimizer is allowed to look.
+  #   permissible_band  - the full policy envelope (default). The engine can find a
+  #                       better price than history did, which is the entire point.
+  #   stage2_interval   - restrict to the Stage-2 model's own uncertainty interval.
+  #                       Safer and more conservative, but it can only reproduce
+  #                       historical pricing behaviour, never improve on it.
+  search_space: permissible_band
+  stage2_interval_sigmas: 3.0
+  # The optimizer may not trade away conversion without limit: a recommendation
+  # whose conversion probability is below this is rejected even if EV is highest.
+  min_conversion_probability: 0.25
+  # Portfolio guard-rail: do not recommend a price whose BT-out probability exceeds this.
+  max_bt_out_probability: 0.45
+  # Tie-break: when two prices are within this % of best EV, prefer the lower rate
+  # (better customer outcome, better conversion, thinner tail).
+  ev_tolerance_pct: 1.0

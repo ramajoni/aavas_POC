@@ -1,0 +1,915 @@
+{
+  "contract": "risk",
+  "elapsed_seconds": 237.51,
+  "candidates_considered": 18,
+  "candidates_skipped": [
+    {
+      "name": "xgboost",
+      "reason": "requires `pip install xgboost`"
+    },
+    {
+      "name": "lightgbm",
+      "reason": "requires `pip install lightgbm`"
+    },
+    {
+      "name": "catboost",
+      "reason": "requires `pip install catboost`"
+    },
+    {
+      "name": "ebm",
+      "reason": "requires `pip install interpret`"
+    },
+    {
+      "name": "gam",
+      "reason": "requires `pip install interpret`"
+    },
+    {
+      "name": "svm_rbf",
+      "reason": "impractical above 5,000 rows (7,908 given)"
+    },
+    {
+      "name": "tabnet",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "ft_transformer",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "saint",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "tabpfn",
+      "reason": "requires `pip install tabpfn`"
+    },
+    {
+      "name": "tabicl",
+      "reason": "no adapter implemented"
+    },
+    {
+      "name": "lstm",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "gru",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "tcn",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "transformer",
+      "reason": "no sequence data in the schema"
+    },
+    {
+      "name": "gcn",
+      "reason": "no graph data in the schema"
+    },
+    {
+      "name": "graphsage",
+      "reason": "no graph data in the schema"
+    },
+    {
+      "name": "gat",
+      "reason": "no graph data in the schema"
+    },
+    {
+      "name": "balanced_random_forest",
+      "reason": "requires `pip install imblearn`"
+    },
+    {
+      "name": "easy_ensemble",
+      "reason": "requires `pip install imblearn`"
+    },
+    {
+      "name": "cost_sensitive_xgboost",
+      "reason": "requires `pip install xgboost`"
+    },
+    {
+      "name": "cost_sensitive_lightgbm",
+      "reason": "requires `pip install lightgbm`"
+    },
+    {
+      "name": "cost_sensitive_catboost",
+      "reason": "requires `pip install catboost`"
+    }
+  ],
+  "steps": [
+    {
+      "step": "algorithm_selection",
+      "selected": [
+        "logistic_regression",
+        "ridge_logistic",
+        "lasso_logistic",
+        "elastic_net_logistic",
+        "woe_scorecard",
+        "decision_tree",
+        "random_forest",
+        "extra_trees",
+        "hist_gradient_boosting",
+        "gradient_boosting",
+        "linear_svm",
+        "knn",
+        "gaussian_nb",
+        "bernoulli_nb",
+        "bayesian_logistic",
+        "mlp",
+        "weighted_logistic",
+        "cost_sensitive_random_forest"
+      ],
+      "monotone_required": false
+    },
+    {
+      "step": "imbalance",
+      "diagnosis": {
+        "positive_rate": 0.101,
+        "minority_share": 0.101,
+        "verdict": "mild",
+        "recommended_strategy": "none",
+        "note": "Resampling is not indicated; calibrated probabilities are worth more than a balanced training set."
+      },
+      "strategy": "none",
+      "applied": false,
+      "recalibration_required": false,
+      "n_rows": 7908,
+      "positive_rate": 0.101,
+      "note": ""
+    },
+    {
+      "step": "validation_split",
+      "calibration_rows": 1318,
+      "evaluation_rows": 1318
+    },
+    {
+      "step": "champion_selection",
+      "champion": "random_forest",
+      "referred": 19
+    }
+  ],
+  "champion": "random_forest",
+  "best_referred": null,
+  "leaderboard": [
+    {
+      "name": "woe_scorecard",
+      "family": "linear_scorecard",
+      "monotone": true,
+      "interpretable": true,
+      "auc": 0.72099,
+      "pr_auc": 0.23258,
+      "ks": 0.36826,
+      "ece": 0.02492,
+      "brier": 0.09003,
+      "base_rate": 0.10698,
+      "psi": 0.00152,
+      "calib_ece_before": 0.01158,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.07922,
+      "calib_brier_after": 0.07773,
+      "blended_score": 0.55361,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "random_forest",
+      "family": "tree",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.73144,
+      "pr_auc": 0.22137,
+      "ks": 0.35933,
+      "ece": 0.01739,
+      "brier": 0.08914,
+      "base_rate": 0.10698,
+      "psi": 0.02683,
+      "calib_ece_before": 0.01013,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.08108,
+      "calib_brier_after": 0.07952,
+      "blended_score": 0.55274,
+      "fairness_passed": true,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "hist_gradient_boosting",
+      "family": "boosting",
+      "monotone": true,
+      "interpretable": false,
+      "auc": 0.72247,
+      "pr_auc": 0.22007,
+      "ks": 0.36317,
+      "ece": 0.01944,
+      "brier": 0.08998,
+      "base_rate": 0.10698,
+      "psi": 0.0092,
+      "calib_ece_before": 0.00864,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.07938,
+      "calib_brier_after": 0.07756,
+      "blended_score": 0.55229,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "lasso_logistic",
+      "family": "linear_scorecard",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.72794,
+      "pr_auc": 0.22909,
+      "ks": 0.34654,
+      "ece": 0.02041,
+      "brier": 0.08958,
+      "base_rate": 0.10698,
+      "psi": 0.00652,
+      "calib_ece_before": 0.01311,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.07889,
+      "calib_brier_after": 0.07729,
+      "blended_score": 0.55214,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "gradient_boosting",
+      "family": "boosting",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.71975,
+      "pr_auc": 0.22949,
+      "ks": 0.35364,
+      "ece": 0.0205,
+      "brier": 0.08982,
+      "base_rate": 0.10698,
+      "psi": 0.0036,
+      "calib_ece_before": 0.01377,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.0803,
+      "calib_brier_after": 0.07827,
+      "blended_score": 0.55147,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "extra_trees",
+      "family": "tree",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.71096,
+      "pr_auc": 0.21129,
+      "ks": 0.31382,
+      "ece": 0.02079,
+      "brier": 0.09021,
+      "base_rate": 0.10698,
+      "psi": 0.01862,
+      "calib_ece_before": 0.02247,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.08137,
+      "calib_brier_after": 0.07909,
+      "blended_score": 0.53992,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "ensemble_weighted",
+      "family": "ensemble",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.73094,
+      "pr_auc": 0.22866,
+      "ks": 0.39254,
+      "ece": 0.02146,
+      "brier": 0.08914,
+      "base_rate": 0.10698,
+      "psi": 0.2898,
+      "calib_ece_before": 0.01145,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.0802,
+      "calib_brier_after": 0.07832,
+      "blended_score": 0.53121,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "decision_tree",
+      "family": "tree",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.65767,
+      "pr_auc": 0.17958,
+      "ks": 0.29542,
+      "ece": 0.01526,
+      "brier": 0.09176,
+      "base_rate": 0.10698,
+      "psi": 0.00051,
+      "calib_ece_before": 0.01414,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.08464,
+      "calib_brier_after": 0.08162,
+      "blended_score": 0.52359,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "ensemble_voting_soft",
+      "family": "ensemble",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.72311,
+      "pr_auc": 0.2152,
+      "ks": 0.34732,
+      "ece": 0.023,
+      "brier": 0.09046,
+      "base_rate": 0.10698,
+      "psi": 0.30094,
+      "calib_ece_before": 0.01569,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.08009,
+      "calib_brier_after": 0.07813,
+      "blended_score": 0.5197,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "linear_svm",
+      "family": "kernel",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.62965,
+      "pr_auc": 0.14818,
+      "ks": 0.20296,
+      "ece": 0.0207,
+      "brier": 0.09433,
+      "base_rate": 0.10698,
+      "psi": 0.00571,
+      "calib_ece_before": 0.22767,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.13612,
+      "calib_brier_after": 0.08279,
+      "blended_score": 0.49797,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "logistic_regression",
+      "family": "linear_scorecard",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.6241,
+      "pr_auc": 0.15761,
+      "ks": 0.17479,
+      "ece": 0.01949,
+      "brier": 0.09395,
+      "base_rate": 0.10698,
+      "psi": 0.00312,
+      "calib_ece_before": 0.01041,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.08321,
+      "calib_brier_after": 0.08178,
+      "blended_score": 0.49379,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "ridge_logistic",
+      "family": "linear_scorecard",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.6241,
+      "pr_auc": 0.15761,
+      "ks": 0.17479,
+      "ece": 0.01949,
+      "brier": 0.09395,
+      "base_rate": 0.10698,
+      "psi": 0.00312,
+      "calib_ece_before": 0.01041,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.08321,
+      "calib_brier_after": 0.08178,
+      "blended_score": 0.49379,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "bayesian_logistic",
+      "family": "probabilistic",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.6241,
+      "pr_auc": 0.15761,
+      "ks": 0.17479,
+      "ece": 0.01949,
+      "brier": 0.09395,
+      "base_rate": 0.10698,
+      "psi": 0.00312,
+      "calib_ece_before": 0.01041,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.08321,
+      "calib_brier_after": 0.08178,
+      "blended_score": 0.49379,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "gaussian_nb",
+      "family": "probabilistic",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.61263,
+      "pr_auc": 0.13951,
+      "ks": 0.16595,
+      "ece": 0.01718,
+      "brier": 0.09471,
+      "base_rate": 0.10698,
+      "psi": 0.00253,
+      "calib_ece_before": 0.04035,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.09098,
+      "calib_brier_after": 0.08291,
+      "blended_score": 0.48831,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "bernoulli_nb",
+      "family": "probabilistic",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.60705,
+      "pr_auc": 0.14207,
+      "ks": 0.15575,
+      "ece": 0.01597,
+      "brier": 0.09434,
+      "base_rate": 0.10698,
+      "psi": 0.00158,
+      "calib_ece_before": 0.06294,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.09622,
+      "calib_brier_after": 0.08356,
+      "blended_score": 0.48598,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "cost_sensitive_random_forest",
+      "family": "cost_sensitive",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.72496,
+      "pr_auc": 0.23006,
+      "ks": 0.33387,
+      "ece": 0.01697,
+      "brier": 0.08934,
+      "base_rate": 0.10698,
+      "psi": 0.79567,
+      "calib_ece_before": 0.01212,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.0811,
+      "calib_brier_after": 0.07941,
+      "blended_score": 0.47137,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "weighted_logistic",
+      "family": "cost_sensitive",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.56829,
+      "pr_auc": 0.13325,
+      "ks": 0.11139,
+      "ece": 0.02621,
+      "brier": 0.09595,
+      "base_rate": 0.10698,
+      "psi": 0.00275,
+      "calib_ece_before": 0.38198,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.24323,
+      "calib_brier_after": 0.08294,
+      "blended_score": 0.46659,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "knn",
+      "family": "instance",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.53562,
+      "pr_auc": 0.11961,
+      "ks": 0.07402,
+      "ece": 0.01255,
+      "brier": 0.09542,
+      "base_rate": 0.10698,
+      "psi": 0.00947,
+      "calib_ece_before": 0.01785,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.08611,
+      "calib_brier_after": 0.08527,
+      "blended_score": 0.45351,
+      "fairness_passed": false,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "elastic_net_logistic",
+      "family": "linear_scorecard",
+      "monotone": false,
+      "interpretable": true,
+      "auc": 0.53441,
+      "pr_auc": 0.12803,
+      "ks": 0.04943,
+      "ece": 0.01281,
+      "brier": 0.09508,
+      "base_rate": 0.10698,
+      "psi": 0.00176,
+      "calib_ece_before": 0.08521,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.09711,
+      "calib_brier_after": 0.08516,
+      "blended_score": 0.45108,
+      "fairness_passed": true,
+      "locality_passed": true,
+      "worst_unit": null
+    },
+    {
+      "name": "mlp",
+      "family": "neural_tabular",
+      "monotone": false,
+      "interpretable": false,
+      "auc": 0.5,
+      "pr_auc": 0.10698,
+      "ks": 0.0,
+      "ece": 0.01214,
+      "brier": 0.09568,
+      "base_rate": 0.10698,
+      "psi": 0.0,
+      "calib_ece_before": 0.09484,
+      "calib_ece_after": 0.0,
+      "calib_brier_before": 0.09484,
+      "calib_brier_after": 0.08585,
+      "blended_score": 0.43327,
+      "fairness_passed": true,
+      "locality_passed": true,
+      "worst_unit": null
+    }
+  ],
+  "pareto_front": [
+    "random_forest",
+    "decision_tree",
+    "cost_sensitive_random_forest",
+    "knn",
+    "mlp"
+  ],
+  "referred_to_review": [
+    {
+      "name": "woe_scorecard",
+      "blended_score": 0.55361,
+      "failures": [
+        "fairness: calibration gap 0.054 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "hist_gradient_boosting",
+      "blended_score": 0.55229,
+      "failures": [
+        "fairness: calibration gap 0.063 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "lasso_logistic",
+      "blended_score": 0.55214,
+      "failures": [
+        "fairness: calibration gap 0.060 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "gradient_boosting",
+      "blended_score": 0.55147,
+      "failures": [
+        "fairness: calibration gap 0.059 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "extra_trees",
+      "blended_score": 0.53992,
+      "failures": [
+        "fairness: calibration gap 0.068 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "ensemble_weighted",
+      "blended_score": 0.53121,
+      "failures": [
+        "PSI 0.290 exceeds 0.25",
+        "fairness: calibration gap 0.061 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "decision_tree",
+      "blended_score": 0.52359,
+      "failures": [
+        "fairness: calibration gap 0.052 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "ensemble_voting_soft",
+      "blended_score": 0.5197,
+      "failures": [
+        "PSI 0.301 exceeds 0.25",
+        "fairness: calibration gap 0.057 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "linear_svm",
+      "blended_score": 0.49797,
+      "failures": [
+        "fairness: calibration gap 0.066 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "logistic_regression",
+      "blended_score": 0.49379,
+      "failures": [
+        "fairness: calibration gap 0.071 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "ridge_logistic",
+      "blended_score": 0.49379,
+      "failures": [
+        "fairness: calibration gap 0.071 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "bayesian_logistic",
+      "blended_score": 0.49379,
+      "failures": [
+        "fairness: calibration gap 0.071 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "gaussian_nb",
+      "blended_score": 0.48831,
+      "failures": [
+        "fairness: calibration gap 0.051 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "bernoulli_nb",
+      "blended_score": 0.48598,
+      "failures": [
+        "fairness: calibration gap 0.056 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "cost_sensitive_random_forest",
+      "blended_score": 0.47137,
+      "failures": [
+        "PSI 0.796 exceeds 0.25",
+        "fairness: calibration gap 0.068 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "weighted_logistic",
+      "blended_score": 0.46659,
+      "failures": [
+        "AUC 0.568 below the 0.6 floor",
+        "fairness: calibration gap 0.054 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "knn",
+      "blended_score": 0.45351,
+      "failures": [
+        "AUC 0.536 below the 0.6 floor",
+        "fairness: calibration gap 0.050 exceeds 0.05"
+      ]
+    },
+    {
+      "name": "elastic_net_logistic",
+      "blended_score": 0.45108,
+      "failures": [
+        "AUC 0.534 below the 0.6 floor"
+      ]
+    },
+    {
+      "name": "mlp",
+      "blended_score": 0.43327,
+      "failures": [
+        "AUC 0.500 below the 0.6 floor"
+      ]
+    }
+  ],
+  "weights": {
+    "auc": 0.25,
+    "ks": 0.15,
+    "pr_auc": 0.1,
+    "calibration": 0.2,
+    "stability": 0.1,
+    "profit": 0.2
+  },
+  "gates": {
+    "min_auc": 0.6,
+    "max_ece": 0.03,
+    "max_psi": 0.25,
+    "require_monotone": false,
+    "require_fairness_pass": true,
+    "require_locality_pass": true
+  },
+  "diagnostics": {
+    "candidate": "random_forest",
+    "admitted": true,
+    "fairness": {
+      "passed": true,
+      "per_group": {
+        "30-39": {
+          "selection_rate": 0.0,
+          "tpr": 0.0,
+          "fpr": 0.0,
+          "fnr": 1.0,
+          "n": 589,
+          "mean_predicted": 0.0869,
+          "actual_rate": 0.0917,
+          "calibration_gap": -0.0048
+        },
+        "40-49": {
+          "selection_rate": 0.0,
+          "tpr": 0.0,
+          "fpr": 0.0,
+          "fnr": 1.0,
+          "n": 440,
+          "mean_predicted": 0.0918,
+          "actual_rate": 0.1068,
+          "calibration_gap": -0.0151
+        },
+        "50-59": {
+          "selection_rate": 0.0,
+          "tpr": 0.0,
+          "fpr": 0.0,
+          "fnr": 1.0,
+          "n": 71,
+          "mean_predicted": 0.0877,
+          "actual_rate": 0.1408,
+          "calibration_gap": -0.0532
+        },
+        "60 and over": {
+          "n": 4,
+          "verdict": "insufficient evidence"
+        },
+        "under 30": {
+          "selection_rate": 0.0,
+          "tpr": 0.0,
+          "fpr": 0.0,
+          "fnr": 1.0,
+          "n": 214,
+          "mean_predicted": 0.0963,
+          "actual_rate": 0.1355,
+          "calibration_gap": -0.0393
+        }
+      },
+      "gaps": {
+        "comparable_groups": 4,
+        "selection_rate_gap": 0.0,
+        "tpr_gap": 0.0,
+        "fpr_gap": 0.0,
+        "fnr_gap": 0.0,
+        "calibration_gap": 0.0484
+      },
+      "reasons": [],
+      "parity_note": null,
+      "primary_criterion": "calibration_by_group"
+    },
+    "locality": {
+      "passed": true,
+      "verdict": "global AUC 0.7314 and every branch clears its floor",
+      "global": {
+        "auc": 0.7314,
+        "ece": 0.0174,
+        "n": 1318
+      },
+      "per_unit": {
+        "BR001": {
+          "n": 137,
+          "verdict": "insufficient evidence"
+        },
+        "BR004": {
+          "n": 89,
+          "verdict": "insufficient evidence"
+        },
+        "BR008": {
+          "n": 60,
+          "verdict": "insufficient evidence"
+        },
+        "BR010": {
+          "n": 109,
+          "verdict": "insufficient evidence"
+        },
+        "BR011": {
+          "n": 54,
+          "verdict": "insufficient evidence"
+        },
+        "BR014": {
+          "n": 88,
+          "verdict": "insufficient evidence"
+        },
+        "BR022": {
+          "n": 71,
+          "verdict": "insufficient evidence"
+        },
+        "BR024": {
+          "n": 78,
+          "verdict": "insufficient evidence"
+        },
+        "BR025": {
+          "n": 98,
+          "verdict": "insufficient evidence"
+        },
+        "BR027": {
+          "n": 141,
+          "verdict": "insufficient evidence"
+        },
+        "BR028": {
+          "n": 49,
+          "verdict": "insufficient evidence"
+        },
+        "BR032": {
+          "n": 146,
+          "verdict": "insufficient evidence"
+        },
+        "BR037": {
+          "n": 103,
+          "verdict": "insufficient evidence"
+        },
+        "BR038": {
+          "n": 95,
+          "verdict": "insufficient evidence"
+        }
+      },
+      "variance": {
+        "comparable_units": 0
+      },
+      "failing_units": [],
+      "units_with_insufficient_evidence": [
+        "BR001",
+        "BR004",
+        "BR008",
+        "BR010",
+        "BR011",
+        "BR014",
+        "BR022",
+        "BR024",
+        "BR025",
+        "BR027",
+        "BR028",
+        "BR032",
+        "BR037",
+        "BR038"
+      ]
+    }
+  },
+  "data": {
+    "n_fit": 7908,
+    "n_valid": 2636,
+    "n_holdout_untouched": 2637,
+    "features": 20,
+    "positive_rate_fit": 0.101,
+    "positive_rate_valid": 0.1009,
+    "fit_to": "2025-08-27 00:00:00",
+    "valid_from": "2025-08-28 00:00:00",
+    "holdout_from": "2025-12-24 00:00:00"
+  },
+  "config": {
+    "hpo_strategy": "tpe",
+    "hpo_budget": 12,
+    "imbalance_strategy": "none",
+    "monotone_required": false,
+    "calibration_methods": [
+      "platt",
+      "isotonic",
+      "beta"
+    ],
+    "ensemble_methods": [
+      "voting_soft",
+      "weighted"
+    ]
+  }
+}

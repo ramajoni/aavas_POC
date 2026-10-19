@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.venv-xai/
+.env
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+build/
+dist/
+
+# Artifacts (regenerate with: make data && make train)
+data/raw/*.csv
+data/processed/*.csv
+data/processed/*.parquet
+models/*.joblib
+models/*.json
+mlruns/
+*.db
+*.sqlite3
+
+# Explainability output (regenerate with: make xai-reports)
+reports/omnixai/
+
+# Office lock files
+.~lock.*#
