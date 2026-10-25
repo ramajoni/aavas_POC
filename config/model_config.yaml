@@ -1,4 +1,7 @@
-model_config_version: "MODEL-2026.09"
+# MODEL-2026.10: stage1, stage2, risk and conversion fit the AutoML portfolio
+# selection (learner: automl, see `selection` below) and keep their previous
+# learner as fallback_learner, used whenever no selection has been recorded.
+model_config_version: "MODEL-2026.10"
 seed: 42
 
 data:
@@ -22,7 +25,11 @@ tracking:
   uri: file:./mlruns
 
 stage1:
-  learner: gradient_boosting_quantile
+  # automl -> the family and params recorded in reports/automl/portfolio/
+  # selection.json (scripts/run_model_selection.py); with no selection, or with the
+  # selected library missing, fallback_learner is fitted with `params` below.
+  learner: automl
+  fallback_learner: gradient_boosting_quantile
   params:
     n_estimators: 300
     max_depth: 3
@@ -33,7 +40,8 @@ stage1:
   quantiles: [0.10, 0.50, 0.90]
 
 stage2:
-  learner: auto                  # auto -> xgboost if installed, else hist_gradient_boosting
+  learner: automl                # see stage1
+  fallback_learner: auto         # auto -> xgboost if installed, else hist_gradient_boosting
   params:
     n_estimators: 400
     max_depth: 5
@@ -52,7 +60,8 @@ stage2:
     n_trials: 30
 
 conversion:
-  learner: hist_gradient_boosting_classifier
+  learner: automl                # see stage1; only monotone-capable families can be selected
+  fallback_learner: hist_gradient_boosting_classifier
   params:
     max_iter: 300
     max_depth: 5
@@ -91,7 +100,8 @@ risk:
   # average observation window the default flag represents. Getting this unit
   # wrong silently inflates expected loss by ~4x and grades every file D/E.
   pd_horizon_years: 4.0
-  learner: hist_gradient_boosting_classifier
+  learner: automl                # see stage1
+  fallback_learner: hist_gradient_boosting_classifier
   params:
     max_iter: 300
     max_depth: 5
@@ -102,12 +112,91 @@ risk:
     builder_flat: 0.32
     self_construction: 0.40
     plot_plus_construction: 0.45
+  # Minimum LGD applied to whatever supplies it (the fitted LGD model, or this
+  # table when the artefact is missing). 10% is the Basel II pool-level floor for
+  # retail exposures secured by residential property (para 266); Basel III's
+  # finalised framework lowered it to 5% (CRE32), and the stricter of the two is
+  # kept on purpose. A quarter of observed defaults cure and lose almost nothing,
+  # so a model fitted on ~1,000 defaults can talk itself down to a severity no
+  # credit committee would sign; expected loss must not reach zero that way.
+  lgd_floor: 0.10
   grade_cutoffs:                 # PD upper bounds
     A: 0.010
     B: 0.025
     C: 0.050
     D: 0.090
     E: 1.000
+
+lgd:
+  # Loss severity on defaulted files. Fitted on the LGD fraction for the
+  # conditional MEAN (squared error), because expected loss = PD x E[LGD]; MAE in
+  # LGD points is the selection metric (the deck's), RMSE the one aligned with
+  # what pricing consumes. The card reports both, and the policy table's on the
+  # same rows.
+  learner: automl                # see stage1; the recorded portfolio selection
+  fallback_learner: hist_gradient_boosting_regressor
+  params:                        # the fallback's; shallow because the data is thin
+    max_iter: 300
+    max_depth: 2
+    learning_rate: 0.03
+    min_samples_leaf: 60
+    l2_regularization: 2.0
+  clip: [0.0, 0.95]              # a fraction; risk.lgd_floor is applied on top
+  min_rows: 200                  # fewer defaulted files than this: refuse to fit
+  bootstrap_resamples: 1000      # paired bootstrap of model-vs-table error
+  calibration_bins: 10
+
+uplift:
+  # How much acceptance a discount buys. Learned from override history: discount
+  # overrides (override_bps < 0) against files left alone; premiums excluded.
+  # learner: automl -> the learner x family recorded by `python -m
+  # aavas.models.uplift.train --search` in reports/automl/portfolio/selection.json;
+  # the fallback below when none is recorded or its library is missing.
+  learner: automl
+  fallback_learner: dose         # dose | rdose | t | x | dr  (models/uplift/learners.py)
+  fallback_family: hist_gradient_boosting   # any monotone-capable binary family in automl.portfolio
+  params:                        # the fallback's, in that family's own parameter names
+    max_iter: 250
+    max_depth: 3
+    learning_rate: 0.05
+    min_samples_leaf: 80
+    l2_regularization: 1.0
+  # Nuisance model for "was this file discounted?". Not searched: it is an
+  # adjustment, and the search asks how well the effect ranks files, not how
+  # well anything predicts the salesperson.
+  propensity_params:
+    max_iter: 250
+    max_depth: 3
+    learning_rate: 0.05
+    min_samples_leaf: 60
+    l2_regularization: 1.0
+  propensity_clip: [0.03, 0.97]
+  cross_fit_folds: 3
+  # Selection: rolling out-of-time windows carved from the END of the trainer's
+  # train split; the trainer's holdout is never shown to the search.
+  validation_windows: 2
+  validation_fraction: 0.30
+  search_budget: 30              # total trials across learner x family
+  n_jobs: 4                      # threads per fit; a learner fits many small models
+  tie_tolerance_pts: 0.05        # Qini (acceptance points) within this of the best is a tie
+  explainability_order: [dose, t, x, dr, rdose]
+  # The discount every file is scored at when ranking: the median observed
+  # discount in the train split when null.
+  reference_discount_bps: null
+  curve_bps: [5, 10, 15, 20, 25, 30, 40, 50]
+  bootstrap_members: 8           # bagged refits for the per-file interval
+  interval: [0.10, 0.90]
+  # A shallow tree fitted to the served model's uplift at the reference discount:
+  # its TreeSHAP is how "who responds to a discount" is explained. Its fidelity
+  # (R2 against the model it explains) is on the card.
+  surrogate_params:
+    max_iter: 200
+    max_depth: 3
+    learning_rate: 0.05
+    min_samples_leaf: 50
+  labels:                        # acceptance points bought by the proposed discount
+    little_below_pts: 1.0        # below this: "discount buys little"
+    moves_from_pts: 3.0          # from this: "discount moves acceptance"
 
 xai:
   backend: auto                  # auto -> shap if installed, else ablation
@@ -125,3 +214,86 @@ champion_challenger:
   promote_if_better_by_pct: 2.0  # challenger must beat champion EV by this margin
   max_conversion_drop_pct: 1.0   # ...without dropping conversion more than this
   require_human_signoff: true
+
+# ------------------------------------------------------- AutoML portfolio search
+# aavas.automl.portfolio / scripts/run_model_selection.py. Random search per
+# algorithm family, out of time: the trainers' holdout (data.test_size, the last
+# 20% by date) is never shown to it; the later `valid_size` of the training
+# window validates. Budgets were set so the full run (all models) stays well
+# under 30 minutes on a 16-core laptop.
+selection:
+  budget_per_family: 12          # trials per family; trial 0 = incumbent or defaults
+  budget_overrides:              # a one-parameter space needs few draws
+    ridge: 4
+    logistic_regression: 4
+    gradient_boosting_quantile: 8  # ~25 s a trial (three single-threaded fits)
+  fast_budget: 2                 # --fast
+  valid_size: 0.25               # later share of the training window that validates
+  # "Best validation score, then explainability": families within this relative
+  # distance of the best score are tied, and the most explainable of them wins
+  # (linear > boosted trees > bagged trees; see automl/portfolio.py EXPLAINABILITY).
+  tolerance_rel: 0.01
+  n_jobs: 8                      # threads per fit; the search runs fits one at a time
+
+# ------------------------------------------------------ deck model portfolio
+# What GET /models/portfolio and the models page show, in deck order (slide 11).
+# Titles and questions live here so the wording can change without code.
+portfolio:
+  models:
+    - key: indicative_pricing
+      title: Indicative pricing
+      stage: Stage 1 - pre-assessment
+      question: What rate band can we credibly quote before any document is verified?
+      models: [stage1]
+    - key: risk
+      title: Risk
+      stage: Stage 2 - post-assessment
+      question: How likely is this file to default, how much would we lose if it did, and what grade and expected loss follow?
+      models: [risk, lgd]
+    - key: risk_adjusted_pricing
+      title: Risk-adjusted pricing
+      stage: Stage 2 - anchor
+      question: Given the verified file and its risk, what price does a file like this clear at?
+      models: [stage2]
+    - key: acceptance
+      title: Acceptance
+      stage: Stage 2 - optimisation input
+      question: At a given price, how likely is this customer to take the loan?
+      models: [conversion]
+    - key: pricing_uplift
+      title: Pricing uplift
+      stage: Stage 2 - negotiation
+      question: How much acceptance does a discount actually buy for this file?
+      models: [uplift]
+  # Roles shown when a deck model is made of more than one repo model.
+  roles:
+    risk: Probability of default (PD)
+    lgd: Loss given default (LGD)
+  rules:
+    - key: optimisation
+      title: Yield optimisation
+      question: Which permissible price maximises risk-adjusted value?
+      source: config/pricing_policy.yaml (optimizer)
+      settings: [optimizer.min_conversion_probability, optimizer.max_bt_out_probability, optimizer.ev_tolerance_pct]
+    - key: guardrails
+      title: Policy guardrails
+      question: Is the price inside policy, and who has the authority to approve it?
+      source: config/pricing_policy.yaml (constraints, approval_authority, fair_pricing)
+      settings: [constraints.max_ltv, constraints.max_foir, fair_pricing.commercial_uplift_review_bps]
+  supporting: [prepayment, override]
+  # Holdout metrics shown per model card; the first three of a card's metrics
+  # stand in for a model not listed.
+  headline_metrics:
+    stage1: [coverage_pct, mean_width_bps, median_mae_bps]
+    stage2: [mae_bps, within_25bps_pct, r2]
+    risk: [auc, brier, calibration_gap]
+    lgd: [mae_pts, rmse_pts, r2]
+    conversion: [auc, calibration_gap, s2d_drop_per_25bps_pts]
+    uplift: [qini, auuc, ate_pts]
+    prepayment: [auc, base_rate]
+    override: [auc, magnitude_mae_bps]
+  top_weights: 5
+  # Models whose global SHAP weights are computed (slide 12) by
+  # scripts/run_model_selection.py --weights into global_weights.json. Uplift is
+  # explained through its surrogate of the served uplift (acceptance points).
+  weights: [risk, stage2, conversion, lgd, uplift]

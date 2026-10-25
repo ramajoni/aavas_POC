@@ -1,0 +1,19 @@
+# Online applications and the documents a borrower uploads with them.
+#
+# A borrower submits an application after seeing an indicative offer, then
+# uploads documents against it. Relationship managers see every submitted
+# application and its documents; a borrower sees only their own.
+intake_config_version: INTAKE-2026.10
+
+# What the borrower is asked for. The key is stored; the label is shown.
+document_types:
+  income_proof: "Income proof (last 3 salary slips)"
+  bank_statement: "Bank statement (last 6 months)"
+  identity_address: "Identity and address proof (PAN, Aadhaar)"
+  property_papers: "Property documents (sale agreement, title)"
+  other: "Other supporting document"
+
+# Checked against the file's contents, not the name or the browser's claim.
+allowed_formats: [pdf, jpeg, png]
+max_file_mb: 10
+max_documents_per_application: 20

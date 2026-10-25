@@ -1,0 +1,27 @@
+/* "My applications" (relationship manager) and the borrower's document upload. */
+.my-applications .eyebrow{margin:0 0 4px;font-size:13px;color:var(--muted)}
+.app-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:4px 0 18px}
+.app-kpi{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 20px}
+.app-kpi.primary{border:2px solid #1d3f9a}
+.app-kpi small{display:block;font-size:13px;color:var(--muted)}
+.app-kpi b{display:block;font-size:28px;color:var(--ink);margin-top:4px}
+.app-table{background:#fff;border:1px solid var(--border);border-radius:12px;overflow-x:auto}
+.app-table table{width:100%;border-collapse:collapse;font-size:14px}
+.app-table th{text-align:left;font-weight:500;color:var(--muted);font-size:13px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.app-table td{padding:13px 16px;border-bottom:1px solid #eef2f9;vertical-align:middle}
+.app-table tr:last-child td{border-bottom:0}
+.app-table td b{display:block;font-weight:500}
+.app-table td small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.app-table .doc-ok{color:var(--green);font-weight:500}
+.app-table .doc-wait{color:#b45309}
+.app-table td.late{color:#c2410c;font-weight:500}
+.my-applications .actions.end{margin-top:12px}
+.borrower-documents .document-upload{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin:14px 0}
+.borrower-documents .document-upload select{width:100%}
+.borrower-documents .document-upload input[type=file]{padding:8px 0;width:100%}
+.borrower-documents .document-upload .button{height:42px;justify-self:start}
+.document-name{display:inline-flex;align-items:center;gap:6px;word-break:break-all}
+.form-error{color:#b42318;font-size:14px;margin:6px 0}
+@media(max-width:800px){
+  .app-kpis{grid-template-columns:1fr}
+}

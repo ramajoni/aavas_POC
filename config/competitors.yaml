@@ -1,0 +1,291 @@
+# Competitor registry - who Aavas competes with, and how branches write their names
+#
+# Written from knowledge of the Indian housing-finance market (Rajasthan, Gujarat,
+# MP, Maharashtra, UP affordable housing), not from the synthetic generator: the
+# extraction quality report scores this registry against the notes' latent truth,
+# and copying the generator's spellings would turn that score into a tautology.
+#
+# Three rules:
+#   1. An alias maps to exactly one canonical lender. Misspellings are NOT listed
+#      here - a bounded fuzzy match (below) catches them and says it did.
+#   2. A bare word that is also a common Indian name or an everyday document
+#      ("Shubham", "Aadhaar", "LIC", "Bajaj") is `ambiguous`: it counts only in a
+#      sentence that is about lending, and never next to its non-lender sense
+#      ("Aadhaar card", "LIC policy").
+#   3. A lender-like name the registry does not know ("Xyz Housing Finance") is
+#      surfaced as UNRECOGNISED FOR REVIEW. It is never mapped to the nearest
+#      known name - that would silently merge two lenders' quotes.
+#
+# The canonical names used in the structured application data (HDFC, LIC HF,
+# Bajaj HF, Local Bank, Shubham HF, Aadhar HF) must stay canonical here: the
+# historical analysis joins on them.
+
+competitors_config_version: "COMP-2026.10"
+
+# Ourselves. A rate next to one of these is our rate, never a competitor quote.
+self_names: ["Aavas", "Aavas Financiers", "Aavas Housing", "Aavas HF", "Aavas Home Loans"]
+
+lenders:
+  # ------------------------------------------------ structured-data canonicals
+  HDFC:
+    type: bank
+    note: "HDFC Ltd merged into HDFC Bank (July 2023); branches still write both"
+    aliases: ["HDFC", "HDFC Bank", "HDFC Ltd", "HDFC Limited", "HDFC Home Loans",
+              "HDFC Home Loan", "HDFC Housing", "HDFC Housing Finance", "HDFC HL"]
+  LIC HF:
+    type: HFC
+    aliases: ["LIC Housing Finance", "LIC Housing", "LIC HF", "LIC HFL", "LICHFL", "LICHF",
+              "LIC Home Loans", "LIC Home Loan", "LIC Housing Finance Ltd"]
+    ambiguous: ["LIC"]
+    not_when_followed_by: ["policy", "policies", "premium", "insurance", "agent", "maturity",
+                           "surrender", "jeevan", "bond"]
+  Bajaj HF:
+    type: HFC
+    aliases: ["Bajaj Housing Finance", "Bajaj Housing", "Bajaj HF", "Bajaj HFL", "BHFL",
+              "Bajaj Finserv", "Bajaj Finserv Home Loan", "Bajaj Finserv Home Loans",
+              "Bajaj Finance"]
+    ambiguous: ["Bajaj"]
+    not_when_followed_by: ["auto", "electricals", "allianz", "emi card", "card"]
+  Aadhar HF:
+    type: HFC
+    aliases: ["Aadhar Housing Finance", "Aadhar Housing", "Aadhar HF", "Aadhar HFL",
+              "Aadhaar Housing Finance", "Aadhaar Housing", "Aadhaar HF", "AHFL"]
+    ambiguous: ["Aadhar", "Aadhaar"]
+    not_when_followed_by: ["card", "number", "no", "kyc", "ekyc", "e-kyc", "linked", "seeding",
+                           "otp", "copy", "based", "address", "authentication", "enrolment"]
+  Shubham HF:
+    type: HFC
+    aliases: ["Shubham Housing Finance", "Shubham Housing Development Finance",
+              "Shubham Housing", "Shubham HF", "Shubham HFL", "SHDFC"]
+    ambiguous: ["Shubham"]
+  Local Bank:
+    type: co-operative
+    note: >-
+      The structured field's catch-all for a bank the customer did not name: a local
+      co-operative, urban or gramin bank, or an unnamed public-sector bank. A named
+      bank (SBI, PNB, Bank of Baroda...) is its own lender, never this one.
+    aliases: ["local bank", "co-operative bank", "cooperative bank", "co-op bank", "coop bank",
+              "urban co-operative bank", "urban cooperative bank", "sahakari bank",
+              "nagarik sahakari bank", "gramin bank", "regional rural bank",
+              "nationalised bank", "nationalized bank", "PSU bank", "public sector bank",
+              "government bank", "govt bank", "sarkari bank"]
+
+  # ---------------------------------------------------------- other banks
+  SBI:
+    type: bank
+    aliases: ["SBI", "State Bank", "State Bank of India", "SBI Home Loans", "SBI Home Loan",
+              "SBI HL"]
+  ICICI Bank:
+    type: bank
+    aliases: ["ICICI Bank", "ICICI"]
+  Axis Bank:
+    type: bank
+    aliases: ["Axis Bank"]
+    ambiguous: ["Axis"]
+  Kotak:
+    type: bank
+    aliases: ["Kotak Mahindra Bank", "Kotak Bank", "Kotak Home Loans"]
+    ambiguous: ["Kotak"]
+  PNB:
+    type: bank
+    aliases: ["Punjab National Bank", "PNB"]
+  Bank of Baroda:
+    type: bank
+    aliases: ["Bank of Baroda", "Baroda Bank"]
+    ambiguous: ["BoB", "BOB"]
+  Canara Bank:
+    type: bank
+    aliases: ["Canara Bank"]
+  Union Bank:
+    type: bank
+    aliases: ["Union Bank of India", "Union Bank"]
+  Bank of India:
+    type: bank
+    aliases: ["Bank of India"]
+  IDFC First Bank:
+    type: bank
+    aliases: ["IDFC First Bank", "IDFC First", "IDFC Bank"]
+  AU Small Finance Bank:
+    type: bank
+    aliases: ["AU Small Finance Bank", "AU Bank", "AU SFB", "AU Housing"]
+  Ujjivan SFB:
+    type: bank
+    aliases: ["Ujjivan Small Finance Bank", "Ujjivan SFB", "Ujjivan"]
+  Equitas SFB:
+    type: bank
+    aliases: ["Equitas Small Finance Bank", "Equitas SFB", "Equitas"]
+
+  # ------------------------------------------------------- housing finance
+  ICICI HFC:
+    type: HFC
+    aliases: ["ICICI HFC", "ICICI Home Finance", "ICICI Housing Finance", "ICICI HF",
+              "ICICI Home Fin"]
+  PNB Housing:
+    type: HFC
+    aliases: ["PNB Housing Finance", "PNB Housing", "PNB HFL", "PNBHFL", "PNB HF"]
+  Can Fin Homes:
+    type: HFC
+    aliases: ["Can Fin Homes", "Can Fin", "CanFin", "Canfin Homes", "CFHL"]
+  India Shelter:
+    type: HFC
+    aliases: ["India Shelter Finance Corporation", "India Shelter Finance", "India Shelter",
+              "India Shelter HF", "ISFC"]
+  Home First:
+    type: HFC
+    aliases: ["Home First Finance Company", "Home First Finance", "Home First", "HomeFirst",
+              "HFFC"]
+  Aptus:
+    type: HFC
+    aliases: ["Aptus Value Housing Finance", "Aptus Housing Finance", "Aptus Housing", "Aptus"]
+  Tata Capital HF:
+    type: HFC
+    aliases: ["Tata Capital Housing Finance", "Tata Capital Housing", "Tata Capital",
+              "Tata Housing Finance", "Tata HF"]
+  Sammaan Capital:
+    type: HFC
+    note: "formerly Indiabulls Housing Finance"
+    aliases: ["Sammaan Capital", "Indiabulls Housing Finance", "Indiabulls Housing",
+              "Indiabulls", "IBHFL"]
+    ambiguous: ["Sammaan"]
+  IIFL Home Finance:
+    type: HFC
+    aliases: ["IIFL Home Finance", "IIFL Home Loans", "IIFL HFL", "IIFL Housing", "IIFL"]
+  Truhome:
+    type: HFC
+    note: "formerly Shriram Housing Finance"
+    aliases: ["Truhome Finance", "Truhome", "Shriram Housing Finance", "Shriram Housing",
+              "Shriram HF"]
+  Grihashakti:
+    type: HFC
+    aliases: ["SMFG Grihashakti", "Fullerton Grihashakti", "Grihashakti",
+              "Fullerton India Home Finance"]
+  Grihum:
+    type: HFC
+    note: "formerly Poonawalla Housing Finance"
+    aliases: ["Grihum Housing Finance", "Grihum", "Poonawalla Housing Finance",
+              "Poonawalla Housing"]
+  Vastu HF:
+    type: HFC
+    aliases: ["Vastu Housing Finance", "Vastu Housing", "Vastu HF"]
+  Muthoot HF:
+    type: HFC
+    aliases: ["Muthoot Housing Finance", "Muthoot Homefin", "Muthoot HF"]
+  Motilal Oswal HF:
+    type: HFC
+    aliases: ["Motilal Oswal Home Finance", "Motilal Oswal Housing", "MOHFL"]
+  Sundaram HF:
+    type: HFC
+    aliases: ["Sundaram Home Finance", "Sundaram HF"]
+  Godrej HF:
+    type: HFC
+    aliases: ["Godrej Housing Finance", "Godrej Capital", "Godrej HF"]
+  Mahindra Rural HF:
+    type: HFC
+    aliases: ["Mahindra Rural Housing Finance", "Mahindra Home Finance", "MRHFL"]
+  Hero HF:
+    type: HFC
+    aliases: ["Hero Housing Finance", "Hero HF"]
+  Repco HF:
+    type: HFC
+    aliases: ["Repco Home Finance", "Repco"]
+  Nido HF:
+    type: HFC
+    note: "formerly Edelweiss Housing Finance"
+    aliases: ["Nido Home Finance", "Edelweiss Housing Finance", "Edelweiss Housing"]
+
+  # --------------------------------------------------------------- NBFCs
+  Piramal Finance:
+    type: NBFC
+    note: "Piramal Capital & Housing Finance; absorbed DHFL"
+    aliases: ["Piramal Capital", "Piramal Housing", "Piramal Finance", "PCHFL", "DHFL"]
+    ambiguous: ["Piramal"]
+  Shriram Finance:
+    type: NBFC
+    aliases: ["Shriram Finance", "Shriram City Union"]
+  Capri Global:
+    type: NBFC
+    aliases: ["Capri Global Capital", "Capri Global Housing Finance", "Capri Global"]
+  Five Star:
+    type: NBFC
+    aliases: ["Five Star Business Finance", "Five Star Finance"]
+  Hero FinCorp:
+    type: NBFC
+    aliases: ["Hero FinCorp", "Hero Fincorp"]
+
+# ------------------------------------------------------- unrecognised lenders
+# A capitalised name followed by one of these is lender-shaped. If the registry
+# does not know it, it is reported for review (and only fuzzy-matched when the
+# name is a near-spelling of a registry name, never "closest wins").
+lender_suffixes: ["Housing Finance", "Home Finance", "Housing Development Finance",
+                  "Home Loans", "Home Loan", "Housing", "HFC", "HFL", "HF", "Finance",
+                  "Financiers", "Finserv", "Fincorp", "FinCorp", "Capital",
+                  "Small Finance Bank", "SFB", "Co-operative Bank", "Cooperative Bank",
+                  "Sahakari Bank", "Bank"]
+# Leading words that make a lender-shaped phrase generic rather than a name.
+generic_heads: ["the", "a", "an", "our", "their", "his", "her", "local", "another", "other",
+                "some", "any", "this", "that", "same", "private", "govt", "government",
+                "public", "customer", "customers", "branch", "co-operative", "cooperative",
+                "nationalised", "nationalized", "psu", "housing", "home", "bank", "finance",
+                "loan", "loans", "rural", "urban", "small", "big", "new", "old", "existing",
+                "previous", "current", "also", "with", "from", "and", "or", "of", "to", "in",
+                "at", "for", "by", "via", "hfc", "nbfc", "his", "pvt", "ltd", "rate",
+                "competitor", "competing", "rival", "approved", "builder", "project",
+                "sanction", "offer", "letter", "quote", "copy", "whatsapp", "verbal", "says",
+                "claims", "mentioned", "showed", "forwarded", "called", "comparing", "losing",
+                "files", "shared", "walk-in", "dsa-sourced", "connector", "online", "lead",
+                "enquiry", "salaried", "self-employed", "aware", "rbi", "nhb", "cibil"]
+fuzzy:
+  # difflib ratios. A bare word must reach min_ratio against a registry name
+  # ("Shubam" vs "Shubham" = 0.92). A lender-shaped phrase must reach min_ratio
+  # as a whole and min_head_ratio on its name part, so "Muthoot Fincorp" (same
+  # group, different lender) is not folded into "Muthoot HF". Below either, the
+  # name is unrecognised and goes to review - it is never guessed.
+  min_ratio: 0.86
+  min_head_ratio: 0.80
+  min_length: 5
+
+# --------------------------------------------------------------- extraction cues
+# Evidence is classified per mention from the words around it. Explicit negation
+# wins over a document cue ("no document shared"), and a document cue wins over
+# plain hearsay ("customer says" next to "sanction letter").
+evidence_cues:
+  undocumented:
+    ["no document", "no documents", "no doc", "not verified", "unverified", "not shared",
+     "yet to share", "will share", "awaited", "without document", "without any document",
+     "no proof", "no letter", "no copy", "not on file", "verbal", "verbally", "whatsapp",
+     "screenshot", "claims", "claimed", "called with", "over phone", "on phone", "on call"]
+  documented:
+    ["sanction letter", "offer letter", "sanction copy", "sanction mail", "letter on file",
+     "on file", "letter shared", "copy shared", "written quote", "quote letter",
+     "documented", "in writing"]
+  hearsay:
+    ["as per customer", "per customer", "customer says", "says", "said", "mentioned",
+     "bol raha", "bol rahi", "bata raha", "bata rahi", "keh raha", "heard", "told"]
+
+# An `ambiguous` alias counts only in a sentence carrying a rate or one of these.
+lending_context_cues: ["quote", "quoted", "offer", "offering", "offered", "sanction", "loan", "roi",
+                       "interest", "rate", "bt ", "balance transfer", "comparing", "compare",
+                       "lender", "files", "aggressive", "de raha", "de rahi", "karayega",
+                       "pricing", "takeover", "switch"]
+
+# A rate whose lead-in carries one of these is the customer's own ask, not a quote.
+customer_ask_cues: ["wants", "want ", "wanted", "firm on", "expects", "expecting", "expectation",
+                    "asking for", "asked for", "asks for", "looking for", "target rate",
+                    "will not sign above", "won't sign above", "will sign at", "will close at",
+                    "chahiye", "budget", "ready at", "ready to sign at", "insisting on",
+                    "stays above", "goes above", "if our rate is above", "only if below"]
+# ...and one of these marks our own rate.
+our_rate_cues: ["our rate", "our offer", "our roi", "our card", "we offered", "we quoted",
+                "we can", "we sanctioned", "offered by us", "from us", "retain", "retaining",
+                "recommended", "card rate", "our pricing", "our final"]
+
+# ------------------------------------------------------------- analysis
+analysis:
+  # Cells with fewer observations than this are suppressed, not shown as noise.
+  min_n_cell: 20
+  min_n_rate: 30          # a win rate or override rate needs more than a median does
+  min_n_benchmark: 15     # per-loan city benchmark
+  # Gap = competitor quote - our sanctioned rate, in bps. Negative = they undercut us.
+  gap_buckets_bps: [-75, -50, -25, 0, 25]
+  plausibility_percentile: 5
+  comparable_negotiations: 3

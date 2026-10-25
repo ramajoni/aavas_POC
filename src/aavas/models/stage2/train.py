@@ -13,7 +13,6 @@ import numpy as np
 
 from ...config import model_config
 from ...features import stage2_features
-from ...features.feature_pipeline import FeatureTransformer
 from ...ingestion import loader
 from ...ingestion.schemas import TARGETS
 from ...logging_utils import get_logger, log_metrics, run
@@ -21,25 +20,57 @@ from .. import base, provenance
 
 log = get_logger(__name__)
 NAME = "stage2"
+TASK = "regression"
+
+
+def rows(df):
+    """Every file in the table: the anchor is fitted on the price each one cleared at."""
+    return df
+
+
+def features(frame):
+    return stage2_features.build(frame)
+
+
+def split(df):
+    """The trainer's chronological train / holdout split."""
+    return loader.train_test_split(rows(df))
+
+
+def incumbent() -> dict:
+    """The learner ``base.stage2_learner`` fits: XGBoost when installed."""
+    cfg = model_config()[NAME]
+    _, label = base.stage2_learner()
+    if label == "xgboost":
+        return {"family": "xgboost", "params": dict(cfg["params"])}
+    return {"family": "hist_gradient_boosting", "params": dict(cfg["hist_params"])}
+
+
+def selection_data(df):
+    """Fit / validation frames for the AutoML search, from this trainer's own
+    split, builder and contract (see ``base.selection_data``)."""
+    dev_df, holdout_df = split(df)
+    return base.selection_data(
+        NAME, TASK, dev_df, holdout_df, feature_spec=stage2_features.stage2_spec(),
+        build=features, target=TARGETS[NAME], metric="mae_bps", incumbent=incumbent())
 
 
 def train(df=None, save: bool = True) -> base.ModelCard:
-    cfg = model_config()["stage2"]
+    cfg = model_config()[NAME]
     df = loader.load_training_table() if df is None else df
-    train_df, test_df = loader.train_test_split(df)
+    train_df, test_df = split(df)
 
     spec = stage2_features.stage2_spec()
-    transformer = FeatureTransformer(spec)
-    X_train = transformer.fit_transform(stage2_features.build(train_df))
-    X_test = transformer.transform(stage2_features.build(test_df))
-    y_train = train_df[TARGETS["stage2"]].to_numpy(float)
-    y_test = test_df[TARGETS["stage2"]].to_numpy(float)
+    transformer, ((X_train, y_train), (X_test, y_test)) = base.design(
+        spec, features, TARGETS[NAME], train_df, test_df)
 
     params = _tune(X_train, y_train) if cfg.get("tuning", {}).get("enabled") else None
 
     with run(f"{NAME}-train", {"learner": cfg["learner"]}) as active:
-        model, learner_name = base.stage2_learner()
-        if params:
+        model, learner_name = base.learner(NAME, TASK, spec, fallback=base.stage2_learner)
+        if params and learner_name == base.stage2_learner()[1]:
+            # Optuna tuned the fallback learner's params; they mean nothing to
+            # another family the portfolio search may have selected.
             model.set_params(**params)
         model.fit(X_train, y_train)
         pred = model.predict(X_test)
@@ -68,6 +99,7 @@ def train(df=None, save: bool = True) -> base.ModelCard:
             "reported separately; they are not a justification for pricing a customer.",
         ],
         dataset=dataset,
+        selection=base.selection_record(NAME, learner_name),
     ).finalize()
 
     log.info("stage2 MAE %.1f bps | within 25bps %.1f%% | R2 %.3f",

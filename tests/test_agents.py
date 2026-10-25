@@ -68,15 +68,22 @@ def test_dormant_agents_say_why():
 
 
 def test_status_reflects_missing_artefacts():
-    full = {a["name"]: a for a in roster.roster({"stage1", "stage2", "risk", "conversion",
-                                                 "prepayment", "override"})}
+    full = {a["name"]: a for a in roster.roster({"stage1", "stage2", "risk", "lgd", "conversion",
+                                                 "prepayment", "override", "uplift"})}
     assert full["risk"]["status"] == "ready"
+    assert full["learning"]["status"] == "ready"
+
+    # Risk without its LGD model still prices - on the policy table - and says so.
+    no_lgd = {a["name"]: a for a in roster.roster({"stage1", "stage2", "risk", "conversion",
+                                                   "prepayment", "override", "uplift"})}
+    assert no_lgd["risk"]["status"] == "degraded"
+    assert no_lgd["risk"]["missing_models"] == ["lgd"]
     assert full["acceptance"]["status"] == "dormant"
 
     degraded = {a["name"]: a for a in roster.roster({"stage1", "stage2", "conversion"})}
     # The agent still runs; the engine falls back. That is not the same as absent.
     assert degraded["risk"]["status"] == "degraded"
-    assert degraded["risk"]["missing_models"] == ["risk"]
+    assert degraded["risk"]["missing_models"] == ["risk", "lgd"]
     assert degraded["policy"]["status"] == "ready", "an agent with no model cannot degrade"
 
 

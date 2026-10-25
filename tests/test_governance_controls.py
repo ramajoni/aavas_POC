@@ -44,9 +44,10 @@ def keys(monkeypatch):
 
 # ------------------------------------------------------------------ identity
 
-def test_auth_is_disabled_by_default_and_says_so(client: TestClient) -> None:
-    """The POC runs without setup. What must never happen is that it looks
-    secured while it is not."""
+def test_disabled_auth_says_so(client: TestClient, monkeypatch) -> None:
+    """Sign-in is the default now (test_access_control.py), but scripts can still
+    switch it off. What must never happen is that it looks secured while it is not."""
+    monkeypatch.setenv("AAVAS_AUTH_MODE", "disabled")
     body = client.get("/governance").json()
     assert body["auth"]["mode"] == "disabled"
     assert body["auth"]["enforced"] is False

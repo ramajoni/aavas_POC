@@ -4,6 +4,7 @@ import {Line} from 'react-chartjs-2';
 import {Gauge,ChartBar,ArrowClockwise,WarningCircle,Eye,Info} from '@phosphor-icons/react';
 import {api,titleCase,number} from './api';
 import {Button,Panel,Badge,InfoBox,Empty,DataTable} from './components';
+import {useCanOpen} from './access';
 
 ChartJS.register(CategoryScale,LinearScale,PointElement,LineElement,Tooltip,Legend);
 
@@ -37,7 +38,8 @@ function BandChart({models,units}){
  return <div className="band-chart"><Line data={data} options={options}/></div>;
 }
 
-export function CreditScore({navigate}){
+export function CreditScore({navigate:go}){
+ const can=useCanOpen();const navigate=go&&can('xai')?go:null;
  const [body,setBody]=useState(null);const [loading,setLoading]=useState(false);const [error,setError]=useState('');
 
  async function load(){setLoading(true);setError('');

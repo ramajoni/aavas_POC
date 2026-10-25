@@ -69,11 +69,18 @@ OUTCOME_COLUMNS = [
     "customer_response", "disbursed", "bt_out_24m", "delinquent_12m", "defaulted",
     "months_to_exit", "realized_life_years", "realized_yield_pct", "realized_value_pct",
     "realized_value_inr",
+    # Observed loss severity, populated only on defaulted loans. An outcome, so it
+    # is a target for the LGD model and never a feature of anything.
+    "realized_lgd",
 ]
 
 # Ground truth that only exists because the data is synthetic. Never a feature.
 LATENT_COLUMNS = [
     "true_pd", "true_lgd", "price_elasticity", "true_conversion_probability", "true_bt_probability",
+    # The generator's market parameter per state. No branch records it; a real
+    # lender would have to estimate it, so treating it as observed would hand the
+    # models the answer to a question the business has to work out.
+    "state_competitive_intensity",
 ]
 
 ALL_COLUMNS = (
@@ -96,6 +103,8 @@ TARGETS = {
     "conversion": "disbursed",
     "prepayment": "bt_out_24m",
     "risk": "defaulted",
+    "lgd": "realized_lgd",          # observed loss severity, defaulted loans only
+    "uplift": "disbursed",          # acceptance, among discounted vs untouched files
     "override_flag": "was_overridden",
     "override_magnitude": "override_bps",
 }

@@ -26,12 +26,16 @@ class PolicyAgent:
             "max_affordable_rate": float(band["max_affordable_rate"]),
             "affordability_binding": bool(band["affordability_binding"]),
             "infeasible": bool(band["infeasible"]),
+            "resize_required": bool(band["resize_required"]),
             "policy_version": policy()["policy_version"],
         }
-        if envelope["infeasible"]:
+        if envelope["resize_required"]:
+            # Sized at the card rate so the twin carries the condition from the
+            # start; the recommendation's own policy check re-sizes at its rate.
+            envelope["resize_at_card"] = constraints.resize_terms(twin.frame, envelope["card_rate"])
             twin.note(
-                "no permissible rate keeps this file inside the FOIR cap; the ticket or tenure "
-                "has to change before pricing is meaningful"
+                "no permissible rate keeps this file inside the FOIR cap at its current size; it is "
+                "priced on its risk band, conditional on reducing the loan or extending the tenure"
             )
         twin.envelope = envelope
         return envelope

@@ -89,10 +89,13 @@ def generate(
                 notes.append(f"lower end trimmed to {support_low:.2f}% for the same reason")
                 low = support_low
 
-    if bool(envelope["infeasible"]):
-        notes.append("file is not affordable inside the permissible band; scenarios collapse to the floor")
-        return ScenarioSet(np.array([round(low, 2)]), RateBand(low, low),
-                           {"card_rate": card}, notes)
+    resize_required = bool(envelope.get("resize_required", envelope["infeasible"]))
+    if resize_required:
+        # Collapsing to one point would recommend a below-card rate that is still
+        # unaffordable. The file is priced on its risk band instead, and every
+        # scenario carries the same condition: the loan is resized first.
+        notes.append("no permissible rate keeps this file inside the FOIR cap at its current size; "
+                     "scenarios are priced on the risk-based band, each conditional on resizing the loan")
 
     rates = np.arange(low, high + 1e-9, step)
 
@@ -108,7 +111,7 @@ def generate(
     extra = [v for v in anchors.values() if low - 1e-9 <= v <= high + 1e-9]
     rates = np.unique(np.round(np.concatenate([rates, np.array(extra, dtype=float)]), 2))
 
-    if bool(envelope["affordability_binding"]):
+    if bool(envelope["affordability_binding"]) and not resize_required:
         notes.append(f"upper end capped by affordability at {envelope['max_affordable_rate']:.2f}%")
     if competitor_rate is not None and np.isfinite(competitor_rate) and competitor_rate < low:
         # Worth saying out loud: no permissible price matches this competitor, so

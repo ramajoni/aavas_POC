@@ -1,0 +1,94 @@
+{
+  "stage1": {
+    "family": "xgboost_quantile",
+    "task": "quantile",
+    "params": {
+      "n_estimators": 369,
+      "max_depth": 3,
+      "learning_rate": 0.06832,
+      "subsample": 0.9185,
+      "colsample_bytree": 0.6804,
+      "reg_lambda": 0.1811,
+      "min_child_weight": 8.855
+    },
+    "metric": "pinball_bps",
+    "value": 7.382225,
+    "selected_at": "2026-10-20T16:05:13+00:00",
+    "report": "reports/automl/portfolio/stage1.json"
+  },
+  "uplift": {
+    "family": "xgboost",
+    "task": "uplift",
+    "params": {
+      "learner": "dose",
+      "n_estimators": 329,
+      "max_depth": 3,
+      "learning_rate": 0.04524,
+      "subsample": 0.9173,
+      "colsample_bytree": 0.7964,
+      "reg_lambda": 1.432,
+      "min_child_weight": 5.461
+    },
+    "metric": "qini",
+    "value": 0.98293,
+    "selected_at": "2026-10-20T15:47:04+00:00",
+    "report": "reports/automl/portfolio/uplift.json"
+  },
+  "stage2": {
+    "family": "catboost",
+    "task": "regression",
+    "params": {
+      "iterations": 735,
+      "depth": 5,
+      "learning_rate": 0.1915,
+      "l2_leaf_reg": 8.845
+    },
+    "metric": "mae_bps",
+    "value": 10.235667,
+    "selected_at": "2026-10-20T15:38:13+00:00",
+    "report": "reports/automl/portfolio/stage2.json"
+  },
+  "risk": {
+    "family": "logistic_regression",
+    "task": "binary",
+    "params": {
+      "C": 0.01366
+    },
+    "metric": "auc",
+    "value": 0.749368,
+    "selected_at": "2026-10-20T15:40:11+00:00",
+    "report": "reports/automl/portfolio/risk.json"
+  },
+  "conversion": {
+    "family": "xgboost",
+    "task": "binary",
+    "params": {
+      "n_estimators": 225,
+      "max_depth": 3,
+      "learning_rate": 0.04428,
+      "subsample": 0.8077,
+      "colsample_bytree": 0.7065,
+      "reg_lambda": 0.1207,
+      "min_child_weight": 9.217
+    },
+    "metric": "auc",
+    "value": 0.719471,
+    "selected_at": "2026-10-20T15:41:48+00:00",
+    "report": "reports/automl/portfolio/conversion.json"
+  },
+  "lgd": {
+    "family": "hist_gradient_boosting",
+    "task": "regression",
+    "params": {
+      "max_iter": 367,
+      "learning_rate": 0.02178,
+      "max_depth": 3,
+      "min_samples_leaf": 26,
+      "l2_regularization": 7.378
+    },
+    "metric": "mae_pts",
+    "value": 14.593044,
+    "selected_at": "2026-10-20T15:42:13+00:00",
+    "report": "reports/automl/portfolio/lgd.json"
+  }
+}

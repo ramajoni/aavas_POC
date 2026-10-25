@@ -48,8 +48,8 @@ AGENTS: list[dict[str, Any]] = [
      "decides": "The indicative band and the confidence attached to it, before any "
                 "document has been collected."},
     {"name": "risk", "cls": "RiskAgent", "module": "aavas.agents.risk_agent",
-     "wired": True, "stages": ["final_assessment"], "models": ["risk"],
-     "tools": ["model.risk"],
+     "wired": True, "stages": ["final_assessment"], "models": ["risk", "lgd"],
+     "tools": ["model.risk", "model.lgd"],
      "skills": ["yield_calculation"],
      "decides": "PD, the risk grade derived from it, and the annual expected loss the "
                 "price has to cover."},
@@ -88,9 +88,10 @@ AGENTS: list[dict[str, Any]] = [
      "decides": "Reason codes in basis points, the commercial-versus-risk split, and whether "
                 "the file needs a fair-pricing review."},
     {"name": "learning", "cls": "LearningAgent", "module": "aavas.agents.learning_agent",
-     "wired": True, "stages": ["override", "outcome"], "models": [],
+     "wired": True, "stages": ["override", "outcome"], "models": ["uplift"],
      "tools": ["store.governance", "procedure.outcome_capture",
-               "procedure.override_learning", "procedure.retraining_assessment"],
+               "procedure.override_learning", "procedure.retraining_assessment",
+               "model.uplift"],
      "skills": ["drift_detection"],
      "decides": "What happens after the decision: the human override and the eventual "
                 "outcome, captured so the next model can be fitted on them."},

@@ -5,15 +5,16 @@ threshold a business user would reasonably want to change - it all lives in
 ``config/*.yaml``. The consequence is that the six files *are* the product's
 behaviour, and until now the only way to see them was to open them.
 
-This serves them read-only, with three things a text editor does not give you:
-the version each file declares, which environment variables are currently
-overriding it, and a search across all of them at once.
+This serves them with three things a text editor does not give you: the version
+each file declares, which environment variables are currently overriding it, and
+a search across all of them at once.
 
-**Read-only on purpose.** Editing these values from a browser would change the
-priced path - authority limits, rate floors, fairness gates - with no approval
-path behind it, and this repo has no such path yet (see
-docs/agentic-os-flow-gap.md section 2). What the endpoint does instead is show
-exactly what is in force, which is the part a reviewer needs.
+**Editable by a signed-in administrator only.** A change applies to the next
+priced decision, so it is checked, must carry a new version, is test-priced and
+rolled back if pricing fails, and is recorded with both texts so it can be undone
+(``governance/config_changes.py``). With authentication disabled nobody can edit:
+a configuration change by an unidentified caller is the one thing this must not
+allow. Everyone else with access reads.
 
 Secrets are never served. ``ANTHROPIC_API_KEY`` is reported as set or unset and
 never carries a value.
@@ -24,11 +25,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
+from .. import config as config_module
 from ..config import _FILES, load
+from ..governance import config_changes
 from ..logging_utils import get_logger
-from ..paths import CONFIG_DIR
+from . import security
+from .security import Principal, current_principal
 
 log = get_logger(__name__)
 router = APIRouter(prefix="/config", tags=["configuration"])
@@ -51,6 +56,10 @@ DESCRIPTIONS = {
                   "which layer each one feeds, its MCP transport, and the consent it needs.",
     "governance": "Who may approve a change to the system itself, which gates must pass "
                   "first, and whether a failed gate can be overridden and by whom.",
+    "competitors": "The competitor registry: canonical lenders, the aliases branches write "
+                   "them under, which bare names are ambiguous, and the fuzzy-match bound.",
+    "intake": "Online applications: the document types a borrower is asked for, the file "
+              "formats accepted (judged by contents), and the size and count limits.",
 }
 
 # The environment variables the code actually reads. Declared rather than
@@ -68,16 +77,22 @@ ENV_VARS = [
     {"name": "AAVAS_MLFLOW_UI_URL", "controls": "Where the admin view links the MLflow UI."},
     {"name": "MLFLOW_TRACKING_URI", "controls": "Tracking store. Overrides model_config.tracking.uri."},
     {"name": "ANTHROPIC_API_KEY", "controls": "Claude credential.", "secret": True},
+    {"name": "AAVAS_AUTH_MODE", "controls": "session (default, sign-in required), apikey or disabled."},
+    {"name": "AAVAS_SESSION_SECRET", "controls": "Signs session tokens; unset, restarts sign everyone out.",
+     "secret": True},
+    {"name": "AAVAS_ACCESS_FILE", "controls": "Users, roles and route rules. Default config/access.yaml."},
+    {"name": "AAVAS_UPLOAD_DIR", "controls": "Where borrower documents are stored. Default data/uploads."},
 ]
 
 VERSION_KEYS = ("policy_version", "model_config_version", "feature_config_version",
                 "acceptance_config_version", "automl_config_version",
                 "federated_config_version", "connectors_config_version",
-                "governance_config_version")
+                "governance_config_version", "competitors_config_version",
+                "intake_config_version")
 
 
 def _path(name: str):
-    return CONFIG_DIR / _FILES[name]
+    return config_module.config_path(name)
 
 
 def _version(payload: dict[str, Any]) -> str | None:
@@ -87,22 +102,7 @@ def _version(payload: dict[str, Any]) -> str | None:
     return None
 
 
-def _flatten(payload: Any, prefix: str = "") -> list[tuple[str, Any]]:
-    """Every leaf as a dotted path, which is what makes the search useful."""
-    out: list[tuple[str, Any]] = []
-    if isinstance(payload, dict):
-        for key, value in payload.items():
-            out.extend(_flatten(value, f"{prefix}.{key}" if prefix else str(key)))
-    elif isinstance(payload, list):
-        scalars = all(not isinstance(v, (dict, list)) for v in payload)
-        if scalars:
-            out.append((prefix, payload))
-        else:
-            for index, value in enumerate(payload):
-                out.extend(_flatten(value, f"{prefix}[{index}]"))
-    else:
-        out.append((prefix, payload))
-    return out
+_flatten = config_changes.flatten
 
 
 def _env_state() -> list[dict[str, Any]]:
@@ -139,23 +139,81 @@ def _file_meta(name: str) -> dict[str, Any]:
         "bytes": stat.st_size,
         "modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
                             .isoformat(timespec="seconds"),
+        "locked": config_changes.LOCKED.get(name),
     }
 
 
+def can_edit(principal: Principal) -> bool:
+    """A signed-in administrator, or the technology role under API keys. Never an
+    unauthenticated caller, whatever roles the disabled mode hands it."""
+    if not principal.authenticated:
+        return False
+    if principal.mode == security.SESSION:
+        return principal.has("administrator")
+    return principal.has("technology")
+
+
+def editor(principal: Principal = Depends(current_principal)) -> Principal:
+    if not can_edit(principal):
+        raise HTTPException(403, "only a signed-in administrator can change configuration")
+    return principal
+
+
+def _reload() -> None:
+    """Drop every cache that holds configuration or something built from it."""
+    from ..intelligence import registry
+    from . import deps
+
+    config_module.reload()
+    registry.reset()
+    deps.reset()
+
+
+def _smoke() -> None:
+    """Price a sample application end to end with the configuration as written."""
+    from .contracts import Stage1Request, Stage2Request
+    from .deps import get_orchestrator
+    from .examples import FINAL_ASSESSMENT, PRE_ASSESSMENT
+
+    for name in _FILES:
+        load(name)
+    orchestrator = get_orchestrator()
+    orchestrator.pre_assessment(Stage1Request(**{**PRE_ASSESSMENT, "loan_id": "CONFIG-CHECK"}).to_row(),
+                                persist=False)
+    result = orchestrator.process(Stage2Request(**{**FINAL_ASSESSMENT, "loan_id": "CONFIG-CHECK"}).to_row(),
+                                  persist=False)
+    if not (result.get("recommendation") or {}).get("recommended_rate"):
+        raise ValueError("the sample application produced no recommended rate")
+    config_module.versions()
+
+
+class ConfigEdit(BaseModel):
+    raw: str = Field(..., min_length=1, max_length=500_000)
+    version: str | None = Field(None, max_length=64,
+                                description="The new version; replaces the file's version line")
+
+
+def _rejected(exc: config_changes.ChangeRejected) -> HTTPException:
+    return HTTPException(exc.status, str(exc))
+
+
 @router.get("", summary="Every configuration file the engine reads")
-def index() -> dict[str, Any]:
+def index(principal: Principal = Depends(current_principal)) -> dict[str, Any]:
     files = [_file_meta(name) for name in sorted(_FILES)]
     env = _env_state()
+    editable = can_edit(principal)
     return {
         "files": files,
         "settings": sum(f["settings"] for f in files),
         "environment": env,
         "overrides_active": [e["name"] for e in env if e["set"]],
-        "editable": False,
-        "note": ("Read-only. Changing these values changes the priced path - authority "
-                 "limits, rate floors, fairness gates - and this repo has no approval path "
-                 "for a config change yet. Edit the file, restart the API, and the version "
-                 "each file declares is what lands on every decision."),
+        "editable": editable,
+        "note": ("Editable by you. A change applies to the next priced decision: it must parse, "
+                 "keep every section and carry a new version; a sample application is priced "
+                 "with it and the change is rolled back if that fails; every change is recorded "
+                 "and can be undone." if editable else
+                 "Read-only for your role. Only a signed-in administrator can change configuration, "
+                 "and every change is checked, test-priced and recorded."),
     }
 
 
@@ -192,6 +250,42 @@ def detail(name: str, raw: bool = True) -> dict[str, Any]:
         # that more expensive converts better" is not expressible in YAML.
         body["raw"] = _path(name).read_text(encoding="utf-8")
     return body
+
+
+@router.post("/{name}/preview", summary="Check a proposed edit without applying it")
+def preview(name: str, edit: ConfigEdit, principal: Principal = Depends(editor)) -> dict[str, Any]:
+    try:
+        return config_changes.check(name, edit.raw, edit.version)
+    except config_changes.ChangeRejected as exc:
+        raise _rejected(exc) from exc
+
+
+@router.put("/{name}", summary="Apply an edit to one configuration file")
+def update(name: str, edit: ConfigEdit, principal: Principal = Depends(editor)) -> dict[str, Any]:
+    try:
+        return config_changes.apply(name, edit.raw, version=edit.version, actor=principal.name,
+                                    reload=_reload, smoke=_smoke)
+    except config_changes.ChangeRejected as exc:
+        raise _rejected(exc) from exc
+
+
+@router.get("/{name}/history", summary="Changes made to one configuration file")
+def history(name: str) -> dict[str, Any]:
+    if name not in _FILES:
+        raise HTTPException(404, f"unknown config {name!r}; expected one of {sorted(_FILES)}")
+    return {"name": name, "changes": config_changes.history(name)}
+
+
+@router.post("/{name}/history/{change_id}/restore",
+             summary="Put a file back as it was before one change")
+def restore(name: str, change_id: str, principal: Principal = Depends(editor)) -> dict[str, Any]:
+    row = config_changes.change(change_id)
+    if row is None or row["name"] != name:
+        raise HTTPException(404, f"no change {change_id} on {name}")
+    try:
+        return config_changes.restore(change_id, actor=principal.name, reload=_reload, smoke=_smoke)
+    except config_changes.ChangeRejected as exc:
+        raise _rejected(exc) from exc
 
 
 @router.get("/{name}/raw", summary="One configuration file as written, comments included")

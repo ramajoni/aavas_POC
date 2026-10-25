@@ -1,7 +1,7 @@
-// The deployment-local API key, when the service runs with AAVAS_AUTH_MODE=apikey.
-// localStorage is appropriate for a key a developer pastes into their own browser
-// and wrong for a real credential: an SSO session cookie replaces this entirely,
-// and `apiKey`/`setApiKey` are the only two places that would change.
+import { sessionToken, endSession } from './session';
+
+// The deployment-local API key, for AAVAS_AUTH_MODE=apikey. Signed-in sessions
+// (the default) send a bearer token from ./session instead.
 const KEY_STORAGE = 'aavas.apiKey';
 export const apiKey = () => { try { return localStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; } };
 export const setApiKey = value => {
@@ -13,17 +13,25 @@ export class AuthRequiredError extends Error {
   constructor(message) { super(message); this.name = 'AuthRequiredError'; this.authRequired = true; }
 }
 
+// `body` is sent as JSON, or as multipart when it is FormData (file uploads).
 export async function api(path, body, options = {}) {
   const key = apiKey();
+  const token = sessionToken();
+  const form = body instanceof FormData;
   const response = await fetch(`/api${path}`, {
     method: body === undefined ? 'GET' : 'POST',
-    headers: { 'Content-Type': 'application/json', ...(key ? { 'X-API-Key': key } : {}) },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    headers: { ...(form ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(key ? { 'X-API-Key': key } : {}) },
+    ...(body === undefined ? {} : { body: form ? body : JSON.stringify(body) }),
     ...options,
   });
   if (response.status === 401 || response.status === 403) {
     let detail = '';
     try { detail = (await response.json()).detail; } catch { /* no body */ }
+    // A signed-in session the server no longer accepts has expired or been
+    // revoked: end it, and the app returns to the sign-in screen.
+    if (response.status === 401 && token) endSession();
+    // Signed in but outside this role: an ordinary error the page can show.
+    if (response.status === 403 && token) throw new Error(detail || 'Your role does not have access to this.');
     throw new AuthRequiredError(detail || 'This service requires authentication.');
   }
   let data;
@@ -33,6 +41,18 @@ export async function api(path, body, options = {}) {
     throw new Error(Array.isArray(detail) ? detail.map(e => `${e.loc?.slice(1).join(' ')}: ${e.msg}`).join(' · ') : typeof detail === 'string' ? detail : JSON.stringify(detail || data));
   }
   return data;
+}
+// Downloads a protected file with the session token and hands it to the browser
+// as a save. A plain link cannot carry the token.
+export async function downloadFile(path, filename) {
+  const token = sessionToken();
+  const response = await fetch(`/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (response.status === 401 && token) endSession();
+  if (!response.ok) throw new Error('This document could not be downloaded.');
+  const url = URL.createObjectURL(await response.blob());
+  const link = Object.assign(document.createElement('a'), { href: url, download: filename });
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 export const money = n => n == null ? '—' : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 export const number = n => n == null ? '—' : new Intl.NumberFormat('en-IN').format(n);

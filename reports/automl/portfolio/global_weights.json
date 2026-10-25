@@ -1,0 +1,940 @@
+{
+  "generated_at": "2026-10-20T15:56:55+00:00",
+  "definition": "share of mean |SHAP| per feature on the trainer's untouched holdout (the last 20% by application date), from the trained artefact",
+  "models": {
+    "risk": {
+      "model": "risk",
+      "artefact": {
+        "version": "v1",
+        "learner": "hist_gradient_boosting_classifier",
+        "trained_at": "2026-10-20T04:30:47+00:00",
+        "selection": null
+      },
+      "holdout": {
+        "rows": 2637,
+        "from": "2025-12-24",
+        "to": "2026-04-22"
+      },
+      "explained": "the fitted model",
+      "method": "shap",
+      "engine": "shap-treeexplainer",
+      "units": "log_odds",
+      "fallback_reason": null,
+      "rows": 2637,
+      "top": [
+        {
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "mean_abs": 0.837024,
+          "share_pct": 25.25,
+          "rank": 1
+        },
+        {
+          "feature": "income_verification_haircut",
+          "label": "Income verification gap",
+          "mean_abs": 0.382354,
+          "share_pct": 11.53,
+          "rank": 2
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "mean_abs": 0.217418,
+          "share_pct": 6.56,
+          "rank": 3
+        },
+        {
+          "feature": "banking_behaviour_score",
+          "label": "Banking behaviour",
+          "mean_abs": 0.211155,
+          "share_pct": 6.37,
+          "rank": 4
+        },
+        {
+          "feature": "deviation_count",
+          "label": "Credit deviations",
+          "mean_abs": 0.207544,
+          "share_pct": 6.26,
+          "rank": 5
+        }
+      ],
+      "features": [
+        {
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "mean_abs": 0.837024,
+          "share_pct": 25.25,
+          "rank": 1
+        },
+        {
+          "feature": "income_verification_haircut",
+          "label": "Income verification gap",
+          "mean_abs": 0.382354,
+          "share_pct": 11.53,
+          "rank": 2
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "mean_abs": 0.217418,
+          "share_pct": 6.56,
+          "rank": 3
+        },
+        {
+          "feature": "banking_behaviour_score",
+          "label": "Banking behaviour",
+          "mean_abs": 0.211155,
+          "share_pct": 6.37,
+          "rank": 4
+        },
+        {
+          "feature": "deviation_count",
+          "label": "Credit deviations",
+          "mean_abs": 0.207544,
+          "share_pct": 6.26,
+          "rank": 5
+        },
+        {
+          "feature": "sanctioned_loan_amount",
+          "label": "Loan amount",
+          "mean_abs": 0.173123,
+          "share_pct": 5.22,
+          "rank": 6
+        },
+        {
+          "feature": "foir",
+          "label": "Obligations to income",
+          "mean_abs": 0.168287,
+          "share_pct": 5.08,
+          "rank": 7
+        },
+        {
+          "feature": "bureau_vintage_months",
+          "label": "Credit history depth",
+          "mean_abs": 0.1587,
+          "share_pct": 4.79,
+          "rank": 8
+        },
+        {
+          "feature": "delinquency_count_24m",
+          "label": "Past delinquency",
+          "mean_abs": 0.151257,
+          "share_pct": 4.56,
+          "rank": 9
+        },
+        {
+          "feature": "appraised_property_value",
+          "label": "Property valuation",
+          "mean_abs": 0.125922,
+          "share_pct": 3.8,
+          "rank": 10
+        },
+        {
+          "feature": "verified_monthly_income",
+          "label": "Verified income",
+          "mean_abs": 0.121838,
+          "share_pct": 3.68,
+          "rank": 11
+        },
+        {
+          "feature": "applicant_age",
+          "label": "Applicant age",
+          "mean_abs": 0.121826,
+          "share_pct": 3.67,
+          "rank": 12
+        },
+        {
+          "feature": "segment",
+          "label": "Customer segment",
+          "mean_abs": 0.104412,
+          "share_pct": 3.15,
+          "rank": 13
+        },
+        {
+          "feature": "tenure_years",
+          "label": "Tenure",
+          "mean_abs": 0.075719,
+          "share_pct": 2.28,
+          "rank": 14
+        },
+        {
+          "feature": "channel",
+          "label": "Sourcing channel",
+          "mean_abs": 0.0734,
+          "share_pct": 2.21,
+          "rank": 15
+        },
+        {
+          "feature": "city",
+          "label": "Location",
+          "mean_abs": 0.072812,
+          "share_pct": 2.2,
+          "rank": 16
+        },
+        {
+          "feature": "property_type",
+          "label": "Property type",
+          "mean_abs": 0.061941,
+          "share_pct": 1.87,
+          "rank": 17
+        },
+        {
+          "feature": "technical_flag",
+          "label": "Technical assessment",
+          "mean_abs": 0.023944,
+          "share_pct": 0.72,
+          "rank": 18
+        },
+        {
+          "feature": "legal_flag",
+          "label": "Legal assessment",
+          "mean_abs": 0.022144,
+          "share_pct": 0.67,
+          "rank": 19
+        },
+        {
+          "feature": "new_to_credit",
+          "label": "Credit history",
+          "mean_abs": 0.004279,
+          "share_pct": 0.13,
+          "rank": 20
+        }
+      ],
+      "seconds": 1.9
+    },
+    "stage2": {
+      "model": "stage2",
+      "artefact": {
+        "version": "v1",
+        "learner": "xgboost",
+        "trained_at": "2026-10-20T04:30:43+00:00",
+        "selection": null
+      },
+      "holdout": {
+        "rows": 4000,
+        "from": "2025-12-24",
+        "to": "2026-04-22"
+      },
+      "explained": "the fitted model",
+      "method": "shap",
+      "engine": "xgboost-native-treeshap",
+      "units": "output",
+      "fallback_reason": null,
+      "rows": 4000,
+      "top": [
+        {
+          "feature": "competitor_rate",
+          "label": "Competitor pricing",
+          "mean_abs": 0.45015,
+          "share_pct": 28.63,
+          "rank": 1
+        },
+        {
+          "feature": "risk_grade",
+          "label": "Risk grade",
+          "mean_abs": 0.283472,
+          "share_pct": 18.03,
+          "rank": 2
+        },
+        {
+          "feature": "segment",
+          "label": "Customer segment",
+          "mean_abs": 0.261276,
+          "share_pct": 16.62,
+          "rank": 3
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "mean_abs": 0.171783,
+          "share_pct": 10.93,
+          "rank": 4
+        },
+        {
+          "feature": "property_type",
+          "label": "Property type",
+          "mean_abs": 0.120081,
+          "share_pct": 7.64,
+          "rank": 5
+        }
+      ],
+      "features": [
+        {
+          "feature": "competitor_rate",
+          "label": "Competitor pricing",
+          "mean_abs": 0.45015,
+          "share_pct": 28.63,
+          "rank": 1
+        },
+        {
+          "feature": "risk_grade",
+          "label": "Risk grade",
+          "mean_abs": 0.283472,
+          "share_pct": 18.03,
+          "rank": 2
+        },
+        {
+          "feature": "segment",
+          "label": "Customer segment",
+          "mean_abs": 0.261276,
+          "share_pct": 16.62,
+          "rank": 3
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "mean_abs": 0.171783,
+          "share_pct": 10.93,
+          "rank": 4
+        },
+        {
+          "feature": "property_type",
+          "label": "Property type",
+          "mean_abs": 0.120081,
+          "share_pct": 7.64,
+          "rank": 5
+        },
+        {
+          "feature": "deviation_count",
+          "label": "Credit deviations",
+          "mean_abs": 0.103181,
+          "share_pct": 6.56,
+          "rank": 6
+        },
+        {
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "mean_abs": 0.089968,
+          "share_pct": 5.72,
+          "rank": 7
+        },
+        {
+          "feature": "bureau_vintage_months",
+          "label": "Credit history depth",
+          "mean_abs": 0.049156,
+          "share_pct": 3.13,
+          "rank": 8
+        },
+        {
+          "feature": "income_verification_haircut",
+          "label": "Income verification gap",
+          "mean_abs": 0.016595,
+          "share_pct": 1.06,
+          "rank": 9
+        },
+        {
+          "feature": "sales_target_pct",
+          "label": "Sales target achievement",
+          "mean_abs": 0.005466,
+          "share_pct": 0.35,
+          "rank": 10
+        },
+        {
+          "feature": "city",
+          "label": "Location",
+          "mean_abs": 0.003741,
+          "share_pct": 0.24,
+          "rank": 11
+        },
+        {
+          "feature": "foir",
+          "label": "Obligations to income",
+          "mean_abs": 0.003579,
+          "share_pct": 0.23,
+          "rank": 12
+        },
+        {
+          "feature": "new_to_credit",
+          "label": "Credit history",
+          "mean_abs": 0.00219,
+          "share_pct": 0.14,
+          "rank": 13
+        },
+        {
+          "feature": "banking_behaviour_score",
+          "label": "Banking behaviour",
+          "mean_abs": 0.00213,
+          "share_pct": 0.14,
+          "rank": 14
+        },
+        {
+          "feature": "branch_target_pct",
+          "label": "Branch target achievement",
+          "mean_abs": 0.001994,
+          "share_pct": 0.13,
+          "rank": 15
+        },
+        {
+          "feature": "appraised_property_value",
+          "label": "Property valuation",
+          "mean_abs": 0.001672,
+          "share_pct": 0.11,
+          "rank": 16
+        },
+        {
+          "feature": "applicant_age",
+          "label": "Applicant age",
+          "mean_abs": 0.001226,
+          "share_pct": 0.08,
+          "rank": 17
+        },
+        {
+          "feature": "verified_monthly_income",
+          "label": "Verified income",
+          "mean_abs": 0.001149,
+          "share_pct": 0.07,
+          "rank": 18
+        },
+        {
+          "feature": "sanctioned_loan_amount",
+          "label": "Loan amount",
+          "mean_abs": 0.00114,
+          "share_pct": 0.07,
+          "rank": 19
+        },
+        {
+          "feature": "tenure_years",
+          "label": "Tenure",
+          "mean_abs": 0.001083,
+          "share_pct": 0.07,
+          "rank": 20
+        },
+        {
+          "feature": "channel",
+          "label": "Sourcing channel",
+          "mean_abs": 0.000699,
+          "share_pct": 0.04,
+          "rank": 21
+        },
+        {
+          "feature": "delinquency_count_24m",
+          "label": "Past delinquency",
+          "mean_abs": 0.000192,
+          "share_pct": 0.01,
+          "rank": 22
+        },
+        {
+          "feature": "technical_flag",
+          "label": "Technical assessment",
+          "mean_abs": 0.000158,
+          "share_pct": 0.01,
+          "rank": 23
+        },
+        {
+          "feature": "legal_flag",
+          "label": "Legal assessment",
+          "mean_abs": 8e-05,
+          "share_pct": 0.01,
+          "rank": 24
+        }
+      ],
+      "seconds": 1.2
+    },
+    "conversion": {
+      "model": "conversion",
+      "artefact": {
+        "version": "v1",
+        "learner": "hist_gradient_boosting_classifier",
+        "trained_at": "2026-10-20T04:30:44+00:00",
+        "selection": null
+      },
+      "holdout": {
+        "rows": 4000,
+        "from": "2025-12-24",
+        "to": "2026-04-22"
+      },
+      "explained": "the fitted model",
+      "method": "shap",
+      "engine": "shap-treeexplainer",
+      "units": "log_odds",
+      "fallback_reason": null,
+      "rows": 4000,
+      "top": [
+        {
+          "feature": "competitor_gap_bps",
+          "label": "Gap to competitor",
+          "mean_abs": 0.532472,
+          "share_pct": 41.27,
+          "rank": 1
+        },
+        {
+          "feature": "customer_negotiating",
+          "label": "Negotiation in progress",
+          "mean_abs": 0.187952,
+          "share_pct": 14.57,
+          "rank": 2
+        },
+        {
+          "feature": "channel",
+          "label": "Sourcing channel",
+          "mean_abs": 0.14002,
+          "share_pct": 10.85,
+          "rank": 3
+        },
+        {
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "mean_abs": 0.114893,
+          "share_pct": 8.9,
+          "rank": 4
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "mean_abs": 0.069173,
+          "share_pct": 5.36,
+          "rank": 5
+        }
+      ],
+      "features": [
+        {
+          "feature": "competitor_gap_bps",
+          "label": "Gap to competitor",
+          "mean_abs": 0.532472,
+          "share_pct": 41.27,
+          "rank": 1
+        },
+        {
+          "feature": "customer_negotiating",
+          "label": "Negotiation in progress",
+          "mean_abs": 0.187952,
+          "share_pct": 14.57,
+          "rank": 2
+        },
+        {
+          "feature": "channel",
+          "label": "Sourcing channel",
+          "mean_abs": 0.14002,
+          "share_pct": 10.85,
+          "rank": 3
+        },
+        {
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "mean_abs": 0.114893,
+          "share_pct": 8.9,
+          "rank": 4
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "mean_abs": 0.069173,
+          "share_pct": 5.36,
+          "rank": 5
+        },
+        {
+          "feature": "existing_relationship",
+          "label": "Existing relationship",
+          "mean_abs": 0.06825,
+          "share_pct": 5.29,
+          "rank": 6
+        },
+        {
+          "feature": "verified_monthly_income",
+          "label": "Verified income",
+          "mean_abs": 0.037608,
+          "share_pct": 2.91,
+          "rank": 7
+        },
+        {
+          "feature": "foir",
+          "label": "Obligations to income",
+          "mean_abs": 0.034448,
+          "share_pct": 2.67,
+          "rank": 8
+        },
+        {
+          "feature": "sanctioned_loan_amount",
+          "label": "Loan amount",
+          "mean_abs": 0.02698,
+          "share_pct": 2.09,
+          "rank": 9
+        },
+        {
+          "feature": "segment",
+          "label": "Customer segment",
+          "mean_abs": 0.022876,
+          "share_pct": 1.77,
+          "rank": 10
+        },
+        {
+          "feature": "city",
+          "label": "Location",
+          "mean_abs": 0.019758,
+          "share_pct": 1.53,
+          "rank": 11
+        },
+        {
+          "feature": "offered_rate",
+          "label": "Offered rate",
+          "mean_abs": 0.019193,
+          "share_pct": 1.49,
+          "rank": 12
+        },
+        {
+          "feature": "tenure_years",
+          "label": "Tenure",
+          "mean_abs": 0.012452,
+          "share_pct": 0.97,
+          "rank": 13
+        },
+        {
+          "feature": "prior_negotiation_rounds",
+          "label": "Negotiation rounds",
+          "mean_abs": 0.004255,
+          "share_pct": 0.33,
+          "rank": 14
+        }
+      ],
+      "seconds": 0.6
+    },
+    "lgd": {
+      "model": "lgd",
+      "artefact": {
+        "version": "v1",
+        "learner": "hist_gradient_boosting_regressor",
+        "trained_at": "2026-10-20T15:00:26+00:00",
+        "selection": {
+          "status": "no_selection",
+          "detail": "no selection recorded in reports/automl/portfolio/selection.json; the configured fallback learner was fitted"
+        }
+      },
+      "holdout": {
+        "rows": 263,
+        "from": "2025-12-18",
+        "to": "2026-04-22"
+      },
+      "explained": "the fitted model",
+      "method": "shap",
+      "engine": "shap-treeexplainer",
+      "units": "output",
+      "fallback_reason": null,
+      "rows": 263,
+      "top": [
+        {
+          "feature": "property_type",
+          "label": "Property type",
+          "mean_abs": 0.032051,
+          "share_pct": 33.92,
+          "rank": 1
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "mean_abs": 0.025312,
+          "share_pct": 26.79,
+          "rank": 2
+        },
+        {
+          "feature": "city",
+          "label": "Location",
+          "mean_abs": 0.010061,
+          "share_pct": 10.65,
+          "rank": 3
+        },
+        {
+          "feature": "sanctioned_loan_amount",
+          "label": "Loan amount",
+          "mean_abs": 0.008858,
+          "share_pct": 9.37,
+          "rank": 4
+        },
+        {
+          "feature": "legal_flag",
+          "label": "Legal assessment",
+          "mean_abs": 0.007229,
+          "share_pct": 7.65,
+          "rank": 5
+        }
+      ],
+      "features": [
+        {
+          "feature": "property_type",
+          "label": "Property type",
+          "mean_abs": 0.032051,
+          "share_pct": 33.92,
+          "rank": 1
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "mean_abs": 0.025312,
+          "share_pct": 26.79,
+          "rank": 2
+        },
+        {
+          "feature": "city",
+          "label": "Location",
+          "mean_abs": 0.010061,
+          "share_pct": 10.65,
+          "rank": 3
+        },
+        {
+          "feature": "sanctioned_loan_amount",
+          "label": "Loan amount",
+          "mean_abs": 0.008858,
+          "share_pct": 9.37,
+          "rank": 4
+        },
+        {
+          "feature": "legal_flag",
+          "label": "Legal assessment",
+          "mean_abs": 0.007229,
+          "share_pct": 7.65,
+          "rank": 5
+        },
+        {
+          "feature": "appraised_property_value",
+          "label": "Property valuation",
+          "mean_abs": 0.00537,
+          "share_pct": 5.68,
+          "rank": 6
+        },
+        {
+          "feature": "segment",
+          "label": "Customer segment",
+          "mean_abs": 0.004686,
+          "share_pct": 4.96,
+          "rank": 7
+        },
+        {
+          "feature": "technical_flag",
+          "label": "Technical assessment",
+          "mean_abs": 0.000921,
+          "share_pct": 0.97,
+          "rank": 8
+        }
+      ],
+      "seconds": 0.0
+    },
+    "uplift": {
+      "model": "uplift",
+      "artefact": {
+        "version": "v1",
+        "learner": "xgboost",
+        "trained_at": "2026-10-20T15:30:32+00:00",
+        "selection": {
+          "status": "selected",
+          "family": "xgboost",
+          "task": "uplift",
+          "params": {
+            "learner": "dose",
+            "n_estimators": 329,
+            "max_depth": 3,
+            "learning_rate": 0.04524,
+            "subsample": 0.9173,
+            "colsample_bytree": 0.7964,
+            "reg_lambda": 1.432,
+            "min_child_weight": 5.461
+          },
+          "metric": "qini",
+          "value": 0.98293,
+          "selected_at": "2026-10-20T15:30:09+00:00",
+          "report": "reports/automl/portfolio/uplift.json",
+          "learner": "dose",
+          "label": "Monotone dose-response learner (propensity-adjusted)"
+        }
+      },
+      "holdout": {
+        "rows": 3668,
+        "from": "2025-12-24",
+        "to": "2026-04-22"
+      },
+      "explained": "the surrogate of the served uplift at the reference discount (acceptance points)",
+      "method": "shap",
+      "engine": "shap-treeexplainer",
+      "units": "output",
+      "fallback_reason": null,
+      "rows": 3668,
+      "top": [
+        {
+          "feature": "channel",
+          "label": "Sourcing channel",
+          "mean_abs": 0.61769,
+          "share_pct": 30.46,
+          "rank": 1
+        },
+        {
+          "feature": "competitor_gap_bps",
+          "label": "Gap to competitor",
+          "mean_abs": 0.271198,
+          "share_pct": 13.37,
+          "rank": 2
+        },
+        {
+          "feature": "sales_target_pct",
+          "label": "Sales target achievement",
+          "mean_abs": 0.238598,
+          "share_pct": 11.77,
+          "rank": 3
+        },
+        {
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "mean_abs": 0.21033,
+          "share_pct": 10.37,
+          "rank": 4
+        },
+        {
+          "feature": "existing_relationship",
+          "label": "Existing relationship",
+          "mean_abs": 0.15304,
+          "share_pct": 7.55,
+          "rank": 5
+        }
+      ],
+      "features": [
+        {
+          "feature": "channel",
+          "label": "Sourcing channel",
+          "mean_abs": 0.61769,
+          "share_pct": 30.46,
+          "rank": 1
+        },
+        {
+          "feature": "competitor_gap_bps",
+          "label": "Gap to competitor",
+          "mean_abs": 0.271198,
+          "share_pct": 13.37,
+          "rank": 2
+        },
+        {
+          "feature": "sales_target_pct",
+          "label": "Sales target achievement",
+          "mean_abs": 0.238598,
+          "share_pct": 11.77,
+          "rank": 3
+        },
+        {
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "mean_abs": 0.21033,
+          "share_pct": 10.37,
+          "rank": 4
+        },
+        {
+          "feature": "existing_relationship",
+          "label": "Existing relationship",
+          "mean_abs": 0.15304,
+          "share_pct": 7.55,
+          "rank": 5
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "mean_abs": 0.133825,
+          "share_pct": 6.6,
+          "rank": 6
+        },
+        {
+          "feature": "days_to_month_end",
+          "label": "Days to month end",
+          "mean_abs": 0.113444,
+          "share_pct": 5.59,
+          "rank": 7
+        },
+        {
+          "feature": "customer_negotiating",
+          "label": "Negotiation in progress",
+          "mean_abs": 0.070353,
+          "share_pct": 3.47,
+          "rank": 8
+        },
+        {
+          "feature": "sanctioned_loan_amount",
+          "label": "Loan amount",
+          "mean_abs": 0.063147,
+          "share_pct": 3.11,
+          "rank": 9
+        },
+        {
+          "feature": "legal_flag",
+          "label": "Legal assessment",
+          "mean_abs": 0.051907,
+          "share_pct": 2.56,
+          "rank": 10
+        },
+        {
+          "feature": "competitor_rate",
+          "label": "Competitor pricing",
+          "mean_abs": 0.037083,
+          "share_pct": 1.83,
+          "rank": 11
+        },
+        {
+          "feature": "branch_target_pct",
+          "label": "Branch target achievement",
+          "mean_abs": 0.02477,
+          "share_pct": 1.22,
+          "rank": 12
+        },
+        {
+          "feature": "city",
+          "label": "Location",
+          "mean_abs": 0.018785,
+          "share_pct": 0.93,
+          "rank": 13
+        },
+        {
+          "feature": "prior_negotiation_rounds",
+          "label": "Negotiation rounds",
+          "mean_abs": 0.011503,
+          "share_pct": 0.57,
+          "rank": 14
+        },
+        {
+          "feature": "competitor_evidence_verified",
+          "label": "Competitor evidence",
+          "mean_abs": 0.004065,
+          "share_pct": 0.2,
+          "rank": 15
+        },
+        {
+          "feature": "ai_recommended_rate",
+          "label": "Recommended rate",
+          "mean_abs": 0.003378,
+          "share_pct": 0.17,
+          "rank": 16
+        },
+        {
+          "feature": "verified_monthly_income",
+          "label": "Verified income",
+          "mean_abs": 0.002475,
+          "share_pct": 0.12,
+          "rank": 17
+        },
+        {
+          "feature": "segment",
+          "label": "Customer segment",
+          "mean_abs": 0.002185,
+          "share_pct": 0.11,
+          "rank": 18
+        },
+        {
+          "feature": "month_end",
+          "label": "Month-end timing",
+          "mean_abs": 0.0,
+          "share_pct": 0.0,
+          "rank": 19
+        },
+        {
+          "feature": "risk_grade",
+          "label": "Risk grade",
+          "mean_abs": 0.0,
+          "share_pct": 0.0,
+          "rank": 20
+        },
+        {
+          "feature": "new_to_credit",
+          "label": "Credit history",
+          "mean_abs": 0.0,
+          "share_pct": 0.0,
+          "rank": 21
+        }
+      ],
+      "seconds": 0.3
+    }
+  },
+  "skipped": {},
+  "path": "/home/ram/aavas/reports/automl/portfolio/global_weights.json"
+}

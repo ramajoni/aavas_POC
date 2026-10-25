@@ -1,0 +1,410 @@
+{
+  "case": "TC1",
+  "title": "Prime borrower, competitor below card",
+  "flow": "Borrower -> RM pricing -> Manager",
+  "source_loan_id": "AAV0010358",
+  "application_id": "TC1-AAV0010358-20261020144343",
+  "steps": [
+    {
+      "step": "GetPriceRange",
+      "call": "POST /pricing/pre-assessment",
+      "status": 200
+    },
+    {
+      "step": "GetRiskBasedPriceRecommendation",
+      "call": "POST /pricing/final-assessment?include_scenarios=true",
+      "status": 200
+    },
+    {
+      "step": "NoteExtraction",
+      "call": "POST /notes/extract",
+      "status": 404,
+      "error": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "step": "CompetitorContext",
+      "call": "POST /competitors/context",
+      "status": 404,
+      "error": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "step": "LoanExplanation",
+      "call": "GET /pricing/explain/DEC-A4A1A65F8B5C",
+      "status": 200
+    },
+    {
+      "step": "PricingUplift",
+      "call": "POST /pricing/uplift",
+      "status": 404,
+      "error": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "step": "Override (RM authority)",
+      "call": "POST /pricing/override",
+      "status": 200
+    },
+    {
+      "step": "Override (counter-offer at the policy floor)",
+      "call": "POST /pricing/override",
+      "status": 200
+    },
+    {
+      "step": "Override (escalated)",
+      "call": "POST /pricing/override",
+      "status": 200
+    },
+    {
+      "step": "RecordPricingOutcome",
+      "call": "POST /pricing/outcome",
+      "status": 200
+    },
+    {
+      "step": "AuditTrail",
+      "call": "GET /pricing/audit/TC1-AAV0010358-20261020144343",
+      "status": 200
+    }
+  ],
+  "pre_assessment": {
+    "decision_id": "DEC-DD5D1D3D3F8E",
+    "band": {
+      "min_rate": 8.85,
+      "max_rate": 9.45,
+      "width_bps": 60.0
+    },
+    "most_likely_rate": null,
+    "confidence": 0.846,
+    "eligibility": null
+  },
+  "recommendation": {
+    "decision_id": "DEC-A4A1A65F8B5C",
+    "recommended_rate": 9.12,
+    "card_rate": 9.35,
+    "permissible_band": {
+      "min_rate": 8.75,
+      "max_rate": 16.5,
+      "width_bps": 775.0
+    },
+    "required_approval": "branch_manager",
+    "risk": {
+      "pd": 0.00302,
+      "lifetime_pd": 0.01209,
+      "lgd": 0.2623,
+      "risk_grade": "A",
+      "expected_loss_pct": 0.0793,
+      "breakeven_rate": 8.78,
+      "source": "model"
+    },
+    "conversion_probability": null,
+    "alternatives": {
+      "card_rate": {
+        "rate": 9.35,
+        "conversion_probability": 0.3555,
+        "expected_value_inr": 13177.0,
+        "value_vs_recommended_inr": 2088.0
+      },
+      "policy_floor": {
+        "rate": 9.12,
+        "conversion_probability": 0.5144,
+        "expected_value_inr": 11089.0,
+        "value_vs_recommended_inr": 0.0
+      },
+      "policy_ceiling": {
+        "rate": 9.6,
+        "conversion_probability": 0.209,
+        "expected_value_inr": 10720.0,
+        "value_vs_recommended_inr": -369.0
+      },
+      "stage2_anchor": {
+        "rate": 9.12,
+        "conversion_probability": 0.5144,
+        "expected_value_inr": 11089.0,
+        "value_vs_recommended_inr": 0.0
+      }
+    },
+    "policy_verdict": "refer",
+    "conditions": [],
+    "resize": null,
+    "notes": [],
+    "fair_pricing": {
+      "flagged": false,
+      "commercial_net_bps": -68.5,
+      "threshold_bps": 10,
+      "reason": "Commercial factors did not price this customer up."
+    },
+    "model_versions": {
+      "stage1": "v1",
+      "stage2": "v1",
+      "conversion": "v1",
+      "prepayment": "v1",
+      "risk": "v1",
+      "override": "v1"
+    }
+  },
+  "notes": {
+    "text": [
+      "Walk-in enquiry for purchase of a resale flat in Rajkot, salaried. Builder demanding payment by month end.",
+      "Customer accepted the recommended rate without negotiation.",
+      "Called customer, still comparing with Shubham Housing. Will revert in two days."
+    ],
+    "extraction": null
+  },
+  "explanation": {
+    "rate": {
+      "recommended": 9.12,
+      "card": 9.35,
+      "model_anchor": 9.094095,
+      "typical_customer": 11.610751,
+      "permissible_band": {
+        "min_rate": 8.75,
+        "max_rate": 16.5,
+        "width_bps": 775.0
+      },
+      "required_approval": "branch_manager"
+    },
+    "bridge": {
+      "baseline_rate": 11.610751,
+      "model_rate": 9.094095,
+      "recommended_rate": 9.12,
+      "optimisation_bps": 2.59,
+      "steps": [
+        {
+          "feature": "segment",
+          "label": "Customer segment",
+          "group": "customer_risk",
+          "delta_bps": -90.352
+        },
+        {
+          "feature": "competitor_rate",
+          "label": "Competitor pricing",
+          "group": "commercial",
+          "delta_bps": -68.4709
+        },
+        {
+          "feature": "risk_grade",
+          "label": "Risk grade",
+          "group": "customer_risk",
+          "delta_bps": -59.6862
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "group": "customer_risk",
+          "delta_bps": -14.4374
+        },
+        {
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "group": "customer_risk",
+          "delta_bps": -14.0483
+        },
+        {
+          "feature": "income_verification_haircut",
+          "label": "Income verification gap",
+          "group": "customer_risk",
+          "delta_bps": -1.6096
+        },
+        {
+          "feature": "city",
+          "label": "Location",
+          "group": "customer_risk",
+          "delta_bps": -1.4691
+        },
+        {
+          "feature": "new_to_credit",
+          "label": "Credit history",
+          "group": "customer_risk",
+          "delta_bps": -0.9428
+        },
+        {
+          "feature": "appraised_property_value",
+          "label": "Property valuation",
+          "group": "customer_risk",
+          "delta_bps": -0.2957
+        },
+        {
+          "feature": "sanctioned_loan_amount",
+          "label": "Loan amount",
+          "group": "customer_risk",
+          "delta_bps": -0.2627
+        },
+        {
+          "feature": "banking_behaviour_score",
+          "label": "Banking behaviour",
+          "group": "customer_risk",
+          "delta_bps": -0.1514
+        },
+        {
+          "feature": "sales_target_pct",
+          "label": "Sales target achievement",
+          "group": "commercial",
+          "delta_bps": -0.0779
+        },
+        {
+          "feature": "foir",
+          "label": "Obligations to income",
+          "group": "customer_risk",
+          "delta_bps": 0.0757
+        },
+        {
+          "feature": "branch_target_pct",
+          "label": "Branch target achievement",
+          "group": "commercial",
+          "delta_bps": 0.0588
+        },
+        {
+          "feature": "verified_monthly_income",
+          "label": "Verified income",
+          "group": "customer_risk",
+          "delta_bps": 0.0041
+        },
+        {
+          "feature": "bureau_vintage_months",
+          "label": "Credit history depth",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "delinquency_count_24m",
+          "label": "Past delinquency",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "tenure_years",
+          "label": "Tenure",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "applicant_age",
+          "label": "Applicant age",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "deviation_count",
+          "label": "Credit deviations",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "legal_flag",
+          "label": "Legal assessment",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "technical_flag",
+          "label": "Technical assessment",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "channel",
+          "label": "Sourcing channel",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "property_type",
+          "label": "Property type",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        }
+      ]
+    },
+    "methods": {
+      "stage2": "ablation",
+      "risk": "shap",
+      "conversion": "shap"
+    },
+    "headline": "Recommended rate 9.12%. Priced down by: customer segment (90 bps), competitor pricing (68 bps), risk grade (60 bps), loan to value (14 bps), bureau score (14 bps).",
+    "warnings": []
+  },
+  "override": {
+    "proposed_rate": 8.5,
+    "reason": "competitor_lower_rate",
+    "evidence_verified": true,
+    "required_approval": "credit_head",
+    "within_rm_authority": false,
+    "policy_check": {
+      "allowed": false,
+      "verdict": "block",
+      "rate": 8.5,
+      "card_rate": 9.35,
+      "discount_bps": 85.0,
+      "required_approval": "pricing_committee",
+      "violations": [
+        "rate 8.50% is below the absolute floor 8.60%",
+        "discount of 85 bps exceeds the maximum permissible 60 bps from card rate"
+      ],
+      "conditions": [],
+      "warnings": [],
+      "resize": null,
+      "permissible_band": {
+        "min_rate": 8.75,
+        "max_rate": 16.5,
+        "width_bps": 775.0
+      },
+      "policy_version": "HL-POLICY-2026.09"
+    },
+    "warning": "this override needs pricing_committee authority; it is recorded but must not be released to the customer without that approval",
+    "counter_offer": 8.75,
+    "counter_policy_check": {
+      "allowed": true,
+      "verdict": "refer",
+      "rate": 8.75,
+      "card_rate": 9.35,
+      "discount_bps": 60.0,
+      "required_approval": "credit_head",
+      "violations": [],
+      "conditions": [],
+      "warnings": [],
+      "resize": null,
+      "permissible_band": {
+        "min_rate": 8.75,
+        "max_rate": 16.5,
+        "width_bps": 775.0
+      },
+      "policy_version": "HL-POLICY-2026.09"
+    },
+    "escalated_to": "manager.demo:credit_head",
+    "within_authority_after_escalation": true,
+    "final_rate": 8.75,
+    "released": true
+  },
+  "outcome": {
+    "replayed_from_dataset": true,
+    "disbursed": false,
+    "customer_response": "rejected",
+    "sanctioned_rate": 8.75,
+    "recorded": true
+  },
+  "audit_events": [
+    "capture_outcome",
+    "capture_override",
+    "capture_override",
+    "capture_override",
+    "post_assessment_decision",
+    "pre_assessment_decision"
+  ],
+  "dataset_reference": {
+    "stage1_range": [
+      9.02,
+      9.79
+    ],
+    "recommended_rate": 9.2,
+    "override_bps": 0.0,
+    "sanctioned_rate": 9.14,
+    "customer_response": "rejected",
+    "true_pd": 0.00123,
+    "true_lgd": 0.2623,
+    "risk_grade": "A"
+  }
+}

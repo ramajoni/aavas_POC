@@ -63,8 +63,11 @@ def _foir(df: pd.DataFrame) -> pd.Series:
 
 
 def lgd(df: pd.DataFrame) -> pd.Series:
-    """Policy LGD table, adjusted for LTV. Loss severity is a collateral
-    question, so it stays a policy table rather than a fitted model."""
+    """Policy LGD table, adjusted for LTV.
+
+    No longer the primary source: the fitted LGD model (``models/lgd``) prices
+    severity when its artefact exists. This table is its fallback when the
+    artefact is missing, and the benchmark its card is judged against."""
     table = model_config()["risk"]["lgd_by_property_type"]
     if "property_type" in df.columns:
         base = df["property_type"].map(table).fillna(np.mean(list(table.values())))

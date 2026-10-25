@@ -57,7 +57,8 @@ TOOLS: list[dict[str, Any]] = [
      "unavailable_when": "the stage2 artefact is missing from models/",
      "fallback": "the policy card rate as the anchor"},
     {"name": "model.risk", "kind": "model", "module": "aavas.models.risk.predict",
-     "provides": "PD and lifetime PD; LGD comes from a policy table, not from the model.",
+     "provides": "PD and lifetime PD, graded; LGD from model.lgd, with the policy table as "
+                 "the fallback when that artefact is missing.",
      "unavailable_when": "the risk artefact is missing from models/",
      "fallback": "the grade supplied on the file and zero expected loss, stated in the notes "
                  "rather than applied silently"},
@@ -73,6 +74,16 @@ TOOLS: list[dict[str, Any]] = [
      "provides": "Whether a human is likely to override, and by how much.",
      "unavailable_when": "the override artefact is missing from models/",
      "fallback": "sales context without an override expectation"},
+    {"name": "model.lgd", "kind": "model", "module": "aavas.models.lgd.predict",
+     "provides": "Expected loss severity on default, fitted on observed recoveries and floored "
+                 "by policy.",
+     "unavailable_when": "the lgd artefact is missing from models/",
+     "fallback": "the policy LGD table by property type and LTV, reported as lgd_source"},
+    {"name": "model.uplift", "kind": "model", "module": "aavas.models.uplift.predict",
+     "provides": "Acceptance points a proposed discount buys on this file, adjusted for who "
+                 "historically got discounted, with the value it costs.",
+     "unavailable_when": "the uplift artefact is missing from models/",
+     "fallback": "no discount assessment; POST /pricing/uplift answers 503"},
 
     # --- stores and indexes --------------------------------------------------
     {"name": "store.governance", "kind": "store", "module": "aavas.governance.store",
@@ -214,7 +225,7 @@ READ, WRITE, PROPOSE = "read", "write", "propose"
 PERMISSIONS: dict[str, dict[str, Any]] = {
     # agent -> tool -> allowed operations
     "preassessment": {"model.stage1": [READ]},
-    "risk": {"model.risk": [READ]},
+    "risk": {"model.risk": [READ], "model.lgd": [READ]},
     "sales_context": {"model.override": [READ]},
     "pricing": {"model.stage2": [READ], "model.conversion": [READ],
                 "model.prepayment": [READ], "model.override": [READ]},
@@ -226,7 +237,9 @@ PERMISSIONS: dict[str, dict[str, Any]] = {
     "learning": {"store.governance": [READ, WRITE],
                  "procedure.outcome_capture": [READ, WRITE],
                  "procedure.override_learning": [READ],
-                 "procedure.retraining_assessment": [READ]},
+                 "procedure.retraining_assessment": [READ],
+                 # Read at the override stage: what the proposed discount buys.
+                 "model.uplift": [READ]},
     # Dormant. Declared so that wiring them in is a permission decision taken in
     # daylight rather than a side effect of flipping `wired`.
     "extraction": {"llm.claude": [READ], "connector.mcp": [READ], "source.registry": [READ]},

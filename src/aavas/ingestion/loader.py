@@ -73,7 +73,15 @@ def build_training_table(save: bool = True) -> pd.DataFrame:
     if save:
         out = resolve(cfg["processed_path"])
         out.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(out, index=False)
+        # Write beside the target and rename over it. A write cut short (a full
+        # disk, a killed process) must leave the previous table, not half of a
+        # new one with a fresher timestamp than the raw file it came from.
+        partial = out.with_name(out.name + ".partial")
+        try:
+            df.to_csv(partial, index=False)
+            partial.replace(out)
+        finally:
+            partial.unlink(missing_ok=True)
         log.info("wrote processed training table -> %s (%s rows)", out, len(df))
     return df
 
@@ -81,7 +89,14 @@ def build_training_table(save: bool = True) -> pd.DataFrame:
 def load_training_table(rebuild: bool = False) -> pd.DataFrame:
     cfg = model_config()["data"]
     p = resolve(cfg["processed_path"])
-    if rebuild or not p.exists():
+    raw = resolve(cfg["raw_path"])
+    # The processed table is a cache of the raw file. Regenerating the raw data
+    # and then reading a cache built from the previous version would train every
+    # model on columns the raw file no longer has, or without ones it gained.
+    stale = p.exists() and raw.exists() and p.stat().st_mtime < raw.stat().st_mtime
+    if stale:
+        log.info("processed training table is older than %s; rebuilding", raw.name)
+    if rebuild or stale or not p.exists():
         return build_training_table()
     return validator.coerce_types(pd.read_csv(p))
 

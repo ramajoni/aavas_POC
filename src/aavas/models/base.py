@@ -4,15 +4,20 @@ Every trained artefact is saved with the feature contract it was fitted on and a
 model card recording data volumes, metrics and the config versions in force.
 Nothing is loadable without that provenance, because a pricing recommendation has
 to be explainable months after the fact.
+
+The trainers also share their frame building through here (``design``): the
+AutoML search (``automl.portfolio``) must score candidates on exactly the
+features the trainer will fit, and two copies of that code would drift.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import joblib
 import numpy as np
@@ -49,6 +54,10 @@ class ModelCard:
     # Group fairness as measured on the held-out split. None means it could not be
     # measured - which is not the same as passing, and is recorded as such.
     fairness: dict[str, Any] | None = None
+    # The AutoML selection behind ``learner``: the report it came from, or why the
+    # fallback learner was fitted instead. None on artefacts trained before the
+    # portfolio search existed.
+    selection: dict[str, Any] | None = None
 
     def finalize(self) -> "ModelCard":
         self.trained_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -80,9 +89,16 @@ def fairness_report(frame: pd.DataFrame, y_true, p_pred, *,
     return {"group_column": column, **report}
 
 
+def registry_dir() -> Path:
+    """Where artefacts live. ``AAVAS_MODEL_DIR`` overrides the config, so a
+    candidate set can be trained and tested beside the champions without
+    overwriting them."""
+    return resolve(os.environ.get("AAVAS_MODEL_DIR") or model_config()["registry"]["dir"])
+
+
 def artifact_path(name: str, suffix: str = ".joblib") -> Path:
     version = model_config()["registry"]["version"]
-    directory = resolve(model_config()["registry"]["dir"])
+    directory = registry_dir()
     directory.mkdir(parents=True, exist_ok=True)
     return directory / f"{name}__{version}{suffix}"
 
@@ -101,7 +117,13 @@ def load(name: str) -> tuple[dict[str, Any], ModelCard]:
     if not path.exists():
         raise FileNotFoundError(f"{path} not found. Train the models first: python scripts/train_all.py")
     blob = joblib.load(path)
-    return blob["payload"], ModelCard(**blob["card"])
+    return blob["payload"], card_from_dict(blob["card"])
+
+
+def card_from_dict(data: dict[str, Any]) -> ModelCard:
+    """Tolerates fields a newer or older card carries that this one does not."""
+    known = set(ModelCard.__dataclass_fields__)
+    return ModelCard(**{k: v for k, v in data.items() if k in known})
 
 
 def exists(name: str) -> bool:
@@ -138,9 +160,14 @@ def quantile_regressor(alpha: float, params: dict):
 
 
 def stage2_learner():
-    """XGBoost when installed, sklearn otherwise. The POC must run either way."""
+    """XGBoost when installed, sklearn otherwise. The POC must run either way.
+
+    With ``learner: automl`` this is the fallback (``fallback_learner``), fitted
+    when no selection has been recorded."""
     cfg = model_config()["stage2"]
     choice = cfg.get("learner", "auto")
+    if choice == "automl":
+        choice = cfg.get("fallback_learner", "auto")
     if choice in ("auto", "xgboost"):
         try:
             from xgboost import XGBRegressor
@@ -151,6 +178,82 @@ def stage2_learner():
                 raise
             log.info("xgboost unavailable, falling back to HistGradientBoostingRegressor")
     return hgb_regressor(cfg["hist_params"]), "hist_gradient_boosting"
+
+
+def fallback_learner(name: str) -> str:
+    """The learner a trainer fits when the AutoML selection is off or absent."""
+    cfg = model_config()[name]
+    choice = cfg.get("learner", "")
+    return cfg.get("fallback_learner", choice) if choice == "automl" else choice
+
+
+def learner(name: str, task: str, spec: FeatureSpec | None,
+            fallback: Callable[[], tuple[Any, str]], alpha: float | None = None
+            ) -> tuple[Any, str]:
+    """(estimator, label) a trainer fits: the AutoML selection when the model's
+    config says ``learner: automl``, else - and whenever no selection is usable -
+    the trainer's own learner."""
+    if model_config()[name].get("learner") != "automl":
+        return fallback()
+    from ..automl import portfolio
+
+    return portfolio.build(name, task, spec, fallback, alpha=alpha)
+
+
+def selection_record(name: str, learner_label: str) -> dict[str, Any]:
+    """The ``selection`` field of a model card."""
+    if model_config()[name].get("learner") != "automl":
+        return {"status": "disabled",
+                "detail": f"model_config.{name}.learner is "
+                          f"{model_config()[name].get('learner')!r}, not 'automl'"}
+    from ..automl import portfolio
+
+    return portfolio.provenance(name, learner_label)
+
+
+# --------------------------------------------------------------- frame building
+
+
+def design(feature_spec: FeatureSpec, build: Callable[[pd.DataFrame], pd.DataFrame],
+           target: str, fit_df: pd.DataFrame, *others: pd.DataFrame, binary: bool = False
+           ) -> tuple[FeatureTransformer, list[tuple[pd.DataFrame, np.ndarray]]]:
+    """Feature matrices for one contract: transformer fitted on ``fit_df`` only.
+
+    Returns the fitted transformer and ``[(X, y)]`` for ``fit_df`` then each of
+    ``others``. Used by every trainer for its own train/test frames and by
+    ``selection_data`` for the search's fit/validation frames, so the search
+    scores candidates on exactly what the trainer fits.
+    """
+    transformer = FeatureTransformer(feature_spec)
+    frames = []
+    for i, frame in enumerate((fit_df, *others)):
+        built = build(frame)
+        X = transformer.fit_transform(built) if i == 0 else transformer.transform(built)
+        y = frame[target].astype(int).to_numpy() if binary else frame[target].to_numpy(float)
+        frames.append((X, y))
+    return transformer, frames
+
+
+def selection_data(name: str, task: str, dev_df: pd.DataFrame, holdout_df: pd.DataFrame, *,
+                   feature_spec: FeatureSpec, build: Callable[[pd.DataFrame], pd.DataFrame],
+                   target: str, metric: str = "", quantiles: list[float] | None = None,
+                   incumbent: dict[str, Any] | None = None):
+    """What a trainer hands the AutoML search: its training window split again.
+
+    ``dev_df`` / ``holdout_df`` are the trainer's own split. The holdout only
+    contributes its dates and row count to the report - its rows never reach the
+    search. ``dev_df`` is split chronologically (``automl.portfolio.split``) and
+    built with ``design``, the trainer's own frame code.
+    """
+    from ..automl import portfolio
+
+    fit_df, valid_df = portfolio.split(dev_df, holdout_df=holdout_df)
+    _, ((X_fit, y_fit), (X_valid, y_valid)) = design(
+        feature_spec, build, target, fit_df, valid_df, binary=task == "binary")
+    return portfolio.SelectionData(
+        name=name, task=task, X_fit=X_fit, y_fit=y_fit, X_valid=X_valid, y_valid=y_valid,
+        spec=feature_spec, metric=metric, quantiles=quantiles, target=target,
+        incumbent=incumbent, window=portfolio.window(fit_df, valid_df, holdout_df))
 
 
 def calibrate(estimator, X: pd.DataFrame, y: np.ndarray, method: str | None):

@@ -238,7 +238,7 @@ def load_bundle(name: str) -> ModelBundle:
     return ModelBundle(
         name=name, mode="classification", estimator=payload["classifier"],
         transformer=payload["transformer"], build=_override_build,
-        target="was_overridden", output_label="P(human overrides the AI price)",
+        target="was_overridden", output_label="P(human overrides the system price)",
         units="probability", card=card, class_names=["held", "overridden"],
         notes="The magnitude regressor is not analysed here: it is fitted on overridden "
               "files only, so a global attribution over the whole book would be misleading.",

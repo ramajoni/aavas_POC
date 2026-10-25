@@ -470,14 +470,16 @@ def test_config_index_covers_every_file_the_loader_knows(client):
         assert f["sections"] and f["description"]
 
 
-def test_config_is_read_only(client):
-    """Editing these values changes the priced path, and there is no approval
-    path behind a browser form. The payload has to say so rather than imply it."""
+def test_config_is_read_only_without_a_signed_in_administrator(client):
+    """Editing these values changes the priced path. With authentication disabled
+    nobody is identified, so nobody may write; the payload has to say so.
+    test_config_editing.py covers the administrator's write path."""
     body = client.get("/config").json()
     assert body["editable"] is False
-    assert "approval path" in body["note"]
-    for verb in ("POST", "PUT", "PATCH", "DELETE"):
-        assert client.request(verb, "/config/policy").status_code in (404, 405)
+    assert "administrator" in body["note"]
+    assert client.put("/config/policy", json={"raw": "x: 1"}).status_code == 403
+    for verb in ("PATCH", "DELETE"):
+        assert client.request(verb, "/config/policy").status_code == 405
 
 
 def test_config_never_serves_a_secret(client, monkeypatch):

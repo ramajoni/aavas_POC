@@ -1,0 +1,30 @@
+/* The feature funnel tab (Features.jsx). One series, one hue: the count is printed
+   on every row, so the bar only has to carry relative size. Bars are on a log
+   scale - the caption says so - because the stages span two orders of magnitude. */
+.ff-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.4rem}
+.ff-head .chip-row{margin:0}
+.ff-list{display:grid;gap:12px;margin:.9rem 0 .5rem}
+.ff-row{display:grid;grid-template-columns:minmax(200px,320px) 1fr 76px;align-items:center;gap:16px}
+.ff-label{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ff-label b{font-size:13px;color:var(--ink)}
+.ff-label small{color:var(--muted);line-height:1.45}
+.ff-track{height:22px;background:#f1f5fb;border-radius:4px;overflow:hidden}
+.ff-bar{display:flex;height:100%;background:#0756ff;border-radius:0 4px 4px 0;min-width:2px;transition:width .3s}
+.ff-bar.split{background:repeating-linear-gradient(135deg,#9db8f8 0 3px,#d6e2fd 3px 7px)}
+.ff-ok{display:block;height:100%;background:#0756ff;box-shadow:2px 0 0 #fff}
+.ff-count{font-size:17px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
+.ff-row:hover .ff-bar:not(.split),.ff-row:hover .ff-ok{background:#0645d1}
+.ff-legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:11px;color:var(--muted);margin-top:.2rem}
+.ff-legend i{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:#0756ff}
+.ff-legend i.hatch{background:repeating-linear-gradient(135deg,#9db8f8 0 3px,#d6e2fd 3px 7px)}
+.ff-served{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:11px;color:var(--muted);margin:.2rem 0 .1rem}
+.ff-cols{display:flex;flex-wrap:wrap;gap:4px}
+.ff-cols code{font-size:11px;background:#f1f5fb;border:1px solid var(--border);border-radius:3px;padding:1px 6px;color:#24365f}
+.ff-num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.ff-fail{color:#a4401b}
+.ff-method{margin:.4rem 0 0;padding-left:1.1rem;font-size:12px;line-height:1.6;color:#33415f}
+.ff-method li+li{margin-top:.25rem}
+@media (max-width:760px){
+ .ff-row{grid-template-columns:1fr 64px;gap:6px 12px}
+ .ff-track{grid-column:1/-1;grid-row:2}
+}

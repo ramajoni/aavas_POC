@@ -355,7 +355,7 @@ lifecycles, so the admin view gives each of them its own page:
 | **System of Record** | `#/record` | The twelve registries, the registered agent sets, and a walker that tries to rebuild a real decision link by link |
 | **Runtime & Drift** | `#/runtime` | Latency by stage, approval routing, override reasons, input and conversion drift, champions and the promotion gates |
 | **Agent Control Plane** | `#/agents` | Three tabs: the agent roster and step trace, the 17 **tools** with what makes each unavailable and what runs instead, and the 11 **skills** with the config that governs each |
-| **Configuration** | `#/config` | All settings across the config files, searchable, with the environment overrides in force. Read-only |
+| **Configuration** | `#/config` | All settings across the config files, searchable, with the environment overrides in force. Editable by the signed-in administrator: each change is validated, must carry a new version, is test-priced and rolled back if pricing fails, and is recorded with an undo; read-only for every other role |
 | **Connectors** | `#/connectors` | The five external systems — WhatsApp, Gmail, Outlook, Salesforce, Oracle Fusion — over MCP, and which gate is holding each |
 
 ### Agents, tools and skills are three registries
@@ -389,9 +389,39 @@ gap 0.0613) and `prepayment` (0.0587) fail the 0.05 threshold**. The models were
 adjusted to pass. Promotion is blocked, the fairness monitor alerts, and the remedy
 is recalibration or a documented exception through the approval path.
 
-Authentication is **disabled by default** so the POC runs with no setup, and every
-governance surface says so: a signature from an unauthenticated caller is a name in a
-text field. `AAVAS_AUTH_MODE=apikey` enforces roles on every write.
+**Sign-in is required.** The lending workspace and the OS console open on a role picker
+(borrower, relationship manager, area manager, risk and model validation), and every API
+route is checked against the role rules in `config/access.yaml` before it runs; a route
+with no rule is closed to everyone but the administrator. An override is recorded under
+the person signed in, at their role's authority, never a name typed into the request.
+
+| User | Password | Role | Lands on |
+|---|---|---|---|
+| `rahul` | `Rahul@2026` | Borrower | Customer portal: indicative offer, apply, upload documents |
+| `rohit` | `Rohit@2026` | Relationship manager · Pune | My applications (submitted online, with documents), loan assessment, overrides |
+| `meera` | `Meera@2026` | Area manager · Pune West | Dashboard, override review, audit |
+| `arjun` | `Arjun@2026` | Risk and model validation | Models, XAI, governance; the OS console |
+| `admin` | `Admin@2026` | Platform administrator | Everything ("Sign in with a username instead") |
+
+A borrower applies after seeing an indicative offer and uploads documents (PDF, JPEG or
+PNG, judged by their contents; types and limits in `config/intake.yaml`). The relationship
+manager's **My applications** lists every submitted application with the range we
+recorded (never one the browser sent), downloads its documents, and opens it for
+assessment. A borrower reaches only their own applications.
+
+On the loan assessment page, **Customer behaviour** reads the customer on screen from the
+database: what they have told us (competitor quote and its evidence, negotiation, price
+sensitivity, timing), what they have done (offer, application, uploads, pricing, overrides,
+outcome), and what similar customers in the loan book did at the rate on the scenario
+slider. The 20,000-loan book is held in the `loan_book` table of the store
+(`AAVAS_STORE_URL`, SQLite by default), loaded from `data/processed/training_data.csv` on
+first use and reloaded when that file changes; the book-level behaviour on Competitor
+Intelligence reads the same table.
+
+These are synthetic personas; production replaces the user table with SSO. Set
+`AAVAS_SESSION_SECRET` to keep sessions across API restarts. `AAVAS_AUTH_MODE=disabled`
+switches enforcement off for scripts (every governance surface then says so), and
+`apikey` keeps the older per-key scheme.
 
 ### Nothing exists only as code
 

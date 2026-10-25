@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import env
+from ..features.feature_pipeline import display_value
 from ..logging_utils import get_logger
 from ..paths import ROOT
 
@@ -50,6 +51,10 @@ and Indian digit grouping (₹1,69,118), never in lakh or crore.
 recommended rate comes from yield optimisation and policy, not from the customer's features - \
 keep the two separate.
 - The rate is a recommendation, subject to credit approval. Never say the loan is approved.
+- Call the recommended rate the system recommendation. Never describe it as an AI \
+recommendation or use the word AI.
+- A bureau score given as "No bureau score (new to credit)" means the applicant has no bureau \
+history. It is not a low score; do not describe it as one.
 - Plain, direct English. Name features the way the facts label them. No marketing tone."""
 
 SCHEMA = {
@@ -74,7 +79,7 @@ SCHEMA = {
     "additionalProperties": False,
 }
 
-DISCLAIMER = ("Written by an AI model from the figures on this page. Figures it did not take from "
+DISCLAIMER = ("Written by a language model from the figures on this page. Figures it did not take from "
               "them are flagged. It is an aid to review, not a credit decision.")
 
 
@@ -191,7 +196,8 @@ def facts(detail: dict[str, Any], top: int = 8) -> dict[str, Any]:
         rows = (models.get(name) or {}).get("features") or []
         out = []
         for f in rows[:n]:
-            item = {"feature": f["label"], "value": f["value"], "group": f["group"],
+            item = {"feature": f["label"], "value": display_value(f.get("feature", ""), f["value"]),
+                    "group": f["group"],
                     "direction": f["direction"], "weight_share_pct": round(f["share_pct"], 1)}
             if "impact_bps" in f:
                 item["impact_bps"] = f["impact_bps"]
@@ -208,7 +214,7 @@ def facts(detail: dict[str, Any], top: int = 8) -> dict[str, Any]:
             "loan_amount_inr": applicant.get("sanctioned_loan_amount"),
             "tenure_years": applicant.get("tenure_years"),
             "ltv_pct": round(ltv * 100, 1) if isinstance(ltv, (int, float)) else None,
-            "bureau_score": applicant.get("bureau_score"),
+            "bureau_score": display_value("bureau_score", applicant.get("bureau_score")),
             "competitor_rate_pct": applicant.get("competitor_rate"),
         },
         "rate": {

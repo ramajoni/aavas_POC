@@ -75,11 +75,12 @@ class SalesContextAgent:
                     "the recommendation should be defensible in a negotiation, not just optimal"
                 )
 
+        # Set before retrieval: the retriever builds its query from the twin's sales
+        # context, and on the first pass that would otherwise still be empty.
+        twin.sales_context = context
         if self.note_retriever is not None:
             try:
                 context["similar_situations"] = self.note_retriever.similar(twin, k=3)
             except Exception as exc:                        # noqa: BLE001
                 log.warning("note retrieval failed: %s", exc)
-
-        twin.sales_context = context
         return context

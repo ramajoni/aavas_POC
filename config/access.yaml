@@ -1,0 +1,146 @@
+# Sign-in and role-based access.
+#
+# Who can sign in, what each role sees in the browser, and which API routes each
+# role may call. Re-read whenever this file changes: removing a user or narrowing
+# a role takes effect at the next request, not the next restart.
+#
+# Only enforced when AAVAS_AUTH_MODE=session (the default). Passwords are
+# PBKDF2-SHA256 hashes; make a new one with `python -m aavas.api.access`. These
+# are synthetic personas for the POC; production replaces the users table with
+# SSO and roles from the directory.
+version: ACCESS-2026.10
+
+session:
+  ttl_minutes: 480          # a working day
+  max_failed_logins: 5      # per username, then locked for lockout_minutes
+  lockout_minutes: 5
+
+# --------------------------------------------------------------------- roles
+# pages:     the lending-workspace pages the role may open (the browser hides the
+#            rest; the API rules below are what actually enforce access).
+# landing:   where the role lands after sign-in.
+# console:   may open the Agentic Credit Pricing OS console (/os.html).
+# rate_authority: the approval_authority level from pricing_policy.yaml that this
+#            role's rate decisions are recorded under.
+roles:
+  borrower:
+    label: "Borrower"
+    landing: offer
+    pages: [offer]
+  relationship_manager:
+    label: "Relationship manager"
+    landing: applications
+    pages: [applications, application, competitors, audit, policy]
+    rate_authority: sales_officer
+  area_manager:
+    label: "Area manager"
+    landing: dashboard
+    pages: [dashboard, learning, audit, policy, competitors]
+    rate_authority: regional_manager
+  model_validation:
+    label: "Risk and model validation"
+    landing: models
+    console: true
+    pages: [models, xai, credit-score, xai-dash, mlflow, features, runtime, record,
+            governance, control-tower, agents, learning, audit, policy, config]
+  administrator:
+    label: "Platform administrator"
+    landing: dashboard
+    console: true
+    all_pages: true
+    all_routes: true
+
+# --------------------------------------------------------------------- users
+# governance_roles: the sign-off roles from governance.yaml this person also holds.
+users:
+  rahul:
+    name: "Rahul Verma"
+    role: borrower
+    title: "Borrower"
+    description: "Applies online and sees an indicative offer: loan amount, EMI and rate range."
+    password: "pbkdf2_sha256$200000$UQpqvv2IYiTuWHXNxLOmiQ$Kb-1oEBYAOA5jrgJZjmz1KmC9I7TQ1Qo4G4NOTjwU2Q"
+  rohit:
+    name: "Rohit Sharma"
+    role: relationship_manager
+    title: "Relationship manager · Pune"
+    description: "Logs assisted applications, prices verified files and sends offers within his authority."
+    password: "pbkdf2_sha256$200000$fyX8ND2qsuz8ztvpaAQ-Pw$dDPCbiEBODExpi9E5YniDFvaI8egN7msF2ezk-Z11Gg"
+  meera:
+    name: "Meera Iyer"
+    role: area_manager
+    title: "Area manager · Pune West"
+    description: "Approves rates below RM authority, with the rupee cost and a recorded reason."
+    password: "pbkdf2_sha256$200000$9AXMtNtVrkt1-VUV5tHfuA$6gXa_cbSAug6c9UY-BTQtsIhrky48xzFdm8FEKG4jYg"
+  arjun:
+    name: "Arjun Nair"
+    role: model_validation
+    title: "Risk and model validation"
+    description: "Reviews what each pricing model does, its key factors, accuracy and evidence."
+    governance_roles: [model_risk]
+    password: "pbkdf2_sha256$200000$5nRIDQpgLRcEROBP_ZYcuA$fal9TVkbAiBRvYaFDe-5eh3wIuToJ-QlLYVhj774_S4"
+  admin:
+    name: "Platform Admin"
+    role: administrator
+    title: "Platform administrator"
+    description: "Configuration, connectors and the agent set."
+    governance_roles: [technology]
+    login_card: false
+    password: "pbkdf2_sha256$200000$Y80YncPhLzEXogcinitPfw$KFIPbaIOBmxOoX7NfOKURkZAvzNn0Mh14SBxTgupl1M"
+
+# -------------------------------------------------------------- open routes
+# No sign-in needed. Health carries versions and counts, no customer data.
+public:
+  - {path: /, exact: true}
+  - {path: /health}
+  - {path: /docs}
+  - {path: /redoc}
+  - {path: /openapi.json}
+  - {path: /auth/login, methods: [POST]}
+  - {path: /auth/logout, methods: [POST]}     # only ever revokes the caller's own token
+  - {path: /auth/personas, methods: [GET]}
+
+# -------------------------------------------------------------- route rules
+# The matching rule with the longest path wins. Anything no rule matches is
+# denied to every role without all_routes.
+routes:
+  - {path: /auth, roles: authenticated}
+
+  # Online applications: the borrower submits and uploads; staff read. Which
+  # application a borrower reaches (only their own) is checked in api/applications.py.
+  - {path: /applications, methods: [GET], roles: [borrower, relationship_manager, area_manager]}
+  - {path: /applications, methods: [POST], roles: [borrower]}
+
+  # Pricing: the customer and the RM quote; only the RM prices a verified file.
+  - {path: /pricing/pre-assessment, methods: [POST], roles: [borrower, relationship_manager]}
+  - {path: /pricing/final-assessment, methods: [POST], roles: [relationship_manager]}
+  - {path: /pricing/decision, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
+  - {path: /pricing/audit, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
+  - {path: /pricing/policy/explain, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
+  - {path: /pricing/explain, roles: [relationship_manager, area_manager, model_validation]}
+
+  # The human decision: the RM proposes, the area manager approves below RM authority.
+  - {path: /pricing/override, methods: [POST], roles: [relationship_manager, area_manager]}
+  - {path: /pricing/override/reasons, methods: [GET], roles: [relationship_manager, area_manager]}
+  - {path: /pricing/uplift, methods: [POST], roles: [relationship_manager, area_manager]}
+  - {path: /pricing/outcome, roles: [relationship_manager]}
+  - {path: /pricing/learning, methods: [GET], roles: [area_manager, model_validation]}
+
+  # How the customer on the file is behaving, against similar customers in the loan book.
+  - {path: /customers, methods: [GET], roles: [relationship_manager, area_manager]}
+
+  # Market context from the RM's conversation.
+  - {path: /notes, roles: [relationship_manager, area_manager]}
+  - {path: /competitors, roles: [relationship_manager, area_manager]}
+
+  # Models, evidence and governance: risk and model validation.
+  - {path: /model-cards, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
+  - {path: /models, methods: [GET], roles: [model_validation]}
+  - {path: /xai, roles: [model_validation]}
+  - {path: /features, roles: [model_validation]}
+  - {path: /tracking, methods: [GET], roles: [model_validation]}
+  - {path: /system-of-record, methods: [GET], roles: [model_validation]}
+  - {path: /control-tower, methods: [GET], roles: [model_validation]}
+  - {path: /governance, roles: [model_validation]}
+  - {path: /agents, methods: [GET], roles: [model_validation]}
+  - {path: /config, methods: [GET], roles: [model_validation]}
+  # /connectors: administrator only (no rule).

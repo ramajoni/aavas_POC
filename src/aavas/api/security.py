@@ -5,9 +5,14 @@ the caller supplied, and the authority check was satisfied by whatever the
 request said. This adds identity and role enforcement without pretending to be
 more than it is.
 
-**Two modes.**
+**Three modes.**
 
-``disabled`` (the default) keeps the POC runnable with no setup. Every caller is
+``session`` (the default) requires sign-in. ``POST /auth/login`` exchanges a
+username and password from ``config/access.yaml`` for a bearer token, and every
+route is checked against that file's role rules before it runs (see ``access``).
+The workspace in the browser cannot be reached without signing in.
+
+``disabled`` keeps the POC runnable with no setup, for scripts and tests. Every caller is
 an unauthenticated principal carrying every role, and *every surface that reports
 a governance action says so*. That last part is the whole design: a signature from
 an unauthenticated caller is a name in a text field, and a system that rendered it
@@ -38,7 +43,7 @@ from ..logging_utils import get_logger
 
 log = get_logger(__name__)
 
-DISABLED, APIKEY = "disabled", "apikey"
+DISABLED, APIKEY, SESSION = "disabled", "apikey", "session"
 ANONYMOUS = "anonymous"
 
 
@@ -48,12 +53,15 @@ class Principal:
     roles: list[str] = field(default_factory=list)
     authenticated: bool = False
     mode: str = DISABLED
+    display_name: str | None = None
+    rate_authority: str | None = None
 
     def has(self, role: str) -> bool:
         return role in self.roles
 
     def as_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "roles": sorted(self.roles),
+        return {"name": self.name, "display_name": self.display_name or self.name,
+                "roles": sorted(self.roles),
                 "authenticated": self.authenticated, "auth_mode": self.mode,
                 # Carried into every audit entry a signature produces. An approval
                 # signed by an unverified caller must never read like a verified one.
@@ -61,8 +69,27 @@ class Principal:
 
 
 def mode() -> str:
-    value = (env("AAVAS_AUTH_MODE", DISABLED) or DISABLED).strip().lower()
-    return value if value in (DISABLED, APIKEY) else DISABLED
+    """The configured mode. Anything unrecognised means session: a typo in the
+    variable must fail closed, not open."""
+    value = (env("AAVAS_AUTH_MODE", SESSION) or SESSION).strip().lower()
+    return value if value in (DISABLED, APIKEY, SESSION) else SESSION
+
+
+def bearer_token(request: Request) -> str | None:
+    header = request.headers.get("Authorization") or ""
+    scheme, _, token = header.partition(" ")
+    return token.strip() if scheme.lower() == "bearer" and token.strip() else None
+
+
+def session_principal(token: str | None) -> Principal | None:
+    from . import access
+
+    found = access.user_for_token(token) if token else None
+    if found is None:
+        return None
+    return Principal(name=found.username, roles=found.roles, authenticated=True,
+                     mode=SESSION, display_name=found.name,
+                     rate_authority=found.rate_authority)
 
 
 def known_roles() -> list[str]:
@@ -101,6 +128,14 @@ def _key_table() -> dict[str, Principal]:
 
 def principal_from_request(request: Request, api_key: str | None) -> Principal:
     current = mode()
+    if current == SESSION:
+        # The access middleware has already checked the route and stored who it is.
+        found = getattr(request.state, "principal", None) or session_principal(
+            bearer_token(request))
+        if found is None:
+            raise HTTPException(401, "sign in to continue",
+                                headers={"WWW-Authenticate": "Bearer"})
+        return found
     if current == DISABLED:
         # Every role, and authenticated=False. The roles are granted so the POC
         # runs; the flag is what every downstream surface actually reports.
@@ -144,6 +179,19 @@ def require_roles(*roles: str, any_of: bool = True) -> Callable[..., Principal]:
 
 def status() -> dict[str, Any]:
     current = mode()
+    if current == SESSION:
+        from . import access
+
+        configured = len(access.users())
+        return {
+            "mode": current, "enforced": True, "principals_configured": configured,
+            "roles": known_roles(),
+            "warning": (
+                f"Sign-in is enforced over {configured} user(s) in config/access.yaml, and every "
+                f"route is checked against that file's role rules. This is a deployment-local "
+                f"user table, not an identity provider; production needs SSO with roles from "
+                f"the directory."),
+        }
     configured = len(_key_table()) if current == APIKEY else 0
     return {
         "mode": current,

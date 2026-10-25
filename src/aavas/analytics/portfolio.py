@@ -179,7 +179,7 @@ def decision_flow(df: pd.DataFrame | None = None) -> dict:
     stages = [
         {"stage": "Policy card rate", "mean_rate": _safe(df["policy_card_rate"].mean()),
          "n": int(len(df)), "note": "what the grid allows"},
-        {"stage": "AI recommended", "mean_rate": _safe(df["ai_recommended_rate"].mean()),
+        {"stage": "System recommended", "mean_rate": _safe(df["ai_recommended_rate"].mean()),
          "n": int(len(df)), "note": "what the engine proposed"},
         {"stage": "Sales offered", "mean_rate": _safe(df["sales_offered_rate"].mean()),
          "n": int(len(df)), "note": "what the human quoted"},

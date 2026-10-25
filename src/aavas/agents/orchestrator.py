@@ -96,7 +96,7 @@ class PricingOrchestrator:
             step.summary = (f"card {envelope.get('card_rate')}%, band "
                             f"{envelope.get('min_rate')}-{envelope.get('max_rate')}%"
                             + (", affordability binding" if envelope.get("affordability_binding") else "")
-                            + (", INFEASIBLE" if envelope.get("infeasible") else ""))
+                            + (", RESIZE REQUIRED" if envelope.get("resize_required") else ""))
 
         # 3. Commercial context, anchored on the card rate until we have a recommendation.
         with trace.step("sales_context", "read against the card rate") as step:

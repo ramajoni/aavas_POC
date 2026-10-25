@@ -75,6 +75,17 @@ STATE_COMPETITIVE_INTENSITY = {
     "Uttar Pradesh": 0.20,
 }
 
+# Recovery speed. Enforcement under SARFAESI moves at the pace of the local DRT
+# and district administration, so the same collateral loses more where a case
+# takes longer to reach auction. Additive drag on loss severity.
+STATE_RECOVERY_DRAG = {
+    "Rajasthan": -0.02,
+    "Gujarat": -0.04,
+    "Maharashtra": 0.03,
+    "Madhya Pradesh": 0.02,
+    "Uttar Pradesh": 0.07,
+}
+
 OVERRIDE_REASONS = [
     "competitor_lower_rate", "customer_threatening_bt", "strong_negotiation",
     "branch_competitive_pressure", "month_end_target", "salesperson_incentive",
@@ -97,7 +108,13 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     cfg = model_config()
     pol = policy()
     n = int(n or cfg["data"]["n_applications"])
-    rng = np.random.default_rng(config_seed() if seed is None else seed)
+    base_seed = config_seed() if seed is None else seed
+    rng = np.random.default_rng(base_seed)
+    # Streams added after the dataset was first published draw from their own
+    # generators. Drawing them from ``rng`` would shift every later draw and
+    # silently rewrite every loan - including the ones the walkthrough deck cites.
+    lgd_rng = np.random.default_rng([base_seed, 1])
+    notes_rng = np.random.default_rng([base_seed, 2])
 
     d: dict[str, np.ndarray] = {}
 
@@ -371,6 +388,25 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     df["delinquent_12m"] = disbursed & (rng.random(n) < true_pd * 2.0)
     df["defaulted"] = defaulted
 
+    # Observed loss severity on the files that defaulted. true_lgd is what the
+    # collateral alone implies; what a recovery actually loses also depends on
+    # whether the title is clean, whether the technical report raised an issue,
+    # and how fast that state's courts move a SARFAESI case. About a quarter of
+    # defaults cure before enforcement and lose almost nothing, which is why
+    # observed LGD is bimodal and why a fitted model can beat the policy table.
+    cured = lgd_rng.random(n) < 0.24
+    severity = (
+        df["true_lgd"].to_numpy()
+        + 0.10 * df["legal_flag"].to_numpy()
+        + 0.05 * df["technical_flag"].to_numpy()
+        + df["state"].map(STATE_RECOVERY_DRAG).to_numpy(float)
+        + lgd_rng.normal(0, 0.07, n)
+    )
+    severity = np.where(cured, lgd_rng.uniform(0.0, 0.06, n), severity)
+    realized_lgd = np.clip(severity, 0.0, 0.95)
+    df["realized_lgd"] = np.where(defaulted, realized_lgd.round(4), np.nan)
+    loss_severity = np.where(defaulted, realized_lgd, 0.0)
+
     months_to_exit = np.where(bt_out, rng.integers(7, 25, n), rng.integers(48, 121, n))
     df["months_to_exit"] = np.where(disbursed, months_to_exit, 0)
     realized_life = np.where(disbursed, months_to_exit / 12.0, 0.0)
@@ -387,7 +423,7 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     # One-off fee income and acquisition cost amortise over the *realized* life.
     one_off_annual = (econ["processing_fee_pct"] - econ["acquisition_cost_pct"]) / life
     # Realized (not expected) credit cost: only defaulted files carry a loss.
-    credit_cost_annual = np.where(defaulted, df["true_lgd"].to_numpy() * 100.0 / life, 0.0)
+    credit_cost_annual = np.where(defaulted, loss_severity * 100.0 / life, 0.0)
     realized_yield = np.where(disbursed, carry + one_off_annual - credit_cost_annual, np.nan)
     df["realized_yield_pct"] = np.round(realized_yield, 3)
 
@@ -404,7 +440,7 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
         disbursed,
         carry * avg_outstanding * discount_factor
         + econ["processing_fee_pct"] - econ["acquisition_cost_pct"]
-        - np.where(defaulted, df["true_lgd"].to_numpy() * 100.0 * avg_outstanding, 0.0),
+        - np.where(defaulted, loss_severity * 100.0 * avg_outstanding, 0.0),
         0.0,
     )
     df["realized_value_pct"] = np.round(realized_value, 3)
@@ -437,74 +473,258 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     df.insert(0, "loan_id", [f"AAV{i:07d}" for i in range(1, len(df) + 1)])
     log.info("dropped %s files that breached hard policy (declined at credit)", dropped)
 
-    notes = _generate_notes(df, rng)
+    notes = _generate_notes(df, notes_rng)
     return df, notes
 
 
+# ------------------------------------------------------------------ sales notes
+# How sales officers actually write a lender's name. The structured
+# ``competitor_name`` field only ever holds the canonical name; the notes hold
+# whatever was typed, including the misspellings. A registry that covers every
+# spelling here would make extraction look perfect by construction, so these
+# lists are deliberately wider than any sensible alias table.
+NOTE_ALIASES = {
+    "HDFC": ["HDFC", "HDFC Bank", "HDFC Ltd", "hdfc"],
+    "LIC HF": ["LIC HF", "LIC Housing", "LIC Housing Finance", "LICHFL", "LIC"],
+    "Bajaj HF": ["Bajaj HF", "Bajaj Housing", "Bajaj Housing Finance", "Bajaj Finserv"],
+    "Local Bank": ["a local bank", "the co-operative bank", "a nationalised bank", "the local PSU bank"],
+    "Shubham HF": ["Shubham HF", "Shubham Housing", "Shubham", "Shubam Housing"],
+    "Aadhar HF": ["Aadhar HF", "Aadhar Housing", "Aadhar Housing Finance", "Aadhaar Housing"],
+}
+# Lenders that only ever appear in free text: the structured field had no slot for
+# them. Finding these is most of the reason to read the notes at all.
+NOTE_ONLY_COMPETITORS = {
+    "SBI": ["SBI", "SBI Home Loans", "State Bank"],
+    "ICICI HFC": ["ICICI HFC", "ICICI Home Finance"],
+    "PNB Housing": ["PNB Housing", "PNBHFL"],
+    "India Shelter": ["India Shelter", "India Shelter Finance"],
+    "Home First": ["Home First", "HomeFirst"],
+    "Aptus": ["Aptus", "Aptus Housing"],
+}
+# Where the note-only lenders are active. A lender bidding everywhere at once is
+# not a pattern anyone would need a notes reader to find.
+NOTE_ONLY_FOOTPRINT = {
+    "SBI": None,
+    "ICICI HFC": ["Maharashtra", "Gujarat"],
+    "PNB Housing": ["Uttar Pradesh", "Madhya Pradesh"],
+    "India Shelter": ["Rajasthan", "Madhya Pradesh"],
+    "Home First": ["Gujarat", "Maharashtra"],
+    "Aptus": ["Maharashtra"],
+}
+
+_PURPOSE = {
+    "resale_flat": "purchase of a resale flat", "builder_flat": "booking in a builder project",
+    "self_construction": "construction on own plot", "plot_plus_construction": "plot plus construction",
+}
+_SEGMENT_TEXT = {
+    "salaried_formal": "salaried", "salaried_informal": "salaried, cash component in income",
+    "self_employed_professional": "self-employed professional",
+    "self_employed_non_professional": "small business owner",
+}
+_CHANNEL_TEXT = {"branch_walkin": "Walk-in", "dsa": "DSA-sourced", "connector": "Connector lead",
+                 "digital": "Online lead"}
+_URGENCY = ["Needs disbursement before registration next week.", "Builder demanding payment by month end.",
+            "No hurry, customer still finalising the property.", "Wants sanction quickly, deal date fixed.",
+            "", "", ""]
+_SENSITIVITY = ["Customer is very rate sensitive.", "Rate is the only open point for the customer.",
+                "Customer more worried about EMI than rate.", "Processing fee matters more than rate here.",
+                "", "", ""]
+
+
+def _rate_text(rate: float, rng: np.random.Generator) -> str:
+    """The same number, written the dozen ways a sales note writes it."""
+    formats = [f"{rate:.2f}%", f"{rate:g}%", f"{rate:.2f} pc", f"{rate:.2f} percent",
+               f"@{rate:.2f}", f"ROI {rate:.2f}", f"{rate:.2f}% p.a.", f"{rate:.2f}%"]
+    return formats[rng.integers(0, len(formats))]
+
+
+def _alias(canonical: str, rng: np.random.Generator) -> str:
+    pool = NOTE_ALIASES.get(canonical) or NOTE_ONLY_COMPETITORS.get(canonical) or [canonical]
+    return pool[rng.integers(0, len(pool))]
+
+
+def _evidence_clause(alias: str, rate_text: str, verified: bool, rng: np.random.Generator) -> str:
+    if verified:
+        pool = [f"Customer showed {alias} sanction letter at {rate_text}.",
+                f"Copy of {alias} offer letter shared, {rate_text}.",
+                f"{alias} sanction letter on file at {rate_text}.",
+                f"Customer forwarded {alias} sanction letter, rate {rate_text}."]
+    else:
+        pool = [f"Customer says {alias} is offering {rate_text}.",
+                f"Claims {alias} quoted {rate_text}, no document shared.",
+                f"{alias} verbal quote {rate_text} as per customer.",
+                f"WhatsApp screenshot of {alias} quote at {rate_text}, not verified.",
+                f"Customer bol raha hai {alias} {rate_text} de raha hai."]
+    return pool[rng.integers(0, len(pool))]
+
+
+def _second_competitor(row, rng: np.random.Generator) -> tuple[str, float] | None:
+    """Sometimes a customer is shopping more than one lender."""
+    if rng.random() > 0.16:
+        return None
+    if rng.random() < 0.55:
+        eligible = [name for name, states in NOTE_ONLY_FOOTPRINT.items()
+                    if states is None or row.state in states]
+    else:
+        eligible = [name for name in NOTE_ALIASES if name != row.competitor_name]
+    name = eligible[rng.integers(0, len(eligible))]
+    rate = round(float(row.competitor_rate) + rng.normal(0.12, 0.22), 2)
+    return name, rate
+
+
+_NEGOTIATION = {
+    "competitor_lower_rate": [
+        "{evidence} Asked us to match or will go with them.",
+        "{evidence} Customer comparing both offers, lower processing fee there.",
+        "{evidence} Requesting rate match to retain the file.",
+    ],
+    "customer_threatening_bt": [
+        "Customer says if we do not improve rate he will take {alias} offer and transfer later anyway. {evidence}",
+        "Existing {alias} customer, clearly indicated BT if our rate stays above {rate}.",
+        "Rate kam nahi hua toh {alias} mein BT karayega. {evidence}",
+    ],
+    "strong_negotiation": [
+        "Third round of negotiation. Customer firm on {rate}, will not sign above that.",
+        "Customer negotiated hard, referred to a neighbour who got a better rate from us last month.",
+        "Customer bargaining on every point, wants {rate} or close. {evidence}",
+    ],
+    "month_end_target": [
+        "Month end case, need this file for target. Requesting {disc} bps relaxation.",
+        "Disbursement pending for month close, requesting rate approval to convert today.",
+    ],
+    "branch_competitive_pressure": [
+        "{city} market very competitive this quarter, {alias} aggressive on affordable segment.",
+        "Losing files in {city} to {alias}. Branch requesting pricing relaxation on this profile.",
+    ],
+    "relationship_value": [
+        "Existing customer with clean track record, second loan. Requesting relationship pricing.",
+        "Family already has a loan with us, repayment record clean. Worth retaining at {rate}.",
+    ],
+    "improve_s2d_conversion": [
+        "Sanction done but customer not coming for disbursement, rate is the only open point.",
+        "File may lapse, customer delaying disbursement citing rate. Requesting small relaxation.",
+    ],
+    "local_market_knowledge": [
+        "This locality in {city} is seeing better collections, profile stronger than the score suggests.",
+        "Known builder project in {city}, our past files here have performed well.",
+    ],
+    "salesperson_incentive": ["Requesting approval to close this file in the current cycle."],
+    "other": ["Customer requested rate review before disbursement."],
+    "no_override": [
+        "Customer accepted the recommended rate without negotiation.",
+        "Rate discussed and agreed, no relaxation requested.",
+        "Profile explained to customer, comfortable with the offered pricing.",
+        "Customer aware of {alias} at {rate} but prefers our service, no rate request.",
+    ],
+}
+_FOLLOW_UP = [
+    "Called customer, still comparing with {alias}. Will revert in two days.",
+    "Customer visited branch again, asked if anything more can be done on rate.",
+    "Documents complete. Customer waiting on our final rate before signing.",
+    "Spoke to co-applicant, family keen to proceed with us if EMI stays under budget.",
+    "{alias2_clause}",
+]
+
+
 def _generate_notes(df: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
-    """Free-text sales/credit notes - the unstructured competitive intelligence
-    that section 6 of the problem statement says never reaches the model."""
-    templates = {
-        "competitor_lower_rate": [
-            "Customer showed {comp} sanction letter at {crate}%. Asked us to match or he will go with them.",
-            "{comp} has offered {crate}% with lower processing fee. Customer comparing both offers.",
-        ],
-        "customer_threatening_bt": [
-            "Customer says if we do not improve rate he will take {comp} offer and transfer later anyway.",
-            "Existing {comp} customer, clearly indicated BT if our rate stays above {crate}%.",
-        ],
-        "strong_negotiation": [
-            "Third round of negotiation. Customer firm on {crate}%, will not sign above that.",
-            "Customer negotiated hard, referred to a neighbour who got a better rate from us last month.",
-        ],
-        "month_end_target": [
-            "Month end case, need this file for target. Requesting {disc} bps relaxation.",
-            "Disbursement pending for month close, requesting rate approval to convert today.",
-        ],
-        "branch_competitive_pressure": [
-            "{city} market very competitive this quarter, {comp} aggressive on affordable segment.",
-            "Losing files in {city} to {comp}. Branch requesting pricing relaxation on this profile.",
-        ],
-        "relationship_value": [
-            "Existing customer with clean track record, second loan. Requesting relationship pricing.",
-            "Family already has a loan with us, repayment record clean. Worth retaining at {crate}%.",
-        ],
-        "improve_s2d_conversion": [
-            "Sanction done but customer not coming for disbursement, rate is the only open point.",
-            "File may lapse, customer delaying disbursement citing rate. Requesting small relaxation.",
-        ],
-        "local_market_knowledge": [
-            "This locality in {city} is seeing better collections, profile stronger than the score suggests.",
-            "Known builder project in {city}, our past files here have performed well.",
-        ],
-        "salesperson_incentive": ["Requesting approval to close this file in the current cycle."],
-        "other": ["Customer requested rate review before disbursement."],
-        "no_override": [
-            "Customer accepted the recommended rate without negotiation.",
-            "Rate discussed and agreed, no relaxation requested.",
-            "Profile explained to customer, comfortable with the offered pricing.",
-        ],
-    }
+    """Free-text sales notes - the unstructured competitive intelligence that
+    section 6 of the problem statement says never reaches the model.
+
+    Every loan gets an enquiry note and a negotiation note; a third of them get a
+    follow-up. Notes are written before the pricing decision closes, so none of
+    them states the outcome - a note that said "customer disbursed" would be the
+    answer key, not context.
+
+    ``true_competitors`` and ``true_competitor_rates`` record what each note
+    actually mentions, in order. They exist only because the data is synthetic,
+    so extraction can be scored against what was written. Nothing that extracts
+    may read them.
+    """
     rows = []
     for row in df.itertuples(index=False):
-        pool = templates.get(row.override_reason, templates["other"])
-        text = pool[rng.integers(0, len(pool))].format(
-            comp=row.competitor_name, crate=f"{row.competitor_rate:.2f}", city=row.city,
-            disc=int(abs(row.override_bps)) or 10,
-        )
-        rows.append({
-            "loan_id": row.loan_id,
-            "application_date": row.application_date,
-            "city": row.city,
-            "state": row.state,
-            "branch_id": row.branch_id,
-            "note_type": "sales_negotiation",
-            "note_text": text,
-            "override_reason": row.override_reason,
-            "competitor_name": row.competitor_name,
-            "competitor_rate": row.competitor_rate,
-            "evidence_verified": bool(row.competitor_evidence_verified),
-        })
+        verified = bool(row.competitor_evidence_verified)
+        comp = row.competitor_name
+        crate = float(row.competitor_rate)
+        app_date = pd.Timestamp(row.application_date)
+        notes: list[tuple[str, str, list[str], list[float]]] = []
+
+        # ------------------------------------------------------------ enquiry
+        opening = (f"{_CHANNEL_TEXT.get(row.channel, 'New')} enquiry for {_PURPOSE.get(row.property_type, 'home loan')} "
+                   f"in {row.city}, {_SEGMENT_TEXT.get(row.segment, 'applicant')}.")
+        mentions, rates = [], []
+        if rng.random() < 0.55:
+            alias, rate_text = _alias(comp, rng), _rate_text(crate, rng)
+            opening += " " + _evidence_clause(alias, rate_text, False, rng)
+            mentions, rates = [comp], [crate]
+        extra = _URGENCY[rng.integers(0, len(_URGENCY))]
+        if extra:
+            opening += " " + extra
+        notes.append(("enquiry", opening, mentions, rates))
+
+        # -------------------------------------------------------- negotiation
+        reason = row.override_reason if row.override_reason in _NEGOTIATION else "other"
+        template = _NEGOTIATION[reason][rng.integers(0, len(_NEGOTIATION[reason]))]
+        alias, rate_text = _alias(comp, rng), _rate_text(crate, rng)
+        text = template.format(
+            evidence=_evidence_clause(alias, rate_text, verified, rng), alias=alias, rate=rate_text,
+            city=row.city, disc=int(abs(row.override_bps)) or 10)
+        # What this note says about a competitor. A bare {rate} with no lender
+        # named ("firm on 11.20%") is the customer's ask, not a competitor quote.
+        has_evidence = "{evidence}" in template
+        names_lender = has_evidence or "{alias}" in template
+        quotes_rate = has_evidence or ("{alias}" in template and "{rate}" in template)
+        mentions = [comp] if names_lender else []
+        rates = [crate] if quotes_rate else []
+        second = _second_competitor(row, rng)
+        if second is not None:
+            name2, rate2 = second
+            text += " " + f"Also has a quote from {_alias(name2, rng)} at {_rate_text(rate2, rng)}."
+            mentions, rates = mentions + [name2], rates + [rate2]
+        sensitivity = _SENSITIVITY[rng.integers(0, len(_SENSITIVITY))]
+        if sensitivity:
+            text += " " + sensitivity
+        notes.append(("negotiation", text, mentions, rates))
+
+        # ---------------------------------------------------------- follow-up
+        follow_p = 0.55 if row.override_reason != "no_override" else 0.18
+        if rng.random() < follow_p:
+            template = _FOLLOW_UP[rng.integers(0, len(_FOLLOW_UP))]
+            mentions, rates = [], []
+            if template == "{alias2_clause}":
+                pool = [name for name, states in NOTE_ONLY_FOOTPRINT.items()
+                        if states is None or row.state in states]
+                name2 = pool[rng.integers(0, len(pool))]
+                rate2 = round(crate + rng.normal(0.05, 0.25), 2)
+                text = (f"Customer mentioned {_alias(name2, rng)} has also called with "
+                        f"{_rate_text(rate2, rng)}. Not verified.")
+                mentions, rates = [name2], [rate2]
+            elif "{alias}" in template:
+                text = template.format(alias=_alias(comp, rng))
+                mentions = [comp]
+            else:
+                text = template
+            notes.append(("follow_up", text, mentions, rates))
+
+        for k, (note_type, text, mentions, rates) in enumerate(notes):
+            offset = {"enquiry": 0, "negotiation": int(rng.integers(2, 12)),
+                      "follow_up": int(rng.integers(12, 25))}[note_type]
+            rows.append({
+                "note_id": f"{row.loan_id}-N{k + 1}",
+                "loan_id": row.loan_id,
+                "note_date": (app_date + pd.Timedelta(days=offset)).date().isoformat(),
+                "application_date": row.application_date,
+                "city": row.city,
+                "state": row.state,
+                "branch_id": row.branch_id,
+                "note_type": note_type,
+                "note_text": text,
+                "override_reason": row.override_reason,
+                "competitor_name": row.competitor_name,
+                "competitor_rate": row.competitor_rate,
+                "evidence_verified": verified,
+                "true_competitors": "|".join(mentions),
+                "true_competitor_rates": "|".join(f"{r:.2f}" for r in rates),
+            })
     return pd.DataFrame(rows)
 
 

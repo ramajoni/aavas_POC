@@ -42,7 +42,11 @@ without installing the package.
 | `train` | `scripts/train_all.py` — trains, evaluates, writes cards, registers champions |
 | `demo` | `scripts/run_demo.py --fresh-store` — full walkthrough, resets the governance store first |
 | `test` | `pytest -q` |
-| `AAVAS_AUTH_MODE` | `disabled` (default) or `apikey`. With `apikey`, set `AAVAS_API_KEYS` as `key:name:role|role,...` and the UI prompts for a key on the governance and feature pages |
+| `AAVAS_AUTH_MODE` | `session` (default): sign-in with the users and role rules in `config/access.yaml`. `disabled` switches enforcement off for scripts and tests. `apikey`: set `AAVAS_API_KEYS` as `key:name:role|role,...` |
+| `AAVAS_SESSION_SECRET` | Signs session tokens. Unset, a per-process secret is used and every API restart signs everyone out |
+| loan book | The historical book is copied into the `loan_book` table of the store on first use (about 0.4 s for 20,000 loans) and reloaded when `data/processed/training_data.csv` or the raw file changes; the `datasets` table records the loaded version. `GET /customers/{loan_id}/behaviour` and `GET /competitors/behaviour` read it |
+| `AAVAS_UPLOAD_DIR` | Where borrower documents are stored (default `data/uploads`, git-ignored). Files are stored by generated id; metadata is in the governance store |
+| `AAVAS_ACCESS_FILE` | Path to an alternative `access.yaml` (default `config/access.yaml`). New password hashes: `python -m aavas.api.access` |
 | `verify-algorithms` | `scripts/verify_algorithms.py` — fits every registered learner and runs every strategy against real data, reporting works / broken / unavailable |
 
 ### Algorithm availability

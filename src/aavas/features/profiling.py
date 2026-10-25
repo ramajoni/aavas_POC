@@ -289,8 +289,15 @@ def group_separation(values: pd.Series, target: pd.Series) -> dict[str, Any]:
                 "why": "scipy unavailable; the rank AUC is reported without a p-value"}
 
 
-def cramers_v(values: pd.Series, target: pd.Series) -> float | None:
-    """Association between a categorical feature and a categorical target."""
+def cramers_v(values: pd.Series, target: pd.Series, bias_corrected: bool = False) -> float | None:
+    """Association between a categorical feature and a categorical target.
+
+    ``bias_corrected`` applies the Bergsma (2013) correction. The plain statistic
+    is biased upwards by the table's degrees of freedom: a 16-level city against
+    a 10-bin target reads about 0.03 on pure noise at 20,000 rows, which would
+    clear a 0.02 signal floor without carrying any signal. The corrected value is
+    near zero under independence, so it is the one to put a threshold on.
+    """
     frame = pd.concat([values.astype(str), target], axis=1).dropna()
     if len(frame) < MIN_ROWS:
         return None
@@ -301,6 +308,13 @@ def cramers_v(values: pd.Series, target: pd.Series) -> float | None:
     expected = np.outer(table.sum(axis=1), table.sum(axis=0)) / n
     with np.errstate(divide="ignore", invalid="ignore"):
         chi2 = float(np.nansum((table - expected) ** 2 / expected))
+    if bias_corrected:
+        rows, cols = table.shape
+        phi2 = max(0.0, chi2 / n - (rows - 1) * (cols - 1) / (n - 1))
+        rows_c = rows - (rows - 1) ** 2 / (n - 1)
+        cols_c = cols - (cols - 1) ** 2 / (n - 1)
+        denominator = min(rows_c - 1, cols_c - 1)
+        return _round(float(np.sqrt(phi2 / denominator))) if denominator > 0 else None
     denominator = n * (min(table.shape) - 1)
     return _round(float(np.sqrt(chi2 / denominator))) if denominator else None
 
@@ -313,6 +327,28 @@ def stability(values: pd.Series, halves: int = 2) -> dict[str, Any]:
     value = psi(clean.iloc[:cut].to_numpy(), clean.iloc[cut:].to_numpy())
     return {"psi": _round(value), "stable": bool(np.isfinite(value) and value < 0.25),
             "note": "computed between the older and newer halves of the same frame"}
+
+
+def stability_categorical(values: pd.Series, floor: float = 1e-4) -> dict[str, Any]:
+    """PSI over a categorical's levels, older half against newer half.
+
+    ``kernel.statistics.psi`` only treats a column as categorical when it has ten
+    levels or fewer; past that it would bucket the integer codes of a 16-city
+    column by quantile, which compares arbitrary code ranges rather than cities.
+    Shares are compared level by level instead, with the same floor.
+    """
+    clean = values.dropna().astype(str)
+    if len(clean) < 2 * MIN_ROWS:
+        return {"psi": None, "why": INSUFFICIENT}
+    cut = len(clean) // 2
+    older = clean.iloc[:cut].value_counts(normalize=True)
+    newer = clean.iloc[cut:].value_counts(normalize=True)
+    levels = older.index.union(newer.index)
+    expected = np.clip(older.reindex(levels, fill_value=0.0).to_numpy(float), floor, None)
+    actual = np.clip(newer.reindex(levels, fill_value=0.0).to_numpy(float), floor, None)
+    value = float(np.sum((actual - expected) * np.log(actual / expected)))
+    return {"psi": _round(value), "stable": bool(value < 0.25), "levels": int(len(levels)),
+            "note": "level shares, older half against newer half of the same frame"}
 
 
 def examine(values: pd.Series, target: pd.Series, contract: pd.DataFrame | None = None,

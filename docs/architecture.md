@@ -317,11 +317,16 @@ sign and which gates must clear first. `governance/approvals.py` enforces it:
 * **approval changes nothing** — a separate apply step re-checks the authorisation, which
   makes *approved-but-not-released* a real state.
 
-`api/security.py` supplies identity. `AAVAS_AUTH_MODE=disabled` (the default) keeps the
-POC runnable: every caller is anonymous with every role, and every governance surface
-reports `authenticated: false` rather than rendering an unverified signature like a
-verified one. `apikey` enforces roles on every write. Production replaces exactly one
-function, `principal_from_request`.
+`api/security.py` supplies identity. `AAVAS_AUTH_MODE=session` (the default) requires
+sign-in: `POST /auth/login` checks a PBKDF2 password hash from `config/access.yaml` and
+returns an HMAC-signed bearer token carrying only the username; roles are looked up from
+the file on every request, so narrowing a role takes effect at once. A middleware in
+`api/main.py` checks every route against the file's rules before any handler runs (the
+longest matching path wins; no match means administrator only), and the override endpoint
+records the signed-in person at their role's rate authority. `disabled` keeps scripts
+runnable: every caller is anonymous with every role, and every governance surface reports
+`authenticated: false`. `apikey` enforces roles on every write. Production replaces exactly
+one function, `principal_from_request`, and the user table with SSO.
 
 ### Fairness on the path that produces champions
 
@@ -623,8 +628,11 @@ Transport: the Vite dev server proxies same-origin `/api/*` to `http://127.0.0.1
 cross-origin request. A static build needs an equivalent reverse proxy —
 `dist/client` alone does not provide `/api`.
 
-State: one in-memory application object; **Save as Draft** writes a single draft to
-`localStorage`. Staff identity and role switching are demo UI, not authentication.
+State: one in-memory application object; **Save as Draft** writes one draft per signed-in
+user to `localStorage`. Nothing renders before sign-in (`Login.jsx`); the session token is
+shared by the workspace and the OS console (`session.js`). Each role sees only the pages
+`config/access.yaml` lists for it, and a typed URL to any other page returns to the
+role's landing page. The browser only hides; the API is what refuses.
 
 ---
 

@@ -51,7 +51,7 @@ approve) and Run-Time (run, observe, learn, revalidate). Scored against the repo
 
 | Lifecycle stage | Repo | Gap |
 |---|---|---|
-| 1. Pre-configuration | 6 YAML files, versioned (`*_config_version`), served read-only at `#/config` | No validation of a config change, no approval before it takes effect |
+| 1. Pre-configuration | 6 YAML files, versioned (`*_config_version`), editable by the administrator at `#/config` (validated, versioned, test-priced with rollback, recorded with undo) | No multi-role approval before a change takes effect: the administrator's edit applies directly |
 | 2. Data prep & training | `make data`, `make train`, `make automl` | AutoML is not the training path; the two disagree about what a champion is |
 | 3. Model & agent validation | Model cards with limitations, `champion_challenger.shadow_compare`, `analytics/performance.py`, `make xai` | No scenario or stress testing; no simulation harness a credit committee could run |
 | 4. Agent configuration validation | — | **Absent.** Agent permissions, allowed data, tools and output schemas are code, not configuration, so there is nothing to validate |
@@ -229,7 +229,7 @@ all.
 
 | # | Zone | Reached at | State | What is missing |
 |---|---|---|---|---|
-| 1 | Business & policy control | `/config`, `/pricing/policy/explain` | partial | Read-only. A policy change is a file edit and a restart — no validation, no approval in front of it |
+| 1 | Business & policy control | `/config`, `/pricing/policy/explain` | partial | Editable by the administrator with validation, a required version change, a test pricing with rollback and an undo; no multi-role sign-off in front of it |
 | 2 | Agent factory | `/agents` | partial | Roster is declared and observable; agents are not configurable and the agent *set* has no version |
 | 3 | Model & data control | `/tracking`, `/connectors`, `/control-tower/models` | partial | AutoML is not the training path; 5 of 5 connectors are blocked |
 | 4 | Human approval centre | — | **absent** | Nothing can be signed off. Authority exists over a single priced decision; no config, model, agent set or policy version has an approval path |

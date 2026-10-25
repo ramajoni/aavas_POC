@@ -7,7 +7,7 @@ import {api, money, percent, titleCase} from './api';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
-// Opened in its own window from the AI Recommendation Rationale panel:
+// Opened in its own window from the System Recommendation Rationale panel:
 // #/explain/<decision_id>?f=<feature> - the feature is highlighted on arrival.
 export function parseExplainHash(hash) {
   const match = /^#\/explain\/([^?]+)(?:\?f=(.*))?$/.exec(hash || '');
@@ -231,10 +231,10 @@ function Narrative({decisionId, status}) {
   const s = result?.sections;
   const flagged = result?.unverified_figures || [];
   const mark = text => highlightFigures(text, flagged);
-  return <Panel title="AI explanation" icon={Sparkle} className="lx-narrative"
+  return <Panel title="Written explanation" icon={Sparkle} className="lx-narrative"
     action={result && <button className="text-button" disabled={busy} onClick={() => generate(true)}><ArrowClockwise size={15}/> Regenerate</button>}>
     {!status?.available
-      ? <InfoBox warning>AI explanation is not configured. {status?.reason} Add <code>ANTHROPIC_API_KEY</code> to <code>.env</code> and restart the API. Everything else on this page works without it.</InfoBox>
+      ? <InfoBox warning>The written explanation is not configured. {status?.reason} Add <code>ANTHROPIC_API_KEY</code> to <code>.env</code> and restart the API. Everything else on this page works without it.</InfoBox>
       : !result
         ? <div className="lx-narrative-empty">
             <p>Claude explains this rate in plain language for the credit reviewer, using only the figures on this page. Any figure it did not take from them is flagged.</p>

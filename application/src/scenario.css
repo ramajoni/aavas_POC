@@ -1,0 +1,55 @@
+/* Rate vs outcome as a slider over the priced scenarios. */
+.scenario-slider{display:flex;flex-direction:column;gap:14px}
+.scenario-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.scenario-head small{display:block;font-size:12.5px;color:var(--muted)}
+.scenario-head strong{font-size:32px;line-height:1.1;color:var(--ink);margin-right:10px}
+.scenario-tag{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;padding:3px 9px;border-radius:999px;background:#eef3fd;color:#1d3f9a;vertical-align:middle}
+.scenario-tag.rec{background:#e7f6ee;color:var(--green)}
+.scenario-steps{display:flex;gap:6px}
+.scenario-steps button{height:32px;min-width:32px;padding:0 10px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--ink);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.scenario-steps button:disabled{opacity:.45;cursor:default}
+.scenario-track{position:relative;padding-bottom:4px}
+.scenario-track input[type=range]{width:100%;accent-color:#1d3f9a;height:28px;margin:0;cursor:pointer}
+.scenario-marks{position:relative;height:20px}
+.scenario-marks .mark{position:absolute;transform:translateX(-50%);font-size:11.5px;white-space:nowrap;padding-top:6px}
+.scenario-marks .mark::before{content:"";position:absolute;left:50%;top:-4px;width:2px;height:9px;background:currentColor}
+.scenario-marks .rec{color:var(--green)}
+.scenario-marks .comp{color:#c2410c;top:18px}
+.scenario-ends{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:16px}
+.scenario-curve{margin:0;border:1px solid var(--border);border-radius:10px;padding:8px 10px 6px;background:#fbfcff}
+.scenario-curve svg{width:100%;height:130px;display:block}
+.scenario-curve polyline{fill:none;stroke-width:2.5;vector-effect:non-scaling-stroke}
+.scenario-curve .conv{stroke:#0756ff}
+.scenario-curve .value{stroke:#159a59}
+.scenario-curve .conv-dot{fill:#0756ff}
+.scenario-curve .value-dot{fill:#159a59}
+.scenario-curve .now-line{stroke:#0c2259;stroke-width:1.5;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.scenario-curve .rec-line{stroke:#159a5966;stroke-width:6;vector-effect:non-scaling-stroke}
+.scenario-curve figcaption{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:4px}
+.scenario-curve .k{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.scenario-curve .k.conv{background:#0756ff}.scenario-curve .k.value{background:#159a59}.scenario-curve .k.rec{background:#159a5966;height:8px;width:8px}
+.scenario-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.scenario-metrics>div{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#fff}
+.scenario-metrics small{display:block;font-size:12px;color:var(--muted)}
+.scenario-metrics b{display:block;font-size:18px;color:var(--ink);margin-top:2px}
+.scenario-metrics em{font-style:normal;font-size:12px;font-weight:500}
+.scenario-metrics em.up{color:var(--green)}
+.scenario-metrics em.down{color:#c2410c}
+@media(max-width:800px){.scenario-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Loan assessment overview below the stage cards: one full-width row each for the
+   scenario analysis, the customer's behaviour, and the override (last). */
+.assessment-rows{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.assessment-rows>.panel,.assessment-rows>.cb{margin:0}
+.assessment-override .form-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.2fr) minmax(0,1.6fr);align-items:start}
+.assessment-override textarea{min-height:42px}
+.assessment-override .bottom-actions{margin-top:12px}
+/* Full width: all six outcome measures on one line. */
+@media(min-width:1300px){.assessment-rows .scenario-metrics{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:1150px){.assessment-override .form-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+@media(max-width:800px){.assessment-override .form-grid{grid-template-columns:1fr}}
+.assessment-override .bottom-actions{display:flex;justify-content:flex-end;gap:10px}
+.assessment-override .bottom-actions .button{flex:0 0 auto;width:auto;min-width:200px}
+/* Automatic pricing status (no manual pricing buttons). */
+.auto-pricing{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);padding:0 6px}
+.auto-note{display:flex;align-items:center;gap:6px;font-size:13px;margin:10px 0}

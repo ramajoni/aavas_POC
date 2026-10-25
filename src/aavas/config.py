@@ -24,15 +24,22 @@ _FILES = {
     "automl": "automl.yaml",
     "connectors": "connectors.yaml",
     "governance": "governance.yaml",
+    "competitors": "competitors.yaml",
+    "intake": "intake.yaml",
 }
+
+
+def config_path(name: str):
+    """Where one config file lives. Read at call time so a test can point it elsewhere."""
+    if name not in _FILES:
+        raise KeyError(f"unknown config {name!r}; expected one of {sorted(_FILES)}")
+    return CONFIG_DIR / _FILES[name]
 
 
 @lru_cache(maxsize=None)
 def load(name: str) -> dict[str, Any]:
     """Load and cache one config file by logical name."""
-    if name not in _FILES:
-        raise KeyError(f"unknown config {name!r}; expected one of {sorted(_FILES)}")
-    with open(CONFIG_DIR / _FILES[name], "r", encoding="utf-8") as fh:
+    with open(config_path(name), "r", encoding="utf-8") as fh:
         return yaml.safe_load(fh)
 
 

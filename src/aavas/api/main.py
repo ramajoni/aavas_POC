@@ -15,14 +15,14 @@ import json
 import time
 
 from fastapi import FastAPI, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from ..config import versions
 from ..governance import model_registry, request_log, store
 from ..logging_utils import get_logger
-from . import (agents, configuration, connectors, control_tower, explain, features, governance,
-               outcome, override, security, stage1, system_of_record,
-               stage2, tracking, xai)
+from . import (access, agents, applications, auth, competitors, customers, configuration, connectors, control_tower,
+               explain, features, governance, outcome, override, portfolio, security, stage1,
+               system_of_record, stage2, tracking, xai)
 from .contracts import HealthResponse
 
 log = get_logger(__name__)
@@ -58,6 +58,17 @@ app = FastAPI(
     ),
 )
 
+def route_path(request: Request) -> str:
+    """The path the router dispatches on.
+
+    Not ``request.url.path``: Starlette builds that URL partly from the Host
+    header, so ``Host: x/health?`` would make any route read as /health to a
+    check that used it, while the router still ran the real handler.
+    """
+    path, root = request.scope["path"], request.scope.get("root_path", "")
+    return path[len(root):] if root and path.startswith(root) else path
+
+
 @app.middleware("http")
 async def log_priced_requests(request: Request, call_next):
     """Open a request row before the pipeline runs, close it however it ends.
@@ -66,12 +77,12 @@ async def log_priced_requests(request: Request, call_next):
     bury the signal. An unhandled exception is recorded and re-raised - swallowing
     it here would turn a 500 into a silent success.
     """
-    if not (request.method == "POST" and request_log.tracked(request.url.path)):
+    if not (request.method == "POST" and request_log.tracked(route_path(request))):
         return await call_next(request)
 
     started = time.perf_counter()
     try:
-        request_id = request_log.open_request(request.url.path, request.method)
+        request_id = request_log.open_request(route_path(request), request.method)
     except Exception as exc:                                    # noqa: BLE001
         # A store that cannot be written must not take the pricing path down; the
         # row is the audit's, not the caller's.
@@ -115,6 +126,46 @@ async def log_priced_requests(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def enforce_access(request: Request, call_next):
+    """Sign-in and the role rules in config/access.yaml, before any handler runs.
+
+    Registered after the request log, so it runs first: a caller who is not signed
+    in, or whose role does not reach this route, never touches the pricing path.
+    Enforced in session mode only; the other modes keep their own checks.
+    """
+    if security.mode() != security.SESSION or request.method == "OPTIONS":
+        return await call_next(request)
+
+    method, path = request.method, route_path(request)
+    try:
+        public = access.is_public(method, path)
+        principal = None if public else security.session_principal(
+            security.bearer_token(request))
+        decision = None if public or principal is None else access.decide(
+            method, path, principal.roles)
+    except Exception as exc:                                    # noqa: BLE001
+        # A missing or malformed access file must close the service, not open it.
+        log.error("access control unavailable: %s", exc)
+        return JSONResponse({"detail": "access control is unavailable"}, status_code=503)
+
+    if public:
+        return await call_next(request)
+    if principal is None:
+        return JSONResponse({"detail": "sign in to continue"}, status_code=401,
+                            headers={"WWW-Authenticate": "Bearer"})
+    if not decision.allowed:
+        label = access.role_config(principal.roles[0]).get("label", principal.roles[0])
+        return JSONResponse(
+            {"detail": f"Your role ({label}) does not have access to this part of the service."},
+            status_code=403)
+    request.state.principal = principal
+    return await call_next(request)
+
+
+app.include_router(auth.router)
+app.include_router(applications.router)
+app.include_router(customers.router)
 app.include_router(stage1.router)
 app.include_router(stage2.router)
 app.include_router(explain.router)
@@ -129,6 +180,8 @@ app.include_router(features.router)
 app.include_router(system_of_record.router)
 app.include_router(tracking.router)
 app.include_router(xai.router)
+app.include_router(portfolio.router)
+app.include_router(competitors.router)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["operations"])

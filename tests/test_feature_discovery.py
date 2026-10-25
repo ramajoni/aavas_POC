@@ -193,15 +193,19 @@ def test_a_proposal_stores_its_refusals_rather_than_filtering_them(client: TestC
 
 
 def test_there_is_no_endpoint_that_widens_the_contract() -> None:
-    """The absence is the control. If one ever appears, this test should be
-    changed deliberately and with an argument."""
+    """The absence is the control. Changed deliberately when the administrator was
+    given a write path under /config: the argument is that the path exists for
+    pricing policy and operational settings, and it refuses the feature contract
+    (and governance.yaml) outright, so a feature is still admitted only through
+    the approval path."""
+    from aavas.governance import config_changes
+
     paths = {r.path for r in app.routes if hasattr(r, "methods")}
-    writes = {r.path for r in app.routes
-              if hasattr(r, "methods") and (r.methods - {"GET", "HEAD", "OPTIONS"})}
     assert "/features/admit" not in paths
-    assert not any(p.startswith("/config") and p in writes for p in paths), (
-        "a write endpoint under /config would let a feature be admitted outside the "
-        "approval path")
+    assert "features" in config_changes.LOCKED and "governance" in config_changes.LOCKED
+    with pytest.raises(config_changes.ChangeRejected) as refused:
+        config_changes.check("features", "feature_config_version: x\n", "FEAT-WIDENED")
+    assert refused.value.status == 403
 
 
 def test_the_discovery_agent_is_on_the_roster_and_dormant() -> None:

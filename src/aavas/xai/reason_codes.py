@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..config import feature_config, model_config
-from ..features.feature_pipeline import reason_label
+from ..features.feature_pipeline import display_value, reason_label, sentinel_rules
 from .shap_explainer import Attribution
 
 
@@ -29,7 +29,7 @@ class ReasonCode:
         return {
             "code": self.code, "feature": self.feature, "label": self.label,
             "direction": self.direction, "impact_bps": self.impact_bps,
-            "value": _plain(self.value), "text": self.text,
+            "value": display_value(self.feature, _plain(self.value)), "text": self.text,
         }
 
 
@@ -46,6 +46,12 @@ def build(attributions: list[Attribution], top_k: int | None = None,
         labels = reason_label(attribution.feature)
         increases = attribution.contribution > 0
         phrase = labels["up"] if increases else labels["down"]
+        value = display_value(attribution.feature, attribution.value)
+        sentinel = (sentinel_rules().get(attribution.feature) or {}).get("display")
+        if sentinel is not None and value == sentinel:
+            # "Weaker bureau profile" would misdescribe a file that has no bureau
+            # profile at all, whichever way the imputed score happens to push.
+            phrase = sentinel
         arrow = "increase" if increases else "decrease"
         codes.append(ReasonCode(
             code=_code(attribution.feature, increases),
@@ -53,7 +59,7 @@ def build(attributions: list[Attribution], top_k: int | None = None,
             label=labels["label"],
             direction=arrow,
             impact_bps=abs(attribution.bps),
-            value=attribution.value,
+            value=value,
             text=f"{phrase} ({attribution.bps:+.0f} bps)",
         ))
         if len(codes) >= top_k:

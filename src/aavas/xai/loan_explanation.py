@@ -21,7 +21,7 @@ import pandas as pd
 
 from ..config import feature_config
 from ..features import stage2_features
-from ..features.feature_pipeline import reason_label
+from ..features.feature_pipeline import display_value, reason_label
 from ..ingestion.schemas import Stage
 from ..logging_utils import get_logger
 from .shap_explainer import Attribution, PricingExplainer
@@ -185,7 +185,7 @@ def _model_view(name: str, explainer: PricingExplainer, attributions: list[Attri
             "feature": a.feature,
             "label": labels["label"],
             "group": "commercial" if a.feature in commercial else "customer_risk",
-            "value": _display(a.value),
+            "value": _display(display_value(a.feature, a.value)),
             "contribution": round(float(a.contribution), 6),
             "share_pct": round(100 * abs(a.contribution) / total_abs, 2),
             "direction": direction,
@@ -212,6 +212,10 @@ def _model_view(name: str, explainer: PricingExplainer, attributions: list[Attri
     return {
         **meta,
         "method": explainer.method(),
+        # Which engine computed it (native TreeSHAP, shap.TreeExplainer, exact
+        # linear) and, when the ablation fallback ran, why.
+        "engine": explainer.engine,
+        "fallback_reason": explainer.describe()["fallback_reason"],
         "units": "rate_pct" if is_rate else explainer.units,
         "base_value": round(base, 6),
         "prediction": round(base + sum(a.contribution for a in attributions), 6),
@@ -247,7 +251,9 @@ def _applicant(snapshot: dict) -> dict:
     keys = ("segment", "city", "channel", "property_type", "sanctioned_loan_amount", "tenure_years",
             "ltv", "foir", "bureau_score", "verified_monthly_income", "competitor_rate",
             "competitor_name", "risk_grade")
-    return {k: _plain(snapshot.get(k)) for k in keys}
+    # display_value: a new-to-credit file's bureau_score of -1 reads as
+    # "No bureau score (new to credit)", not as the worst score on the book.
+    return {k: display_value(k, _plain(snapshot.get(k))) for k in keys}
 
 
 def _display(value):

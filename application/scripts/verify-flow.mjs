@@ -8,6 +8,12 @@ page.on('pageerror',e=>errors.push(e.message));
 page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
 page.on('response',r=>{if(r.url().includes('/api/'))requests.push({url:r.url(),status:r.status()});});
 await page.goto('http://localhost:4173/',{waitUntil:'networkidle'});
+// Sign-in is required. The flow below walks every surface, so it signs in as the
+// platform administrator, the one role that may open all of them.
+await page.getByRole('button',{name:'Sign in with a username instead'}).click();
+await page.getByLabel('Username').fill('admin');
+await page.getByLabel('Password').fill(process.env.AAVAS_UI_PASSWORD||'Admin@2026');
+await page.getByRole('button',{name:'Sign in',exact:true}).click();
 await expect(page.getByText('Pricing Service Connected')).toBeVisible();
 await page.screenshot({path:'qa/dashboard-desktop.png'});
 await page.getByLabel('Filter branch').selectOption('Jaipur');
@@ -22,11 +28,13 @@ await page.getByRole('button',{name:'Basic Information'}).click();
 await page.getByRole('button',{name:'Dismiss notification'}).click();
 await page.screenshot({path:'qa/offer-desktop.png'});
 await page.getByRole('button',{name:'Staff Workspace'}).click();
-await page.getByRole('button',{name:'Run Final Assessment',exact:true}).click();
-await expect(page.getByRole('button',{name:'Recalculate Pricing'})).toBeVisible({timeout:60000});
+// The file prices itself when it opens; there is no button to press.
+await expect(page.locator('.scenario-slider')).toBeVisible({timeout:60000});
+await page.getByRole('button',{name:/^Table of all \d+ scenarios$/}).click();
 await expect(page.locator('.scenario-table tbody tr')).not.toHaveCount(0);
+await page.getByRole('button',{name:'Slider view',exact:true}).click();
 await expect(page.locator('.drivers')).toContainText('Bureau score');
-await page.getByRole('button',{name:'Dismiss notification'}).click();
+if(await page.getByRole('button',{name:'Dismiss notification'}).count()) await page.getByRole('button',{name:'Dismiss notification'}).click();
 await page.screenshot({path:'qa/application-desktop.png'});
 await page.getByRole('button',{name:'Value Breakdown',exact:true}).click();
 await expect(page.locator('.value-breakdown')).toContainText('Net Annual Margin');

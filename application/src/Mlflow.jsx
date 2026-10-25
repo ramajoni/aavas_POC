@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {Flask,Database,ArrowClockwise,ArrowSquareOut} from '@phosphor-icons/react';
 import {api,titleCase,number} from './api';
 import {Button,Panel,Badge,InfoBox,Empty,DataTable} from './components';
+import {useCanOpen} from './access';
 import {Embed,StatusBadge,useServices} from './dashboards';
 
 const num=(n,d=4)=>n==null?'—':Number(n).toFixed(d);
@@ -11,7 +12,8 @@ const when=s=>s?new Date(s).toLocaleString('en-IN'):'—';
 // reads the first name that is present rather than assuming one schema.
 const pick=(metrics,names)=>{for(const n of names){if(metrics?.[n]!=null)return metrics[n];}return null;};
 
-export function Mlflow({navigate}){
+export function Mlflow({navigate:go}){
+ const can=useCanOpen();const navigate=go&&can('xai-dash')?go:null;
  const [index,setIndex]=useState(null);const [runs,setRuns]=useState(null);
  const [open,setOpen]=useState(null);const [tab,setTab]=useState('searches');
  const [loading,setLoading]=useState(false);const [error,setError]=useState('');

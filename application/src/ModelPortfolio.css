@@ -1,0 +1,58 @@
+/* Model portfolio (models page). Scoped under .mp so nothing leaks into the
+   model cards below it. */
+.mp{margin:18px 0 26px}
+.mp-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.mp-head h2{display:flex;align-items:center;gap:8px;font-size:21px}
+.mp-head .muted{margin:4px 0 0}
+.mp-framework{display:block;margin-top:4px;font-size:11px;color:var(--muted)}
+/* Five deck models in two rows: Risk (PD + LGD) spans two columns with its
+   components side by side, so the rows balance. */
+.mp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:14px 0}
+.mp .mp-card.wide{grid-column:span 2}
+.mp-components{display:flex;flex-direction:column;gap:8px}
+.mp-card.wide .mp-components{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.mp .mp-card{display:flex;flex-direction:column;gap:8px;height:auto;min-height:0;margin:0}
+.mp .mp-card .panel-head{margin-bottom:2px}
+.mp-n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:600;margin-right:2px}
+.mp-stage{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);line-height:1.3}
+.mp-question{font-size:13px;line-height:1.45;color:var(--ink);font-style:italic}
+.mp-component{border-top:1px solid var(--border);padding-top:9px;display:flex;flex-direction:column;gap:8px}
+.mp-role{display:flex;align-items:center;gap:7px;font-size:12px}
+.mp-role code{font-size:10px;color:var(--muted)}
+.mp-role .badge{margin-left:auto}
+.mp-selected{display:flex;gap:8px;align-items:flex-start;background:#eef6ff;border:1px solid #d3e5ff;border-radius:6px;padding:8px 10px;color:#0045bf}
+.mp-selected small,.mp-facts small,.mp-holdout small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.3px}
+.mp-selected b{display:block;font-size:15px;color:var(--ink)}
+.mp-why{display:block;font-size:11px;color:#3d5f9e}
+.mp-facts{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+.mp-facts>div:first-child{grid-column:1 / -1}
+.mp-facts b{font-size:12.5px;color:var(--ink);overflow-wrap:anywhere}
+.mp-skipped{display:flex;flex-wrap:wrap;gap:4px;font-size:10px;line-height:1.3}
+.mp-skipped span{background:#fff3db;color:#8b5905;border-radius:10px;padding:2px 7px;cursor:help}
+.mp h4{font-size:12px;color:var(--ink);margin:2px 0 0}
+.mp h4 small{font-weight:400;color:var(--muted);margin-left:4px}
+.mp-holdout{display:flex;gap:6px;background:#f1f6fe;border-radius:5px;padding:7px 8px}
+.mp-holdout>div{flex:1;min-width:0}
+.mp-holdout b{font-size:13px;color:var(--ink)}
+.mp-weights{display:flex;flex-direction:column;gap:4px}
+.mp-weight{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 42px;gap:7px;align-items:center;font-size:11.5px}
+.mp-weight span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-weight i{height:7px;background:#e8eef8;border-radius:4px;overflow:hidden}
+.mp-weight i b{display:block;height:100%;background:var(--blue);border-radius:4px}
+.mp-weight em{font-style:normal;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+.mp-src{font-size:10px;color:var(--muted)}
+.mp-issues{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+.mp-issues li{font-size:11px;line-height:1.35;color:#8b5905;display:flex;gap:5px;align-items:flex-start}
+.mp-issues li svg{margin-top:1px}
+.mp-cell-sub{display:block;color:var(--muted);font-size:10.5px}
+.mp-cell-families{font-size:11.5px;color:var(--muted)}
+.mp-aside{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.mp-aside .panel{height:auto;min-height:0;margin:0}
+.mp-settings{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 4px}
+.mp-settings code{font-size:10.5px;background:#f1f6fe;border-radius:4px;padding:2px 6px}
+.mp-support{display:flex;flex-direction:column;gap:2px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.mp-support:last-child{border-bottom:0}
+.mp-support span{color:var(--muted);font-size:11px}
+@media (max-width:1100px){.mp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.mp-grid{grid-template-columns:1fr}.mp .mp-card.wide{grid-column:auto}.mp-card.wide .mp-components{grid-template-columns:1fr}}
+@media (max-width:640px){.mp-head{flex-direction:column;align-items:stretch}}

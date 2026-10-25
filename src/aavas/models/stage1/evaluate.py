@@ -9,13 +9,14 @@ from ...ingestion.schemas import TARGETS
 from ...logging_utils import get_logger
 from .. import base
 from .predict import Stage1PricingModel
+from .train import split
 
 log = get_logger(__name__)
 
 
 def evaluate(df: pd.DataFrame | None = None, by: list[str] | None = None) -> pd.DataFrame:
     df = loader.load_training_table() if df is None else df
-    _, test = loader.train_test_split(df)
+    _, test = split(df)                  # the trainer's own holdout
     model = Stage1PricingModel.load()
     pred = model.predict_frame(test)
     y = test[TARGETS["stage1"]].to_numpy(float)

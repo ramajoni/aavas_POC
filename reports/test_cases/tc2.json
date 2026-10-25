@@ -1,0 +1,409 @@
+{
+  "case": "TC2",
+  "title": "Higher-risk borrower, override",
+  "flow": "RM pricing -> Manager",
+  "source_loan_id": "AAV0009223",
+  "application_id": "TC2-AAV0009223-20261020144343",
+  "steps": [
+    {
+      "step": "GetPriceRange",
+      "call": "POST /pricing/pre-assessment",
+      "status": 200
+    },
+    {
+      "step": "GetRiskBasedPriceRecommendation",
+      "call": "POST /pricing/final-assessment?include_scenarios=true",
+      "status": 200
+    },
+    {
+      "step": "NoteExtraction",
+      "call": "POST /notes/extract",
+      "status": 404,
+      "error": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "step": "CompetitorContext",
+      "call": "POST /competitors/context",
+      "status": 404,
+      "error": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "step": "LoanExplanation",
+      "call": "GET /pricing/explain/DEC-E224D4FDE59F",
+      "status": 200
+    },
+    {
+      "step": "PricingUplift",
+      "call": "POST /pricing/uplift",
+      "status": 404,
+      "error": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "step": "Override (RM authority)",
+      "call": "POST /pricing/override",
+      "status": 200
+    },
+    {
+      "step": "RecordPricingOutcome",
+      "call": "POST /pricing/outcome",
+      "status": 200
+    },
+    {
+      "step": "AuditTrail",
+      "call": "GET /pricing/audit/TC2-AAV0009223-20261020144343",
+      "status": 200
+    }
+  ],
+  "pre_assessment": {
+    "decision_id": "DEC-709324EAE8F3",
+    "band": {
+      "min_rate": 12.35,
+      "max_rate": 13.1,
+      "width_bps": 75.0
+    },
+    "most_likely_rate": null,
+    "confidence": 0.78,
+    "eligibility": null
+  },
+  "recommendation": {
+    "decision_id": "DEC-E224D4FDE59F",
+    "recommended_rate": 12.5,
+    "card_rate": 12.55,
+    "permissible_band": {
+      "min_rate": 11.95,
+      "max_rate": 16.5,
+      "width_bps": 455.0
+    },
+    "required_approval": "sales_officer",
+    "risk": {
+      "pd": 0.03645,
+      "lifetime_pd": 0.14579,
+      "lgd": 0.4402,
+      "risk_grade": "C",
+      "expected_loss_pct": 1.6044,
+      "breakeven_rate": 10.3,
+      "source": "model"
+    },
+    "conversion_probability": null,
+    "alternatives": {
+      "card_rate": {
+        "rate": 12.55,
+        "conversion_probability": 0.7194,
+        "expected_value_inr": 166229.0,
+        "value_vs_recommended_inr": -1793.0
+      },
+      "policy_floor": {
+        "rate": 11.95,
+        "conversion_probability": 0.8683,
+        "expected_value_inr": 146740.0,
+        "value_vs_recommended_inr": -21282.0
+      },
+      "policy_ceiling": {
+        "rate": 13.57,
+        "conversion_probability": 0.2621,
+        "expected_value_inr": 71437.0,
+        "value_vs_recommended_inr": -96585.0
+      },
+      "stage2_anchor": {
+        "rate": 12.58,
+        "conversion_probability": 0.7194,
+        "expected_value_inr": 168461.0,
+        "value_vs_recommended_inr": 439.0
+      },
+      "competitor_match": {
+        "rate": 12.47,
+        "conversion_probability": 0.7438,
+        "expected_value_inr": 165714.0,
+        "value_vs_recommended_inr": -2308.0
+      }
+    },
+    "policy_verdict": "refer",
+    "conditions": [
+      "resize required: at 12.50% the FOIR is 57% against a 55% cap - reduce the loan to Rs 2,255,000 or extend the tenure to 18 years"
+    ],
+    "resize": {
+      "rate": 12.5,
+      "foir_cap": 0.55,
+      "foir_at_rate": 0.5747,
+      "current_amount": 2380000.0,
+      "current_tenure_years": 15,
+      "possible": true,
+      "max_affordable_amount": 2255000.0,
+      "reduce_by": 125000.0,
+      "tenure_needed_years": 18,
+      "max_tenure_years": 30
+    },
+    "notes": [
+      "no permissible rate keeps this file inside the FOIR cap at its current size; it is priced on its risk band, conditional on reducing the loan or extending the tenure"
+    ],
+    "fair_pricing": {
+      "flagged": true,
+      "commercial_net_bps": 36.7,
+      "threshold_bps": 10,
+      "reason": "Commercial factors priced this customer +37 bps, above the 10 bps review threshold. Confirm the uplift reflects a commercial decision and not the customer's inability to shop."
+    },
+    "model_versions": {
+      "stage1": "v1",
+      "stage2": "v1",
+      "conversion": "v1",
+      "prepayment": "v1",
+      "risk": "v1",
+      "override": "v1"
+    }
+  },
+  "notes": {
+    "text": [
+      "Walk-in enquiry for construction on own plot in Rajkot, small business owner. Needs disbursement before registration next week.",
+      "Customer showed Shubham HF sanction letter at 12.47%. Requesting rate match to retain the file.",
+      "Spoke to co-applicant, family keen to proceed with us if EMI stays under budget."
+    ],
+    "extraction": null
+  },
+  "explanation": {
+    "rate": {
+      "recommended": 12.5,
+      "card": 12.55,
+      "model_anchor": 12.579364,
+      "typical_customer": 11.610751,
+      "permissible_band": {
+        "min_rate": 11.95,
+        "max_rate": 16.5,
+        "width_bps": 455.0
+      },
+      "required_approval": "sales_officer"
+    },
+    "bridge": {
+      "baseline_rate": 11.610751,
+      "model_rate": 12.579364,
+      "recommended_rate": 12.5,
+      "optimisation_bps": -7.94,
+      "steps": [
+        {
+          "feature": "competitor_rate",
+          "label": "Competitor pricing",
+          "group": "commercial",
+          "delta_bps": 36.9455
+        },
+        {
+          "feature": "ltv",
+          "label": "Loan to value",
+          "group": "customer_risk",
+          "delta_bps": 30.7935
+        },
+        {
+          "feature": "property_type",
+          "label": "Property type",
+          "group": "customer_risk",
+          "delta_bps": 26.7158
+        },
+        {
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "group": "customer_risk",
+          "delta_bps": 3.729
+        },
+        {
+          "feature": "income_verification_haircut",
+          "label": "Income verification gap",
+          "group": "customer_risk",
+          "delta_bps": 1.6693
+        },
+        {
+          "feature": "city",
+          "label": "Location",
+          "group": "customer_risk",
+          "delta_bps": -1.4023
+        },
+        {
+          "feature": "new_to_credit",
+          "label": "Credit history",
+          "group": "customer_risk",
+          "delta_bps": -0.8999
+        },
+        {
+          "feature": "sanctioned_loan_amount",
+          "label": "Loan amount",
+          "group": "customer_risk",
+          "delta_bps": -0.2508
+        },
+        {
+          "feature": "foir",
+          "label": "Obligations to income",
+          "group": "customer_risk",
+          "delta_bps": -0.232
+        },
+        {
+          "feature": "branch_target_pct",
+          "label": "Branch target achievement",
+          "group": "commercial",
+          "delta_bps": -0.2069
+        },
+        {
+          "feature": "verified_monthly_income",
+          "label": "Verified income",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "appraised_property_value",
+          "label": "Property valuation",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "bureau_vintage_months",
+          "label": "Credit history depth",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "delinquency_count_24m",
+          "label": "Past delinquency",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "banking_behaviour_score",
+          "label": "Banking behaviour",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "tenure_years",
+          "label": "Tenure",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "applicant_age",
+          "label": "Applicant age",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "deviation_count",
+          "label": "Credit deviations",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "legal_flag",
+          "label": "Legal assessment",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "technical_flag",
+          "label": "Technical assessment",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "sales_target_pct",
+          "label": "Sales target achievement",
+          "group": "commercial",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "segment",
+          "label": "Customer segment",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "channel",
+          "label": "Sourcing channel",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        },
+        {
+          "feature": "risk_grade",
+          "label": "Risk grade",
+          "group": "customer_risk",
+          "delta_bps": 0.0
+        }
+      ]
+    },
+    "methods": {
+      "stage2": "ablation",
+      "risk": "shap",
+      "conversion": "shap"
+    },
+    "headline": "Recommended rate 12.50%. Priced up by: competitor pricing (37 bps), loan to value (31 bps), property type (27 bps), bureau score (4 bps).",
+    "warnings": []
+  },
+  "override": {
+    "proposed_rate": 12.82,
+    "reason": "competitor_lower_rate",
+    "evidence_verified": true,
+    "required_approval": "sales_officer",
+    "within_rm_authority": true,
+    "policy_check": {
+      "allowed": true,
+      "verdict": "refer",
+      "rate": 12.82,
+      "card_rate": 12.55,
+      "discount_bps": -27.0,
+      "required_approval": "sales_officer",
+      "violations": [],
+      "conditions": [
+        "resize required: at 12.82% the FOIR is 58% against a 55% cap - reduce the loan to Rs 2,217,000 or extend the tenure to 20 years"
+      ],
+      "warnings": [],
+      "resize": {
+        "rate": 12.82,
+        "foir_cap": 0.55,
+        "foir_at_rate": 0.5828,
+        "current_amount": 2380000.0,
+        "current_tenure_years": 15,
+        "possible": true,
+        "max_affordable_amount": 2217000.0,
+        "reduce_by": 163000.0,
+        "tenure_needed_years": 20,
+        "max_tenure_years": 30
+      },
+      "permissible_band": {
+        "min_rate": 11.95,
+        "max_rate": 16.5,
+        "width_bps": 455.0
+      },
+      "policy_version": "HL-POLICY-2026.09"
+    },
+    "warning": null,
+    "final_rate": 12.82,
+    "released": true
+  },
+  "outcome": {
+    "replayed_from_dataset": true,
+    "disbursed": true,
+    "customer_response": "accepted",
+    "sanctioned_rate": 12.82,
+    "recorded": true
+  },
+  "audit_events": [
+    "capture_outcome",
+    "capture_override",
+    "fair_pricing_review_required",
+    "post_assessment_decision",
+    "pre_assessment_decision"
+  ],
+  "dataset_reference": {
+    "stage1_range": [
+      12.99,
+      13.56
+    ],
+    "recommended_rate": 13.23,
+    "override_bps": -36.0,
+    "sanctioned_rate": 12.82,
+    "customer_response": "accepted",
+    "true_pd": 0.07713,
+    "true_lgd": 0.4402,
+    "risk_grade": "D"
+  }
+}

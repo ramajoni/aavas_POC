@@ -125,7 +125,16 @@ class ExplanationAgent:
             caveats.append(
                 "The income used for this assessment is the verified figure, which is lower than "
                 "the income originally declared.")
-        if (twin.envelope or {}).get("affordability_binding"):
+        envelope = twin.envelope or {}
+        if envelope.get("resize_required"):
+            terms = envelope.get("resize_at_card") or {}
+            caveats.append(
+                "At the current loan amount the EMI exceeds the affordability limit at every "
+                "permissible rate. The rate shown applies once the loan is reduced"
+                + (f" to about Rs {terms['max_affordable_amount']:,.0f}" if terms.get("max_affordable_amount") else "")
+                + (f" or the tenure is extended to {terms['tenure_needed_years']} years"
+                   if terms.get("tenure_needed_years") else "") + ".")
+        elif envelope.get("affordability_binding"):
             caveats.append(
                 "The maximum rate on this file is limited by affordability rules, not by pricing policy.")
         return caveats
@@ -163,4 +172,5 @@ class ExplanationAgent:
             "discount_from_card_bps": round((card - rate) * 100, 1) if card else None,
             "permissible_band": {"min_rate": envelope.get("min_rate"), "max_rate": envelope.get("max_rate")},
             "affordability_binding": envelope.get("affordability_binding"),
+            "resize_required": envelope.get("resize_required"),
         }

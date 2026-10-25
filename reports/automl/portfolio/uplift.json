@@ -1,0 +1,1357 @@
+{
+  "model": "uplift",
+  "task": "uplift",
+  "target": "disbursed",
+  "framework": "aavas.models.uplift meta-learner search over aavas.automl.portfolio families (catboost 1.2.10, lightgbm 4.7.0, sklearn 1.6.1, xgboost 3.2.0)",
+  "metric": "qini",
+  "higher_is_better": true,
+  "units": "pts",
+  "features": [
+    "ai_recommended_rate",
+    "competitor_rate",
+    "competitor_gap_bps",
+    "sales_target_pct",
+    "branch_target_pct",
+    "days_to_month_end",
+    "prior_negotiation_rounds",
+    "ltv",
+    "bureau_score",
+    "sanctioned_loan_amount",
+    "verified_monthly_income",
+    "legal_flag",
+    "segment",
+    "channel",
+    "city",
+    "customer_negotiating",
+    "existing_relationship",
+    "month_end",
+    "competitor_evidence_verified",
+    "risk_grade",
+    "new_to_credit"
+  ],
+  "treatment": {
+    "column": "discount_bps",
+    "monotone": 1,
+    "definition": "discount below the recommendation, bps (override_bps < 0); control: override_bps == 0; premiums excluded"
+  },
+  "monotone_constraints": {
+    "discount_bps": 1
+  },
+  "learners_considered": [
+    "dose",
+    "t",
+    "x",
+    "dr",
+    "rdose"
+  ],
+  "families_considered": [
+    "hist_gradient_boosting",
+    "lightgbm",
+    "xgboost",
+    "catboost"
+  ],
+  "families_skipped": [
+    {
+      "family": "logistic_regression",
+      "kind": "excluded",
+      "reason": "cannot carry the monotone discount constraint: sklearn's Ridge / LogisticRegression take no sign constraint on a coefficient, so the contract's monotone direction could not be guaranteed"
+    },
+    {
+      "family": "random_forest",
+      "kind": "excluded",
+      "reason": "bagged trees: unshrunk leaf probabilities make a difference of two predictions mostly noise, and the deck's explainability rule ranks them last anyway"
+    },
+    {
+      "family": "extra_trees",
+      "kind": "excluded",
+      "reason": "bagged trees: unshrunk leaf probabilities make a difference of two predictions mostly noise, and the deck's explainability rule ranks them last anyway"
+    }
+  ],
+  "budget": 30,
+  "trials": 30,
+  "trials_failed": 0,
+  "leaderboard": [
+    {
+      "learner": "dose",
+      "family": "xgboost",
+      "candidate": "dose/xgboost",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "dose",
+        "n_estimators": 329,
+        "max_depth": 3,
+        "learning_rate": 0.04524,
+        "subsample": 0.9173,
+        "colsample_bytree": 0.7964,
+        "reg_lambda": 1.432,
+        "min_child_weight": 5.461
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "qini": 0.98293,
+        "auuc": 0.930802,
+        "qini_unweighted": 1.495444,
+        "ate_pts": 3.446716,
+        "qini_by_window": [
+          1.3595,
+          0.6064
+        ]
+      },
+      "fit_seconds": 0.59,
+      "rank": 1
+    },
+    {
+      "learner": "dose",
+      "family": "hist_gradient_boosting",
+      "candidate": "dose/hist_gradient_boosting",
+      "trial": 0,
+      "origin": "incumbent",
+      "params": {
+        "learner": "dose",
+        "max_iter": 250,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "min_samples_leaf": 80,
+        "l2_regularization": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "qini": 0.81752,
+        "auuc": 0.781169,
+        "qini_unweighted": 1.283307,
+        "ate_pts": 2.258912,
+        "qini_by_window": [
+          1.1819,
+          0.4532
+        ]
+      },
+      "fit_seconds": 0.51,
+      "rank": 2
+    },
+    {
+      "learner": "dose",
+      "family": "catboost",
+      "candidate": "dose/catboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "dose",
+        "iterations": 600,
+        "depth": 6,
+        "learning_rate": 0.08,
+        "l2_leaf_reg": 3.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "qini": 0.688764,
+        "auuc": 0.680441,
+        "qini_unweighted": 1.231996,
+        "ate_pts": 4.098343,
+        "qini_by_window": [
+          1.1754,
+          0.2021
+        ]
+      },
+      "fit_seconds": 9.09,
+      "rank": 3
+    },
+    {
+      "learner": "dose",
+      "family": "hist_gradient_boosting",
+      "candidate": "dose/hist_gradient_boosting",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "dose",
+        "max_iter": 182,
+        "learning_rate": 0.02508,
+        "max_depth": 8,
+        "min_samples_leaf": 65,
+        "l2_regularization": 0.1519
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "qini": 0.58177,
+        "auuc": 0.605991,
+        "qini_unweighted": 0.754089,
+        "ate_pts": 2.401563,
+        "qini_by_window": [
+          1.0111,
+          0.1524
+        ]
+      },
+      "fit_seconds": 1.64,
+      "rank": 4
+    },
+    {
+      "learner": "rdose",
+      "family": "hist_gradient_boosting",
+      "candidate": "rdose/hist_gradient_boosting",
+      "trial": 0,
+      "origin": "incumbent",
+      "params": {
+        "learner": "rdose",
+        "max_iter": 250,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "min_samples_leaf": 80,
+        "l2_regularization": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 5,
+      "status": "ok",
+      "metrics": {
+        "qini": 0.523864,
+        "auuc": 0.511963,
+        "qini_unweighted": 0.084583,
+        "ate_pts": 4.714848,
+        "qini_by_window": [
+          -0.3513,
+          1.399
+        ]
+      },
+      "fit_seconds": 8.43,
+      "rank": 5
+    },
+    {
+      "learner": "dose",
+      "family": "catboost",
+      "candidate": "dose/catboost",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "dose",
+        "iterations": 679,
+        "depth": 8,
+        "learning_rate": 0.1532,
+        "l2_leaf_reg": 3.613
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "qini": 0.506357,
+        "auuc": 0.495856,
+        "qini_unweighted": 0.689673,
+        "ate_pts": 4.762025,
+        "qini_by_window": [
+          0.088,
+          0.9247
+        ]
+      },
+      "fit_seconds": 37.46,
+      "rank": 6
+    },
+    {
+      "learner": "t",
+      "family": "hist_gradient_boosting",
+      "candidate": "t/hist_gradient_boosting",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "t",
+        "max_iter": 248,
+        "learning_rate": 0.0241,
+        "max_depth": 5,
+        "min_samples_leaf": 44,
+        "l2_regularization": 1.05
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "qini": 0.142144,
+        "auuc": 0.147785,
+        "qini_unweighted": 0.176921,
+        "ate_pts": 5.485885,
+        "qini_by_window": [
+          -0.6056,
+          0.8899
+        ]
+      },
+      "fit_seconds": 7.09,
+      "rank": 7
+    },
+    {
+      "learner": "dose",
+      "family": "lightgbm",
+      "candidate": "dose/lightgbm",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "dose",
+        "n_estimators": 400,
+        "num_leaves": 31,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "min_child_samples": 20
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "qini": 0.129937,
+        "auuc": 0.114958,
+        "qini_unweighted": 0.27919,
+        "ate_pts": 5.123287,
+        "qini_by_window": [
+          1.031,
+          -0.7711
+        ]
+      },
+      "fit_seconds": 1.83,
+      "rank": 8
+    },
+    {
+      "learner": "dose",
+      "family": "lightgbm",
+      "candidate": "dose/lightgbm",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "dose",
+        "n_estimators": 570,
+        "num_leaves": 50,
+        "learning_rate": 0.08596,
+        "subsample": 0.999,
+        "colsample_bytree": 0.9109,
+        "reg_lambda": 0.4617,
+        "min_child_samples": 29
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.007663,
+        "auuc": -0.011324,
+        "qini_unweighted": 0.333055,
+        "ate_pts": 5.837344,
+        "qini_by_window": [
+          0.216,
+          -0.2313
+        ]
+      },
+      "fit_seconds": 4.29,
+      "rank": 9
+    },
+    {
+      "learner": "dose",
+      "family": "xgboost",
+      "candidate": "dose/xgboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "dose",
+        "n_estimators": 400,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.138379,
+        "auuc": -0.108506,
+        "qini_unweighted": 0.272539,
+        "ate_pts": 4.618024,
+        "qini_by_window": [
+          0.1572,
+          -0.4339
+        ]
+      },
+      "fit_seconds": 1.12,
+      "rank": 10
+    },
+    {
+      "learner": "x",
+      "family": "lightgbm",
+      "candidate": "x/lightgbm",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "x",
+        "n_estimators": 400,
+        "num_leaves": 31,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "min_child_samples": 20
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.15344,
+        "auuc": -0.114239,
+        "qini_unweighted": 0.055248,
+        "ate_pts": 7.021376,
+        "qini_by_window": [
+          -0.5564,
+          0.2495
+        ]
+      },
+      "fit_seconds": 9.27,
+      "rank": 11
+    },
+    {
+      "learner": "t",
+      "family": "catboost",
+      "candidate": "t/catboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "t",
+        "iterations": 600,
+        "depth": 6,
+        "learning_rate": 0.08,
+        "l2_leaf_reg": 3.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.165461,
+        "auuc": -0.209564,
+        "qini_unweighted": 0.049225,
+        "ate_pts": 9.266866,
+        "qini_by_window": [
+          -0.2977,
+          -0.0332
+        ]
+      },
+      "fit_seconds": 6.76,
+      "rank": 12
+    },
+    {
+      "learner": "t",
+      "family": "catboost",
+      "candidate": "t/catboost",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "t",
+        "iterations": 411,
+        "depth": 6,
+        "learning_rate": 0.04321,
+        "l2_leaf_reg": 1.119
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.166405,
+        "auuc": -0.178072,
+        "qini_unweighted": -0.344591,
+        "ate_pts": 6.384315,
+        "qini_by_window": [
+          -0.2552,
+          -0.0776
+        ]
+      },
+      "fit_seconds": 4.23,
+      "rank": 13
+    },
+    {
+      "learner": "x",
+      "family": "hist_gradient_boosting",
+      "candidate": "x/hist_gradient_boosting",
+      "trial": 0,
+      "origin": "incumbent",
+      "params": {
+        "learner": "x",
+        "max_iter": 250,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "min_samples_leaf": 80,
+        "l2_regularization": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.200292,
+        "auuc": -0.209841,
+        "qini_unweighted": -0.214546,
+        "ate_pts": 4.780671,
+        "qini_by_window": [
+          -0.8285,
+          0.4279
+        ]
+      },
+      "fit_seconds": 4.91,
+      "rank": 14
+    },
+    {
+      "learner": "x",
+      "family": "lightgbm",
+      "candidate": "x/lightgbm",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "x",
+        "n_estimators": 544,
+        "num_leaves": 18,
+        "learning_rate": 0.04143,
+        "subsample": 0.9031,
+        "colsample_bytree": 0.8774,
+        "reg_lambda": 0.2599,
+        "min_child_samples": 53
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.337542,
+        "auuc": -0.304406,
+        "qini_unweighted": -0.142507,
+        "ate_pts": 6.866137,
+        "qini_by_window": [
+          -1.0598,
+          0.3847
+        ]
+      },
+      "fit_seconds": 7.75,
+      "rank": 15
+    },
+    {
+      "learner": "t",
+      "family": "hist_gradient_boosting",
+      "candidate": "t/hist_gradient_boosting",
+      "trial": 0,
+      "origin": "incumbent",
+      "params": {
+        "learner": "t",
+        "max_iter": 250,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "min_samples_leaf": 80,
+        "l2_regularization": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.340188,
+        "auuc": -0.332818,
+        "qini_unweighted": -0.024082,
+        "ate_pts": 5.176275,
+        "qini_by_window": [
+          -0.7773,
+          0.0969
+        ]
+      },
+      "fit_seconds": 3.16,
+      "rank": 16
+    },
+    {
+      "learner": "x",
+      "family": "catboost",
+      "candidate": "x/catboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "x",
+        "iterations": 600,
+        "depth": 6,
+        "learning_rate": 0.08,
+        "l2_leaf_reg": 3.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.360827,
+        "auuc": -0.331799,
+        "qini_unweighted": -0.072524,
+        "ate_pts": 6.553406,
+        "qini_by_window": [
+          -0.7689,
+          0.0472
+        ]
+      },
+      "fit_seconds": 11.67,
+      "rank": 17
+    },
+    {
+      "learner": "t",
+      "family": "lightgbm",
+      "candidate": "t/lightgbm",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "t",
+        "n_estimators": 534,
+        "num_leaves": 120,
+        "learning_rate": 0.1518,
+        "subsample": 0.6798,
+        "colsample_bytree": 0.7672,
+        "reg_lambda": 6.073,
+        "min_child_samples": 66
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.489509,
+        "auuc": -0.481958,
+        "qini_unweighted": -0.176593,
+        "ate_pts": 12.767441,
+        "qini_by_window": [
+          -0.8147,
+          -0.1643
+        ]
+      },
+      "fit_seconds": 7.69,
+      "rank": 18
+    },
+    {
+      "learner": "t",
+      "family": "xgboost",
+      "candidate": "t/xgboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "t",
+        "n_estimators": 400,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.494791,
+        "auuc": -0.480714,
+        "qini_unweighted": -0.229154,
+        "ate_pts": 7.945225,
+        "qini_by_window": [
+          -1.337,
+          0.3475
+        ]
+      },
+      "fit_seconds": 2.62,
+      "rank": 19
+    },
+    {
+      "learner": "t",
+      "family": "xgboost",
+      "candidate": "t/xgboost",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "t",
+        "n_estimators": 510,
+        "max_depth": 8,
+        "learning_rate": 0.1017,
+        "subsample": 0.8729,
+        "colsample_bytree": 0.8923,
+        "reg_lambda": 9.769,
+        "min_child_weight": 2.225
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.599596,
+        "auuc": -0.590271,
+        "qini_unweighted": -0.001843,
+        "ate_pts": 10.671289,
+        "qini_by_window": [
+          -0.7719,
+          -0.4273
+        ]
+      },
+      "fit_seconds": 7.81,
+      "rank": 20
+    },
+    {
+      "learner": "rdose",
+      "family": "catboost",
+      "candidate": "rdose/catboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "rdose",
+        "iterations": 600,
+        "depth": 6,
+        "learning_rate": 0.08,
+        "l2_leaf_reg": 3.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 5,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.638131,
+        "auuc": -0.635393,
+        "qini_unweighted": -0.684998,
+        "ate_pts": 7.016192,
+        "qini_by_window": [
+          -1.4887,
+          0.2124
+        ]
+      },
+      "fit_seconds": 22.63,
+      "rank": 21
+    },
+    {
+      "learner": "dr",
+      "family": "catboost",
+      "candidate": "dr/catboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "dr",
+        "iterations": 600,
+        "depth": 6,
+        "learning_rate": 0.08,
+        "l2_leaf_reg": 3.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 4,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.649385,
+        "auuc": -0.616109,
+        "qini_unweighted": -0.750315,
+        "ate_pts": 8.541597,
+        "qini_by_window": [
+          -1.0139,
+          -0.2849
+        ]
+      },
+      "fit_seconds": 24.43,
+      "rank": 22
+    },
+    {
+      "learner": "x",
+      "family": "xgboost",
+      "candidate": "x/xgboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "x",
+        "n_estimators": 400,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.681675,
+        "auuc": -0.667659,
+        "qini_unweighted": -0.430779,
+        "ate_pts": 6.101997,
+        "qini_by_window": [
+          -1.2225,
+          -0.1408
+        ]
+      },
+      "fit_seconds": 4.79,
+      "rank": 23
+    },
+    {
+      "learner": "x",
+      "family": "hist_gradient_boosting",
+      "candidate": "x/hist_gradient_boosting",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "x",
+        "max_iter": 374,
+        "learning_rate": 0.02599,
+        "max_depth": 6,
+        "min_samples_leaf": 28,
+        "l2_regularization": 0.04475
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.715183,
+        "auuc": -0.674494,
+        "qini_unweighted": -0.577802,
+        "ate_pts": 5.65518,
+        "qini_by_window": [
+          -1.7066,
+          0.2762
+        ]
+      },
+      "fit_seconds": 24.7,
+      "rank": 24
+    },
+    {
+      "learner": "dr",
+      "family": "hist_gradient_boosting",
+      "candidate": "dr/hist_gradient_boosting",
+      "trial": 0,
+      "origin": "incumbent",
+      "params": {
+        "learner": "dr",
+        "max_iter": 250,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "min_samples_leaf": 80,
+        "l2_regularization": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 4,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.800098,
+        "auuc": -0.771667,
+        "qini_unweighted": -0.185628,
+        "ate_pts": 3.425524,
+        "qini_by_window": [
+          -0.0048,
+          -1.5954
+        ]
+      },
+      "fit_seconds": 9.49,
+      "rank": 25
+    },
+    {
+      "learner": "t",
+      "family": "lightgbm",
+      "candidate": "t/lightgbm",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "t",
+        "n_estimators": 400,
+        "num_leaves": 31,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "min_child_samples": 20
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.977335,
+        "auuc": -0.959915,
+        "qini_unweighted": -0.418734,
+        "ate_pts": 9.718126,
+        "qini_by_window": [
+          -1.4454,
+          -0.5092
+        ]
+      },
+      "fit_seconds": 5.19,
+      "rank": 26
+    },
+    {
+      "learner": "rdose",
+      "family": "lightgbm",
+      "candidate": "rdose/lightgbm",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "rdose",
+        "n_estimators": 400,
+        "num_leaves": 31,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "min_child_samples": 20
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 5,
+      "status": "ok",
+      "metrics": {
+        "qini": -0.988033,
+        "auuc": -0.980966,
+        "qini_unweighted": -1.16409,
+        "ate_pts": 8.81006,
+        "qini_by_window": [
+          -1.4434,
+          -0.5327
+        ]
+      },
+      "fit_seconds": 18.89,
+      "rank": 27
+    },
+    {
+      "learner": "rdose",
+      "family": "xgboost",
+      "candidate": "rdose/xgboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "rdose",
+        "n_estimators": 400,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 5,
+      "status": "ok",
+      "metrics": {
+        "qini": -1.040051,
+        "auuc": -1.01874,
+        "qini_unweighted": -0.843074,
+        "ate_pts": 9.440226,
+        "qini_by_window": [
+          -2.1958,
+          0.1157
+        ]
+      },
+      "fit_seconds": 9.01,
+      "rank": 28
+    },
+    {
+      "learner": "dr",
+      "family": "lightgbm",
+      "candidate": "dr/lightgbm",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "dr",
+        "n_estimators": 400,
+        "num_leaves": 31,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "min_child_samples": 20
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 4,
+      "status": "ok",
+      "metrics": {
+        "qini": -1.276449,
+        "auuc": -1.288078,
+        "qini_unweighted": -1.049841,
+        "ate_pts": 10.026207,
+        "qini_by_window": [
+          -1.4898,
+          -1.0631
+        ]
+      },
+      "fit_seconds": 18.1,
+      "rank": 29
+    },
+    {
+      "learner": "dr",
+      "family": "xgboost",
+      "candidate": "dr/xgboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "dr",
+        "n_estimators": 400,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 4,
+      "status": "ok",
+      "metrics": {
+        "qini": -1.373575,
+        "auuc": -1.367286,
+        "qini_unweighted": -1.009219,
+        "ate_pts": 8.797515,
+        "qini_by_window": [
+          -1.8907,
+          -0.8565
+        ]
+      },
+      "fit_seconds": 10.51,
+      "rank": 30
+    }
+  ],
+  "best_per_family": [
+    {
+      "learner": "dose",
+      "family": "xgboost",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "dose",
+        "n_estimators": 329,
+        "max_depth": 3,
+        "learning_rate": 0.04524,
+        "subsample": 0.9173,
+        "colsample_bytree": 0.7964,
+        "reg_lambda": 1.432,
+        "min_child_weight": 5.461
+      },
+      "metrics": {
+        "qini": 0.98293,
+        "auuc": 0.930802,
+        "qini_unweighted": 1.495444,
+        "ate_pts": 3.446716,
+        "qini_by_window": [
+          1.3595,
+          0.6064
+        ]
+      },
+      "fit_seconds": 0.59,
+      "explainability": "boosted_trees"
+    },
+    {
+      "learner": "dose",
+      "family": "hist_gradient_boosting",
+      "trial": 0,
+      "origin": "incumbent",
+      "params": {
+        "learner": "dose",
+        "max_iter": 250,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "min_samples_leaf": 80,
+        "l2_regularization": 1.0
+      },
+      "metrics": {
+        "qini": 0.81752,
+        "auuc": 0.781169,
+        "qini_unweighted": 1.283307,
+        "ate_pts": 2.258912,
+        "qini_by_window": [
+          1.1819,
+          0.4532
+        ]
+      },
+      "fit_seconds": 0.51,
+      "explainability": "boosted_trees"
+    },
+    {
+      "learner": "dose",
+      "family": "catboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "dose",
+        "iterations": 600,
+        "depth": 6,
+        "learning_rate": 0.08,
+        "l2_leaf_reg": 3.0
+      },
+      "metrics": {
+        "qini": 0.688764,
+        "auuc": 0.680441,
+        "qini_unweighted": 1.231996,
+        "ate_pts": 4.098343,
+        "qini_by_window": [
+          1.1754,
+          0.2021
+        ]
+      },
+      "fit_seconds": 9.09,
+      "explainability": "boosted_trees"
+    },
+    {
+      "learner": "dose",
+      "family": "lightgbm",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "dose",
+        "n_estimators": 400,
+        "num_leaves": 31,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "min_child_samples": 20
+      },
+      "metrics": {
+        "qini": 0.129937,
+        "auuc": 0.114958,
+        "qini_unweighted": 0.27919,
+        "ate_pts": 5.123287,
+        "qini_by_window": [
+          1.031,
+          -0.7711
+        ]
+      },
+      "fit_seconds": 1.83,
+      "explainability": "boosted_trees"
+    }
+  ],
+  "best_per_learner": [
+    {
+      "learner": "dose",
+      "family": "xgboost",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "dose",
+        "n_estimators": 329,
+        "max_depth": 3,
+        "learning_rate": 0.04524,
+        "subsample": 0.9173,
+        "colsample_bytree": 0.7964,
+        "reg_lambda": 1.432,
+        "min_child_weight": 5.461
+      },
+      "metrics": {
+        "qini": 0.98293,
+        "auuc": 0.930802,
+        "qini_unweighted": 1.495444,
+        "ate_pts": 3.446716,
+        "qini_by_window": [
+          1.3595,
+          0.6064
+        ]
+      },
+      "fit_seconds": 0.59,
+      "explainability": "boosted_trees"
+    },
+    {
+      "learner": "rdose",
+      "family": "hist_gradient_boosting",
+      "trial": 0,
+      "origin": "incumbent",
+      "params": {
+        "learner": "rdose",
+        "max_iter": 250,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "min_samples_leaf": 80,
+        "l2_regularization": 1.0
+      },
+      "metrics": {
+        "qini": 0.523864,
+        "auuc": 0.511963,
+        "qini_unweighted": 0.084583,
+        "ate_pts": 4.714848,
+        "qini_by_window": [
+          -0.3513,
+          1.399
+        ]
+      },
+      "fit_seconds": 8.43,
+      "explainability": "boosted_trees"
+    },
+    {
+      "learner": "t",
+      "family": "hist_gradient_boosting",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "learner": "t",
+        "max_iter": 248,
+        "learning_rate": 0.0241,
+        "max_depth": 5,
+        "min_samples_leaf": 44,
+        "l2_regularization": 1.05
+      },
+      "metrics": {
+        "qini": 0.142144,
+        "auuc": 0.147785,
+        "qini_unweighted": 0.176921,
+        "ate_pts": 5.485885,
+        "qini_by_window": [
+          -0.6056,
+          0.8899
+        ]
+      },
+      "fit_seconds": 7.09,
+      "explainability": "boosted_trees"
+    },
+    {
+      "learner": "x",
+      "family": "lightgbm",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "x",
+        "n_estimators": 400,
+        "num_leaves": 31,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "min_child_samples": 20
+      },
+      "metrics": {
+        "qini": -0.15344,
+        "auuc": -0.114239,
+        "qini_unweighted": 0.055248,
+        "ate_pts": 7.021376,
+        "qini_by_window": [
+          -0.5564,
+          0.2495
+        ]
+      },
+      "fit_seconds": 9.27,
+      "explainability": "boosted_trees"
+    },
+    {
+      "learner": "dr",
+      "family": "catboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "learner": "dr",
+        "iterations": 600,
+        "depth": 6,
+        "learning_rate": 0.08,
+        "l2_leaf_reg": 3.0
+      },
+      "metrics": {
+        "qini": -0.649385,
+        "auuc": -0.616109,
+        "qini_unweighted": -0.750315,
+        "ate_pts": 8.541597,
+        "qini_by_window": [
+          -1.0139,
+          -0.2849
+        ]
+      },
+      "fit_seconds": 24.43,
+      "explainability": "boosted_trees"
+    }
+  ],
+  "incumbent": {
+    "learner": "dose",
+    "family": "hist_gradient_boosting",
+    "params": {
+      "max_iter": 250,
+      "max_depth": 3,
+      "learning_rate": 0.05,
+      "min_samples_leaf": 80,
+      "l2_regularization": 1.0
+    }
+  },
+  "selected": {
+    "family": "xgboost",
+    "learner": "dose",
+    "label": "Monotone dose-response learner (propensity-adjusted) on XGBoost",
+    "params": {
+      "learner": "dose",
+      "n_estimators": 329,
+      "max_depth": 3,
+      "learning_rate": 0.04524,
+      "subsample": 0.9173,
+      "colsample_bytree": 0.7964,
+      "reg_lambda": 1.432,
+      "min_child_weight": 5.461
+    },
+    "trial": 1,
+    "origin": "random",
+    "explainability": "boosted_trees",
+    "curve": "fitted, monotone in discount",
+    "validation": {
+      "qini": 0.98293,
+      "auuc": 0.930802,
+      "qini_unweighted": 1.495444,
+      "ate_pts": 3.446716,
+      "qini_by_window": [
+        1.3595,
+        0.6064
+      ]
+    }
+  },
+  "rule": {
+    "statement": "Best validation score, then explainability.",
+    "primary": "highest mean IPW-weighted Qini across the rolling out-of-time windows, every file scored at the reference discount (11 bps)",
+    "tolerance_abs_pts": 0.05,
+    "tie_break": "candidates within the tolerance of the best are tied; among them the most explainable learner wins, then the better score",
+    "explainability_ranking": [
+      "dose",
+      "t",
+      "x",
+      "dr",
+      "rdose"
+    ],
+    "best_score_candidate": "dose/xgboost",
+    "best_score": 0.98293,
+    "within_tolerance": [
+      "dose/xgboost"
+    ],
+    "decided_by": "validation score"
+  },
+  "reference_discount_bps": 11.0,
+  "windows": {
+    "fit": {
+      "rows": 12360,
+      "from": "2024-09-01",
+      "to": "2025-10-10"
+    },
+    "valid": {
+      "rows": 4419,
+      "from": "2025-08-01",
+      "to": "2025-12-23"
+    },
+    "holdout": {
+      "rows": 3668,
+      "from": "2025-12-24",
+      "to": "2026-04-22",
+      "shown_to_search": false
+    },
+    "rolling": [
+      {
+        "fit": {
+          "rows": 10192,
+          "from": "2024-09-01",
+          "to": "2025-07-31"
+        },
+        "valid": {
+          "rows": 2200,
+          "from": "2025-08-01",
+          "to": "2025-10-11"
+        }
+      },
+      {
+        "fit": {
+          "rows": 12360,
+          "from": "2024-09-01",
+          "to": "2025-10-10"
+        },
+        "valid": {
+          "rows": 2219,
+          "from": "2025-10-11",
+          "to": "2025-12-23"
+        }
+      }
+    ]
+  },
+  "propensity": [
+    {
+      "auc": 0.7221,
+      "clipped_pct": 0.0,
+      "naive_difference_pts": -0.54,
+      "ipw_difference_pts": 7.4
+    },
+    {
+      "auc": 0.7228,
+      "clipped_pct": 0.0,
+      "naive_difference_pts": -3.52,
+      "ipw_difference_pts": 4.3
+    }
+  ],
+  "seed": 42,
+  "elapsed_seconds": 290.4,
+  "generated_at": "2026-10-20T15:47:04+00:00",
+  "notes": [
+    "The trainer's holdout (the last 20% by application date) was never passed to this search; validation is rolling windows over the end of the training window.",
+    "Qini is computed on observed outcomes only, reweighted by inverse propensity because discounts were not randomised; qini_unweighted is the unadjusted read.",
+    "Qini depends only on how files are ranked, so learners whose curve is linear in the discount are compared with the fitted dose-response learner on equal terms.",
+    "No synthetic ground truth is used here; the truth check runs on the holdout, in the trainer, as evaluation only."
+  ]
+}

@@ -24,6 +24,29 @@ log = get_logger(__name__)
 _LOCK = threading.Lock()
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS applications (
+    loan_id         TEXT PRIMARY KEY,
+    owner           TEXT NOT NULL,
+    applicant_name  TEXT,
+    applicant       TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_applications_owner ON applications(owner);
+
+CREATE TABLE IF NOT EXISTS application_documents (
+    document_id     TEXT PRIMARY KEY,
+    loan_id         TEXT NOT NULL,
+    document_type   TEXT NOT NULL,
+    filename        TEXT NOT NULL,
+    content_type    TEXT NOT NULL,
+    size_bytes      INTEGER NOT NULL,
+    sha256          TEXT NOT NULL,
+    uploaded_by     TEXT NOT NULL,
+    uploaded_at     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_documents_loan ON application_documents(loan_id);
+
 CREATE TABLE IF NOT EXISTS decisions (
     decision_id     TEXT PRIMARY KEY,
     loan_id         TEXT NOT NULL,
@@ -359,7 +382,8 @@ def reset() -> None:
                       "agent_manifests", "requests", "approvals", "approval_signatures",
                       "monitor_runs",
                       "federated_rounds", "knowledge_indexes", "prompts",
-                      "feature_proposals"):
+                      "feature_proposals", "applications", "application_documents",
+                      "loan_book", "datasets", "config_changes"):
             conn.execute(f"DROP TABLE IF EXISTS {table}")
         conn.executescript(SCHEMA)
     log.info("governance store reset (%s)", database_path())

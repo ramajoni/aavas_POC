@@ -2,9 +2,11 @@ import React,{useEffect,useState} from 'react';
 import {Brain,ArrowClockwise,Eye} from '@phosphor-icons/react';
 import {api,titleCase} from './api';
 import {Button,Panel,InfoBox,Empty,DataTable} from './components';
+import {useCanOpen} from './access';
 import {Embed,StatusBadge,useServices} from './dashboards';
 
-export function XaiDashboard({navigate}){
+export function XaiDashboard({navigate:go}){
+ const can=useCanOpen();const navigate=go&&can('xai')?go:null;
  const {services,error,loading,refresh}=useServices();
  const [reports,setReports]=useState(null);
  const [picked,setPicked]=useState(null);

@@ -46,6 +46,14 @@ HEADLINE_METRICS = {
              ("base_rate", "Observed default rate", "", "", None)],
     "override": [("auc", "AUC", "", "higher", 0.60),
                  ("magnitude_mae_bps", "Override size error", "bps", "lower", 15.0)],
+    # Severity is judged against the policy table it replaces: the model earns its
+    # place by being better calibrated, so the table's error is shown beside it.
+    "lgd": [("rmse_pts", "Severity error (RMSE)", "pts", "lower", 20.0),
+            ("policy_rmse_pts", "Policy table RMSE, same rows", "pts", "", None),
+            ("calibration_gap_pts", "Calibration gap by decile", "pts", "lower", 5.0)],
+    # A Qini at or below zero means the model ranks files no better than chance.
+    "uplift": [("qini", "Qini", "pts", "higher", 0.0),
+               ("ate_pts", "Average lift of the discounts given", "pts", "", None)],
 }
 
 

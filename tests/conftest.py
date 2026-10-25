@@ -22,7 +22,17 @@ def isolated_store(tmp_path_factory):
     """Never write to the developer's governance database during a test run."""
     path = tmp_path_factory.mktemp("governance") / "test.db"
     os.environ["AAVAS_STORE_URL"] = f"sqlite:///{path}"
+    os.environ["AAVAS_UPLOAD_DIR"] = str(path.parent / "uploads")
     yield path
+
+
+@pytest.fixture(scope="session", autouse=True)
+def auth_disabled_unless_a_test_says_otherwise():
+    """Sign-in is required by default. Most tests exercise pricing and governance
+    logic rather than sign-in, so they run with it off; test_access_control.py
+    and the API-key tests switch their own mode on."""
+    os.environ["AAVAS_AUTH_MODE"] = "disabled"
+    yield
 
 
 @pytest.fixture(scope="session")

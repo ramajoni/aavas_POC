@@ -38,6 +38,12 @@ class RiskAgent:
             "breakeven_rate": yield_calculator.breakeven_rate(float(row["expected_loss_pct"])),
             "source": "model",
         }
+        # Which severity priced the file, and what the policy table would have said,
+        # so the record can answer "why is the expected loss lower than the grid?".
+        if "lgd_source" in row.index:
+            assessment["lgd_source"] = str(row["lgd_source"])
+        if "lgd_policy_table" in row.index:
+            assessment["lgd_policy_table"] = float(row["lgd_policy_table"])
         # The model's grade, not the caller's, drives the policy card rate.
         supplied = twin.get("risk_grade")
         if supplied and supplied != assessment["risk_grade"]:

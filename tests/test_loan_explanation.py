@@ -37,7 +37,10 @@ def test_rate_model_weights_every_feature_not_just_the_top_codes(detail):
 def test_rate_attributions_reconcile_to_the_model_rate(detail):
     model = detail["models"]["stage2"]
     total = model["base_value"] + sum(f["contribution"] for f in model["features"])
-    assert total == pytest.approx(model["prediction"], abs=1e-6)
+    # Base, prediction and every contribution are each served rounded to 6 dp, so
+    # the sum can drift by half a unit per rounded term without any real gap.
+    rounding = 5e-7 * (len(model["features"]) + 2)
+    assert total == pytest.approx(model["prediction"], abs=rounding)
 
 
 def test_rate_attributions_are_shap_when_shap_is_usable(detail, bundle):

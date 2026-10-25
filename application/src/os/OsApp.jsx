@@ -1,6 +1,8 @@
-import React,{useEffect,useState} from 'react';
-import {Sliders,PlugsConnected,Robot,Flask,Brain,Eye,Gauge,ChartLineUp,ShieldCheck,Graph,Broadcast,Waveform,Stack,ArrowSquareOut,CircleNotch} from '@phosphor-icons/react';
+import React,{useEffect,useMemo,useState} from 'react';
+import {Sliders,PlugsConnected,Robot,Flask,Brain,Eye,Gauge,ChartLineUp,ShieldCheck,Graph,Broadcast,Waveform,Stack,ArrowSquareOut,CircleNotch,Binoculars} from '@phosphor-icons/react';
 import {api} from '../api';
+import {Login,NoAccess} from '../Login';
+import {sessionUser,refreshUser,signOut,canOpen,SESSION_ENDED} from '../session';
 import {Overview} from './Overview';
 import {Config} from '../Config';
 import {Connectors} from '../Connectors';
@@ -15,6 +17,7 @@ import {Monitoring} from '../Monitoring';
 import {SystemOfRecord} from '../SystemOfRecord';
 import {Governance} from '../Governance';
 import {Features} from '../Features';
+import {Competitors} from '../Competitors';
 
 // The console is the control tower over one workload: this pricing engine. The
 // tower itself sits above the lifecycle - Configure -> Train -> Validate &
@@ -43,10 +46,14 @@ const MODULES=[
  {key:'observe', n:5, label:'Observe & Improve', icon:ChartLineUp, views:[
    {key:'runtime', label:'Runtime & drift', icon:Waveform},
    {key:'learning', label:'Continuous learning', icon:ChartLineUp},
+   {key:'competitors', label:'Competitor intelligence', icon:Binoculars},
    {key:'audit', label:'Decision audit', icon:ShieldCheck}]},
 ];
 
 const BY_KEY=Object.fromEntries(MODULES.map(m=>[m.key,m]));
+// Console views that share a page key with the lending workspace use it; the
+// tower views are the control tower page. A role sees only the views its pages allow.
+const VIEW_PAGE={tower:'control-tower',lifecycle:'control-tower'};
 const route=()=>{const [m,v]=location.hash.slice(2).split('/');
  return {module:BY_KEY[m]?m:'overview', view:v||null};};
 
@@ -55,7 +62,20 @@ const route=()=>{const [m,v]=location.hash.slice(2).split('/');
 // file rather than reaching into state that does not exist here.
 const OPS_STATE={applicant:{loan_id:'DEMO-FLOW-001'}};
 
+// The console needs a session, and a role marked `console` in config/access.yaml.
 export function OsApp(){
+ const [user,setUser]=useState(sessionUser);
+ useEffect(()=>{refreshUser().then(u=>setUser(u));const ended=()=>setUser(null);
+  window.addEventListener(SESSION_ENDED,ended);return()=>window.removeEventListener(SESSION_ENDED,ended);},[]);
+ const out=()=>signOut().then(()=>setUser(null));
+ if(!user)return <Login consoleOnly title="Agentic Credit Pricing OS" onSignedIn={setUser}/>;
+ if(!user.console)return <NoAccess user={user} onSignOut={out}>The pricing OS console is open to risk and model validation, and to platform administrators.</NoAccess>;
+ return <Console key={user.username} user={user} onSignOut={out}/>;
+}
+
+function Console({user,onSignOut}){
+ const modules=useMemo(()=>MODULES.map(m=>({...m,views:m.views.filter(v=>canOpen(user,VIEW_PAGE[v.key]||v.key))}))
+  .filter(m=>m.views.length),[user]);
  const [{module,view},setRoute]=useState(route);
  const [health,setHealth]=useState(null);const [cards,setCards]=useState(null);
 
@@ -67,7 +87,7 @@ export function OsApp(){
 
  function go(m,v){location.hash=v?`/${m}/${v}`:`/${m}`;setRoute({module:m,view:v||null});window.scrollTo(0,0);}
 
- const active=BY_KEY[module];
+ const active=modules.find(m=>m.key===module)||modules[0];
  const current=view&&active.views.find(x=>x.key===view)?view:active.views[0]?.key;
 
  function render(){
@@ -87,6 +107,7 @@ export function OsApp(){
    case 'agents':       return <Agents navigate={()=>go('observe','audit')}/>;
    case 'runtime':      return <Monitoring/>;
    case 'learning':     return <Operations page="learning" cards={cards} state={OPS_STATE} health={health}/>;
+   case 'competitors':  return <Competitors/>;
    case 'audit':        return <Operations page="audit" cards={cards} state={OPS_STATE} health={health}/>;
    default:             return <ControlTower navigate={()=>go('observe','runtime')}/>;
   }
@@ -99,9 +120,9 @@ export function OsApp(){
     <span><b>Credit Pricing OS</b><small>Agentic</small></span>
    </div>
    <nav aria-label="Lifecycle modules">
-    {MODULES.map(m=><button key={m.key} className={m.key===module?'active':''}
-      onClick={()=>go(m.key)} aria-current={m.key===module?'page':undefined}>
-      <m.icon size={19} weight={m.key===module?'fill':'regular'}/>
+    {modules.map(m=><button key={m.key} className={m.key===active.key?'active':''}
+      onClick={()=>go(m.key)} aria-current={m.key===active.key?'page':undefined}>
+      <m.icon size={19} weight={m.key===active.key?'fill':'regular'}/>
       <span>{m.label}</span>
       {m.n!==''&&<i className="os-rail-n">{m.n}</i>}
     </button>)}
@@ -109,6 +130,8 @@ export function OsApp(){
    <div className="os-rail-foot">
     <a href="/" className="os-rail-link">Lending workspace <ArrowSquareOut size={13}/></a>
     <a href="/api/docs" target="_blank" rel="noreferrer" className="os-rail-link">API docs <ArrowSquareOut size={13}/></a>
+    <div className="os-rail-user"><b>{user.name}</b><small>{user.role_label}</small>
+     <button type="button" onClick={onSignOut}>Log out</button></div>
    </div>
   </aside>
 
@@ -116,7 +139,7 @@ export function OsApp(){
    <header className="os-top">
     <div className="os-crumbs">
      <button onClick={()=>go('overview')}>Control tower</button>
-     {module!=='overview'&&<><span>/</span><b>{active.label}</b></>}
+     {active.key!=='overview'&&<><span>/</span><b>{active.label}</b></>}
     </div>
     <div className="os-versions">
      {health?.versions&&<>

@@ -19,6 +19,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 
 from ..features import cards as feature_cards
 from ..features import discovery, profiling
+from ..features import funnel as feature_funnel
 from ..governance import feature_registry
 from ..ingestion import loader
 from ..logging_utils import get_logger
@@ -75,6 +76,66 @@ def discover(stage: str = Body("stage2", embed=True),
 
     body = {"report": report.as_dict(), "cached": False}
     _CACHE[key] = {"report": body["report"]}
+    return body
+
+
+def feature_approvals(model: str) -> dict[str, Any]:
+    """The governance evidence the funnel's review stage shows, read-only.
+
+    Composed here rather than inside ``features.funnel`` because the feature
+    package is standalone and may not import governance. Admitted proposals and
+    approved (or applied) ``feature`` approvals for this model, by feature name.
+    """
+    try:
+        from ..governance import store
+
+        admitted = {row["name"]: row["proposal_id"] for row in
+                    feature_registry.listing(state=feature_registry.ADMITTED, stage=model,
+                                             limit=1000)}
+        rows = store.query(
+            "SELECT approval_id, artefact_id, state FROM approvals WHERE artefact_type = ? "
+            "AND state IN (?, ?)", ("feature", "approved", "applied"))
+        approved = {}
+        for row in rows:
+            stage, _, name = str(row["artefact_id"]).partition(":")
+            if stage == model and name:
+                approved[name] = row["approval_id"]
+        return {"available": True, "admitted_proposals": admitted, "approvals": approved}
+    except Exception as exc:                                    # noqa: BLE001
+        log.warning("governance store unreadable for the funnel: %s", exc)
+        return {"available": False, "error": f"{type(exc).__name__}: {exc}",
+                "admitted_proposals": {}, "approvals": {}}
+
+
+@router.get("/funnel", summary="Raw attributes to model features, measured for one contract")
+def funnel(model: str = "stage2", refresh: bool = False, detail: bool = False,
+           principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    """Raw attributes -> derived candidates -> passed screening -> approved -> in the model.
+
+    Serves ``reports/features/funnel_<model>.json`` while it is **fresh**: every input
+    it was computed from is unchanged - the raw data file's bytes, the model's
+    contract block, the reason labels, the feature approvals recorded for this
+    model, the funnel and loader source, and the run parameters. Age is not a
+    criterion. Otherwise the funnel is computed now (seconds, not minutes) and
+    memoised in this process against its fingerprint; ``served`` says which
+    happened and why. A GET never writes the report - the script does.
+
+    ``detail=true`` adds every tested item with all its numbers (large).
+    """
+    try:
+        body = dict(feature_funnel.serve(model, refresh=refresh,
+                                         approvals_source=feature_approvals))
+    except KeyError as exc:
+        raise HTTPException(404, exc.args[0] if exc.args else str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:                                    # noqa: BLE001
+        log.exception("feature funnel failed")
+        raise HTTPException(500, f"funnel failed: {exc}") from exc
+    if not detail:
+        body.pop("candidates", None)
+    body["models"] = {name: feature_funnel.DISPLAY_NAMES.get(name, name)
+                      for name in feature_funnel.contracts()}
     return body
 
 

@@ -18,7 +18,13 @@ from . import store
 
 log = get_logger(__name__)
 
-MODEL_NAMES = ["stage1", "stage2", "conversion", "prepayment", "risk", "override"]
+MODEL_NAMES = ["stage1", "stage2", "conversion", "prepayment", "risk", "lgd", "override", "uplift"]
+
+# Not on the pricing path's critical line: without LGD the risk model prices on
+# the policy table (and says so per row); without uplift only the advisory
+# /pricing/uplift endpoint is unavailable. A broken artefact for either is
+# reported missing rather than taking the whole bundle down.
+OPTIONAL_MODELS = {"lgd", "uplift"}
 
 
 # ------------------------------------------------------------------- registry
@@ -68,7 +74,9 @@ class ModelBundle:
     conversion: Any = None
     prepayment: Any = None
     risk: Any = None
+    lgd: Any = None
     override: Any = None
+    uplift: Any = None
     missing: list[str] = None            # type: ignore[assignment]
 
     def versions(self) -> dict[str, str]:
@@ -104,16 +112,18 @@ def load_bundle(refresh: bool = False) -> ModelBundle:
         return _BUNDLE
 
     from ..models.conversion.predict import ConversionModel
+    from ..models.lgd.predict import LGDModel
     from ..models.override.predict import OverrideModel
     from ..models.prepayment.predict import PrepaymentModel
     from ..models.risk.predict import RiskModel
     from ..models.stage1.predict import Stage1PricingModel
     from ..models.stage2.predict import Stage2PricingModel
+    from ..models.uplift.predict import UpliftModel
 
     loaders = {
         "stage1": Stage1PricingModel, "stage2": Stage2PricingModel,
         "conversion": ConversionModel, "prepayment": PrepaymentModel,
-        "risk": RiskModel, "override": OverrideModel,
+        "risk": RiskModel, "lgd": LGDModel, "override": OverrideModel, "uplift": UpliftModel,
     }
     bundle = ModelBundle(missing=[])
     for name, cls in loaders.items():
@@ -122,6 +132,15 @@ def load_bundle(refresh: bool = False) -> ModelBundle:
         except FileNotFoundError:
             bundle.missing.append(name)
             log.warning("model artefact missing: %s", name)
+        except Exception as exc:                                    # noqa: BLE001
+            if name not in OPTIONAL_MODELS:
+                raise
+            bundle.missing.append(name)
+            log.warning("model artefact %s present but unloadable: %s", name, exc)
+    # One LGD for the whole process: the risk model prices with the artefact this
+    # bundle reports, or with the policy table when the bundle reports it missing.
+    if bundle.risk is not None:
+        bundle.risk.lgd_model = bundle.lgd
     _BUNDLE = bundle
     return bundle
 

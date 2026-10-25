@@ -36,6 +36,7 @@ refusals; a person decides, and records the decision where it can be audited.
 | Feature Documentation | `features/cards.py` | the feature card |
 | Feature Governance | `governance/feature_registry.py` + `governance/approvals.py` | proposals, four admission gates, two required roles |
 | Lineage | `features/cards.py` | source → transformation → decision |
+| Funnel | `features/funnel.py` | raw attributes → derived → screened → approved → in the model, measured per contract; see §8 |
 
 **Not built: code generation and sandboxed execution.** See §6.
 
@@ -194,6 +195,83 @@ The last step is deliberate. Admission is an edit to `feature_config.yaml`; the
 approval is the record that the edit was authorised, and the endpoint says so
 rather than implying it wrote the file.
 
+## 8. The funnel, measured
+
+`features/funnel.py` runs the whole pipeline end to end for one model contract
+and counts what survives each stage. Every count is a list of names in
+`reports/features/funnel_<model>.json`, and every number next to a name is one a
+test computed.
+
+```bash
+PYTHONPATH=src python3 scripts/run_feature_funnel.py            # stage2, risk, conversion, stage1
+PYTHONPATH=src python3 scripts/run_feature_funnel.py --models all --sample 10000
+curl 'localhost:8000/features/funnel?model=stage2'              # also the Funnel tab, #/features
+```
+
+| Stage | What it counts |
+|---|---|
+| **Raw attributes** | Every dataset column the model could see at decision time, before the contract is consulted. Each column gets a disposition; excluded ones keep a reason: `identifier`, `time_index`, `outcome`, `latent`, `decision`, `decision_derived` (computed from a decision, e.g. `offered_rate` = the sanctioned rate), `post_assessment` (Stage 1 only), `own_output` (`risk_grade` for the risk model), and `unclassified` — a column `ingestion.schemas` does not declare. The frame is the one the model's trainer builds, so the override model's `competitor_gap_bps` is the gap at the *recommended* rate it is actually fed |
+| **Derived candidates** | Everything the five generator families build from the numeric raw attributes, uncapped: ratio, gap, log, interaction, and **trend** — `x − median(x)` over applications in the prior 90 days, strictly earlier dates only. There is no per-loan history, so this is the market's trend, not the customer's |
+| **Passed screening** | Raw and derived items that clear coverage (≥ 0.90), degeneracy, stability (PSI ≤ 0.25, older half against newer half by date), signal (\|Spearman\| ≥ 0.02 with the target; bias-corrected Cramér's V for categoricals) and redundancy (\|Spearman\| ≤ 0.92 with any contract feature or any stronger feature already kept; raw before derived, so a log of a column never displaces the column) |
+| **Approved in review** | Screened items with an authored entry in `reason_code_labels`. A governance approval is shown as evidence and, without the label, does not count. Nothing is approved by the funnel |
+| **In the model** | The contract's columns, each reconciled: screened and approved, failed a screen (which, against what), or excluded at raw (why) |
+
+The funnel generates from every raw attribute the stage may see, which is wider
+than `POST /features/discover` (the contract's own columns, §1); both leave the
+forbidden columns out by construction. `bureau_score = −1` is read as missing
+first (`feature_config.sentinels`), so no candidate is arithmetic on the code. Signal is exact over every population row;
+redundancy is Spearman on a 6,000-row sample, seed 42.
+
+**The run of 20 October 2026** (20,000 loans):
+
+| | Risk-adjusted pricing `stage2` | Risk (PD) `risk` | Acceptance `conversion` | Indicative pricing `stage1` |
+|---|---|---|---|---|
+| Target, rows | `sanctioned_rate`, 20,000 | `defaulted`, 13,181 disbursed | `disbursed`, 20,000 | `sanctioned_rate`, 20,000 |
+| Raw attributes (numeric + categorical) | **38** (26 + 12) | **37** (26 + 11) | **40** (28 + 12) | **24** (13 + 11) |
+| Columns excluded | 38 | 39 | 36 | 52 |
+| Derived candidates | **1,096** | **1,096** | **1,277** | **273** |
+| Passed screening (raw + derived) | **154** (16 + 138) | **143** (15 + 128) | **103** (13 + 90) | **37** (7 + 30) |
+| Approved in review | **16** | **15** | **13** | **7** |
+| In the model (of which screened and approved) | **24** (14) | **20** (12) | **15** (10) | **16** (6) |
+| Strong, stable and unexplainable | 138 | 128 | 90 | 30 |
+
+What the run says:
+
+* **No derived candidate is approved**, in any model, because none has an
+  authored label. The strongest stage-2 rejects are `competitor_rate −
+  prior_negotiation_rounds` (signal 0.767, overlap 0.807, PSI 0.002),
+  `deviation_count − competitor_rate` (−0.743, 0.798, 0.002) and `estimated_ltv ×
+  competitor_rate` (0.741, 0.757, 0.002): strong, stable, and with no sentence a
+  branch could say to a customer.
+* **10 of the 24 stage-2 contract features fail a screen**, and the page says
+  which. `sanctioned_loan_amount` is redundant with `appraised_property_value`
+  (ρ = 0.954 — the VIF finding of §4b, from the other direction); `bureau_score`
+  covers 0.856 of rows, missing exactly when `new_to_credit`, which is structural;
+  eight fail the univariate signal floor against `sanctioned_rate`
+  (`delinquency_count_24m`, `foir`, `tenure_years`, `applicant_age`,
+  `sales_target_pct`, `branch_target_pct`, `city`, `channel`). Every screen is
+  univariate, so this is a question for the fitted model's attributions, not a
+  verdict.
+* **Nothing is unstable.** The largest PSI on any stage-2 item is 0.088: the
+  synthetic book is stationary from September 2024 to April 2026. The screen is
+  real and has nothing to catch here.
+* **Leakage.** For stage 2 the exclusions are 12 outcome, 9 decision, 6
+  decision-derived, 5 latent, 3 identifier, 2 time-index and 1 unclassified
+  (`state_competitive_intensity`, a per-state constant from the generator that
+  no schema group declares). The latent columns are also used once, to
+  *evaluate*: `risk_grade` tracks `true_pd` (η = 0.92), `property_type` tracks
+  `true_lgd` (η = 0.85) and `competitor_rate` tracks `true_pd` (|ρ| = 0.80),
+  because the generator builds the grade from the true PD and the competitor
+  quote from the card rate. Excluding a latent column does not remove a near-copy
+  of it; the page shows these rather than claiming a clean bill.
+
+**Freshness.** `GET /features/funnel` serves the saved report only while every
+input it was computed from is unchanged — the raw data file's bytes, the model's
+contract block and the sentinel rules, the reason labels, the feature approvals
+on record for that model, the funnel, builder and loader source, and the run
+parameters. Age is not a criterion. Otherwise it computes the funnel (seconds)
+and says why in `served.stale_because`. A GET never writes the report.
+
 ---
 
 ## Routes
@@ -204,6 +282,7 @@ rather than implying it wrote the file.
 | `GET /features/profile` | every column the stage may see, profiled |
 | `GET /features/examine/{name}` | the full battery plus a card and a research verdict |
 | `GET /features/cards` | a card per contract feature, with the lineage graph |
+| `GET /features/funnel?model=stage2` | the measured funnel, its exclusions, reconciliation and rejected table (§8); `refresh=true` recomputes, `detail=true` adds every tested item |
 | `POST /features/discover` | generate, test, refuse |
 | `POST /features/propose` | record a tested candidate — **not** an admission |
 | `GET /features/proposals` | what has been proposed, with refusals kept |

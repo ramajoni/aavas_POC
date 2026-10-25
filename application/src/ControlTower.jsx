@@ -34,7 +34,7 @@ export function ControlTower({navigate}){
    Collecting agents, decisions, models and drift…</Empty></div>;
 
  return <div className="operations ct">
-  <div className="page-intro"><h1>AI Control Tower</h1>
+  <div className="page-intro"><h1>Control Tower</h1>
    <p>Configuration, approval, runtime and learning for every agent that prices a file. One estate,
     six control zones, and — deliberately — the tiles that nothing in this system can fill.</p></div>
 

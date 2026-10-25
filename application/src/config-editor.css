@@ -1,0 +1,9 @@
+/* Editing a configuration file (administrator only). */
+.config-editor{display:flex;flex-direction:column;gap:12px}
+.config-editor-version{display:grid;grid-template-columns:repeat(2,minmax(0,280px));gap:12px}
+.config-editor-version input[readonly]{background:#f3f6fb;color:var(--muted)}
+.config-editor-text{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.config-editor-text textarea{width:100%;min-height:460px;resize:vertical;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);background:#fbfcff;border:1px solid var(--border);border-radius:8px;padding:12px 14px;tab-size:2;white-space:pre;overflow:auto}
+.config-editor-text textarea:focus{outline:2px solid #1d3f9a;outline-offset:0}
+.config-review h3{font-size:14px;margin:4px 0 8px;color:#0d347c}
+@media(max-width:800px){.config-editor-version{grid-template-columns:1fr}}

@@ -18,7 +18,7 @@ from __future__ import annotations
 import numpy as np
 
 from ...config import model_config
-from ...features.feature_pipeline import FeatureTransformer, spec
+from ...features.feature_pipeline import spec
 from ...ingestion import loader
 from ...ingestion.schemas import TARGETS
 from ...logging_utils import get_logger, log_metrics, run
@@ -26,22 +26,58 @@ from .. import base, provenance
 
 log = get_logger(__name__)
 NAME = "conversion"
+TASK = "binary"
+
+
+def rows(df):
+    """Every sanctioned file: conversion is conditional on sanction."""
+    return df
+
+
+def features(frame):
+    """The raw table already carries the contract's columns, ``offered_rate``
+    and ``competitor_gap_bps`` included (``loader.add_derived_columns``)."""
+    return frame
+
+
+def split(df):
+    """The trainer's chronological train / holdout split."""
+    return loader.train_test_split(rows(df))
+
+
+def _fallback():
+    cfg = model_config()[NAME]
+    return base.hgb_classifier(cfg["params"], spec(NAME)), base.fallback_learner(NAME)
+
+
+def incumbent() -> dict:
+    return {"family": "hist_gradient_boosting", "params": dict(model_config()[NAME]["params"])}
+
+
+def selection_data(df):
+    """Fit / validation frames for the AutoML search, from this trainer's own
+    split and contract. The contract's monotone constraints travel in the spec,
+    so families that cannot carry them are excluded by the search."""
+    dev_df, holdout_df = split(df)
+    return base.selection_data(
+        NAME, TASK, dev_df, holdout_df, feature_spec=spec(NAME), build=features,
+        target=TARGETS[NAME], metric="auc", incumbent=incumbent())
 
 
 def train(df=None, save: bool = True) -> base.ModelCard:
-    cfg = model_config()["conversion"]
+    cfg = model_config()[NAME]
     df = loader.load_training_table() if df is None else df
-    train_df, test_df = loader.train_test_split(df)
+    train_df, test_df = split(df)
 
     feature_spec = spec(NAME)
-    transformer = FeatureTransformer(feature_spec)
-    X_train = transformer.fit_transform(train_df)
-    X_test = transformer.transform(test_df)
-    y_train = train_df[TARGETS["conversion"]].astype(int).to_numpy()
-    y_test = test_df[TARGETS["conversion"]].astype(int).to_numpy()
+    transformer, ((X_train, y_train), (X_test, y_test)) = base.design(
+        feature_spec, features, TARGETS[NAME], train_df, test_df, binary=True)
 
     with run(f"{NAME}-train", {"learner": cfg["learner"]}) as active:
-        estimator = base.hgb_classifier(cfg["params"], feature_spec)
+        # The monotone constraints in feature_spec are applied by whichever
+        # learner is built - the selection or the fallback - and isotonic
+        # calibration, being monotone, keeps them.
+        estimator, learner_name = base.learner(NAME, TASK, feature_spec, fallback=_fallback)
         model = base.calibrate(estimator, X_train, y_train, cfg.get("calibration"))
         proba = model.predict_proba(X_test)[:, 1]
         metrics = base.classification_metrics(y_test, proba)
@@ -59,7 +95,7 @@ def train(df=None, save: bool = True) -> base.ModelCard:
                                   slice_of='chronological train split of the full training table')
 
     card = base.ModelCard(
-        name=NAME, version=model_config()["registry"]["version"], learner=cfg["learner"],
+        name=NAME, version=model_config()["registry"]["version"], learner=learner_name,
         target=TARGETS["conversion"], n_train=len(X_train), n_test=len(X_test),
         features=feature_spec.columns, metrics=metrics,
         training_window={"from": str(train_df["application_date"].min()),
@@ -72,6 +108,7 @@ def train(df=None, save: bool = True) -> base.ModelCard:
         ],
         dataset=dataset,
         fairness=fairness,
+        selection=base.selection_record(NAME, learner_name),
     ).finalize()
 
     log.info("conversion AUC %.3f | calibration gap %.4f | mean dS2D per +25bps %.1f pts",

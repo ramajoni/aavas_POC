@@ -120,14 +120,39 @@ def test_affordability_caps_the_upper_end():
         assert foir <= max_foir + 1e-6, "the band's upper end must remain affordable"
 
 
-def test_rate_above_affordability_is_rejected():
-    thin = pd.DataFrame([{
+def _thin_file(income: float) -> pd.DataFrame:
+    return pd.DataFrame([{
         "segment": "salaried_informal", "risk_grade": "C", "property_type": "self_construction",
         "ltv": 0.85, "deviation_count": 1, "new_to_credit": False,
-        "sanctioned_loan_amount": 1_500_000, "verified_monthly_income": 30_000,
+        "sanctioned_loan_amount": 1_500_000, "verified_monthly_income": income,
         "declared_obligations": 3_000.0, "tenure_years": 15,
     }])
+
+
+def test_rate_above_affordability_is_rejected():
+    """An affordable price exists inside the band, so one that breaks FOIR is blocked."""
+    thin = _thin_file(40_000)
     band = constraints.permissible_band(thin).iloc[0]
+    assert not band["resize_required"] and band["affordability_binding"]
     check = constraints.check(thin, float(band["max_affordable_rate"]) + 0.5)
     assert not check.allowed
+    assert check.verdict == "block"
     assert any("FOIR" in v for v in check.violations)
+
+
+def test_unaffordable_file_is_priced_on_its_risk_band_conditional_on_resize():
+    """When no permissible rate clears FOIR, the band must not collapse to a point:
+    the file is priced on its risk band and referred with the resize that fixes it."""
+    thin = _thin_file(30_000)
+    band = constraints.permissible_band(thin).iloc[0]
+    assert band["resize_required"]
+    assert band["max_rate"] > band["min_rate"], "the band collapsed instead of pricing the risk"
+
+    rate = float(band["card_rate"])
+    check = constraints.check(thin, rate)
+    assert check.allowed and check.verdict == "refer"
+    assert check.conditions and "resize" in check.conditions[0]
+    terms = check.resize
+    assert terms["possible"] and terms["max_affordable_amount"] < terms["current_amount"]
+    emi = constraints._emi(np.array([terms["max_affordable_amount"]]), np.array([rate]), np.array([15.0]))[0]
+    assert (emi + 3_000.0) / 30_000.0 <= policy()["constraints"]["max_foir"] + 1e-9

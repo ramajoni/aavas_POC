@@ -25,3 +25,5 @@ reports/omnixai/
 
 # Office lock files
 .~lock.*#
+# Borrower documents uploaded through the app
+data/uploads/

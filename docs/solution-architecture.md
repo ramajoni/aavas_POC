@@ -66,9 +66,9 @@ lines of tests (393 passing), 58 API routes, 8 configuration files holding 500 s
 
 **Maturity.** Both halves of the lifecycle now exist. Sign-off over configuration, models
 and the agent set is built, with per-role signatures, gates that block, and an apply step
-separate from approval. It is reported as **partial rather than ready** for one reason:
-authentication is disabled by default, so a signature is a name in a text field rather
-than a verified identity, and every surface says so rather than rendering it as a control.
+separate from approval. Sign-in is now required by default, so a signature carries a verified (if
+deployment-local) identity; it stays short of production-ready until the user table is
+replaced by SSO.
 
 ---
 
@@ -512,7 +512,7 @@ Six control zones over one workload.
 | 1 | Business & policy control | partial | readable and versioned; **not editable** |
 | 2 | Agent factory | partial | observable and versioned; not configurable |
 | 3 | Model & data control | partial | AutoML is not the training path; 5 of 5 connectors blocked |
-| 4 | Human approval centre | partial | built; **partial only because authentication is off** |
+| 4 | Human approval centre | partial | built, with sign-in enforced; a config change is still applied by editing the file |
 | 5 | Runtime operations centre | ready | a request row opens before the pipeline runs |
 | 6 | Continuous learning centre | partial | monitors record having run; nothing schedules them |
 
@@ -585,14 +585,17 @@ the state a change process actually lives in.
 
 ### What still limits it
 
-- **Authentication is disabled by default.** With `AAVAS_AUTH_MODE=disabled` every caller
-  is anonymous and holds every role, so a signature is a name in a text field. The
-  approval zone reports *partial* for this reason alone, and `/governance` leads with it.
-  Setting `AAVAS_AUTH_MODE=apikey` enforces roles on every write today; production needs
-  SSO, and `security.principal_from_request` is the single seam where that goes.
-- **The API does not write configuration.** A config approval records that an edit was
-  authorised; applying it is still a file edit and a restart. The apply endpoint returns
-  501 and says so rather than implying it wrote the file.
+- **Identity is deployment-local.** Sign-in is enforced by default against the users in
+  `config/access.yaml`, and every route is role-checked. Those users are a file, not a
+  directory: production needs SSO, and `security.principal_from_request` is the single seam
+  where that goes. `AAVAS_AUTH_MODE=disabled` still exists for scripts, and every surface
+  reports it when it is on.
+- **Configuration is edited directly, not through sign-off.** The signed-in administrator
+  edits a file at `#/config`: the change must parse, keep every section and carry a new
+  version, a sample application is priced with it and it is rolled back if that fails, and
+  it is recorded in `config_changes` with an undo. The approvals flow is not in front of it:
+  a config approval still only records that an edit was authorised, and its apply endpoint
+  still returns 501.
 - **`champion_challenger.py` is reachable but has no replay.** The
   `challenger_beats_champion` gate reports *not evaluated* rather than passing, because no
   shadow comparison has been recorded for any pair.

@@ -6,7 +6,7 @@ PYTHON ?= python3
 XAI_PYTHON ?= $(CURDIR)/.venv-xai/bin/python
 export PYTHONPATH := $(CURDIR)/src
 
-.PHONY: install data train demo test api lint docker-up docker-phase2 all clean xai xai-install xai-reports automl automl-status monitors verify-algorithms
+.PHONY: install data train demo test api lint docker-up docker-phase2 all clean xai xai-install xai-reports automl automl-status monitors verify-algorithms select funnel notes test-cases evidence walkthrough
 
 install:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -59,6 +59,32 @@ docker-up:
 
 docker-phase2:
 	docker compose --profile phase2 up --build
+
+# AutoML selection for the five deck models. Writes reports/automl/portfolio/;
+# the next `make train` fits what it selected. ARGS="--fast" for a smoke run.
+select:
+	$(PYTHON) scripts/run_model_selection.py $(ARGS)
+
+# The automated feature-engineering funnel (raw -> derived -> screened ->
+# approved -> in model) for each contract. Writes reports/features/.
+funnel:
+	$(PYTHON) scripts/run_feature_funnel.py $(ARGS)
+
+# Historical sales-note extraction, its quality against the synthetic truth, and
+# the competitor analysis built on it.
+notes:
+	$(PYTHON) scripts/run_note_intelligence.py $(ARGS)
+
+# The deck's three test cases through the pricing API. Writes reports/test_cases/.
+test-cases:
+	$(PYTHON) scripts/run_test_cases.py $(ARGS)
+
+# Every real figure the walkthrough deck needs, slide by slide.
+evidence:
+	$(PYTHON) scripts/build_walkthrough_evidence.py $(ARGS)
+
+# Regenerate everything the walkthrough deck cites, in dependency order.
+walkthrough: select train funnel notes test-cases evidence
 
 # Full cold start: data -> models -> tests -> walkthrough.
 all: data train test demo

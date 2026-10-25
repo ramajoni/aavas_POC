@@ -1,6 +1,25 @@
 # Feature contracts per model. The feature pipeline reads ONLY this file, so a
 # feature can never silently leak from Stage-2 into Stage-1.
-feature_config_version: "FEAT-2026.09"
+# FEAT-2026.10: bureau_score = -1 is now read as "no score" rather than as a number
+# (see `sentinels` below), and new_to_credit joins every contract that holds the
+# score without the flag - conversion, prepayment and override. Both change what
+# a model is fitted on, so artefacts trained under FEAT-2026.09 must be retrained.
+feature_config_version: "FEAT-2026.10"
+
+# Values that are a code, not a measurement. The bureau feed writes -1 for an
+# applicant with no bureau file: a new-to-credit customer has no score at all,
+# not a very bad one. Read as a number, -1 sits 300 points below the worst real
+# score, so every tree splits on it and the median a missing score is imputed
+# with is dragged towards it. The transformer therefore reads a sentinel as
+# missing, at fit and at scoring time, and the information it carried travels in
+# `flag`, which every contract holding the score also holds. `display` is what an
+# explanation shows in place of the code. The rule is captured into the fitted
+# transformer, so an artefact replays the rule it was trained under.
+sentinels:
+  bureau_score:
+    below: 0                    # any negative score is the no-file code
+    flag: new_to_credit
+    display: "No bureau score (new to credit)"
 
 # Fields available before documents are collected. Anything not listed here is
 # forbidden in Stage-1 - this is the guard against pre-assessment leakage.
@@ -114,6 +133,7 @@ conversion:
     - channel
     - customer_negotiating
     - existing_relationship
+    - new_to_credit           # pairs with bureau_score; see `sentinels`
   monotone:
     offered_rate: -1          # never learn "more expensive converts better"
     competitor_gap_bps: -1
@@ -133,11 +153,12 @@ prepayment:
     - segment
     - city
     - channel
+    - new_to_credit           # pairs with bureau_score; see `sentinels`
   monotone:
     offered_rate: 1           # pricier than market => more BT-out pressure
     competitor_gap_bps: 1
 
-# Override model: will a human move the AI price, and by how much.
+# Override model: will a human move the system price, and by how much.
 override:
   numeric:
     - ai_recommended_rate
@@ -157,6 +178,65 @@ override:
     - customer_negotiating
     - existing_relationship
     - risk_grade
+    - new_to_credit           # pairs with bureau_score; see `sentinels`
+
+# Loss given default: the severity half of the risk model. Fitted only on files
+# that defaulted, so every feature here must be known when the file is priced -
+# collateral, title and location, never anything from the recovery itself.
+# Location stands in for how fast a state's courts move a SARFAESI case; `state`
+# itself has no authored reason label, so `city` (which nests inside it) carries it.
+lgd:
+  numeric:
+    - ltv
+    - appraised_property_value
+    - sanctioned_loan_amount
+    - legal_flag
+    - technical_flag
+  categorical:
+    - property_type
+    - city
+    - segment
+  monotone:
+    ltv: 1                    # less equity cushion never recovers more
+    legal_flag: 1             # a title exception slows enforcement
+    technical_flag: 1
+
+# Pricing uplift: how much acceptance a discount buys, learned from override
+# history. Only what the RM can see at the moment of deciding. competitor_gap_bps
+# here is the gap at the *recommended* rate (sales_features.build with
+# reference_rate_col=ai_recommended_rate): the loader's own column is measured at
+# the sanctioned rate, i.e. after the discount, and would leak the treatment.
+uplift:
+  numeric:
+    - ai_recommended_rate
+    - competitor_rate
+    - competitor_gap_bps
+    - sales_target_pct
+    - branch_target_pct
+    - days_to_month_end
+    - prior_negotiation_rounds
+    - ltv
+    - bureau_score
+    - sanctioned_loan_amount
+    - verified_monthly_income
+    - legal_flag
+  categorical:
+    - segment
+    - channel
+    - city
+    - customer_negotiating
+    - existing_relationship
+    - month_end
+    - competitor_evidence_verified
+    - risk_grade
+    - new_to_credit           # pairs with bureau_score; see `sentinels`
+  # The treatment, not a feature: the discount the RM is weighing, in bps below
+  # the recommendation. It is an input only to the dose-response learner, and its
+  # constraint lives here with the contract - a bigger discount never lowers
+  # acceptance.
+  dose:
+    column: discount_bps
+    monotone: 1
 
 # Human-readable names + direction language used to turn attributions into
 # reason codes a sales or credit user can actually read.

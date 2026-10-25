@@ -1,7 +1,9 @@
 import React,{useEffect,useState} from 'react';
 import {Brain,ChartBar,Eye,WarningCircle,ArrowClockwise,ImageSquare,Info,Gauge,ArrowSquareOut} from '@phosphor-icons/react';
 import {api,titleCase,number} from './api';
+import {authHeaders} from './session';
 import {Button,Panel,Badge,InfoBox,Empty,DataTable} from './components';
+import {useCanOpen} from './access';
 
 // Trust tone for the rank-agreement number. Two methods that share no machinery
 // ranking features the same way is what makes a ranking worth acting on; when
@@ -49,7 +51,8 @@ function InstanceCard({inst,units,title,attributionUnits}){
  </Panel>;
 }
 
-export function Xai({health,navigate}){
+export function Xai({health,navigate:go}){
+ const can=useCanOpen();const navigate=go&&can('xai-dash')?go:null;
  const [index,setIndex]=useState(null);const [model,setModel]=useState(null);const [detail,setDetail]=useState(null);
  const [report,setReport]=useState('');const [tab,setTab]=useState('global');const [loading,setLoading]=useState(false);const [error,setError]=useState('');
  // The dashboards are separate servers with their own lifecycle, so their state
@@ -63,7 +66,7 @@ export function Xai({health,navigate}){
 
  useEffect(()=>{if(!model)return;let live=true;setLoading(true);setReport('');
   api(`/xai/${model}`).then(d=>{if(live){setDetail(d);setError('');}}).catch(e=>{if(live)setError(e.message);}).finally(()=>{if(live)setLoading(false);});
-  fetch(`/api/xai/${model}/report`).then(r=>r.ok?r.text():'').then(t=>{if(live)setReport(t);}).catch(()=>{});
+  fetch(`/api/xai/${model}/report`,{headers:authHeaders()}).then(r=>r.ok?r.text():'').then(t=>{if(live)setReport(t);}).catch(()=>{});
   return()=>{live=false;};},[model]);
 
  const summary=index?.models?.find(m=>m.model===model);
@@ -220,7 +223,7 @@ export function Xai({health,navigate}){
           Everything on this page is offline and needs no process.</InfoBox>}
      {detail.captures?.length
       ? <>{detail.captures.map(c=><Panel key={c.view} title={c.label} icon={ImageSquare}>
-          <a href={`/api${c.url}`} target="_blank" rel="noreferrer"><img className="xai-capture" src={`/api${c.url}`} alt={`OmniXAI ${c.label} for ${model}`} loading="lazy"/></a>
+          <Capture url={c.url} alt={`OmniXAI ${c.label} for ${model}`}/>
         </Panel>)}</>
       : <Empty icon={ImageSquare} title="No dashboard captures for this model">Captures exist only for models analysed with the UI pass. Everything else on this page — global importance, the credit-score band, per-instance attributions — is available for {titleCase(model)} without them.</Empty>}
     </>}
@@ -244,4 +247,17 @@ export function Xai({health,navigate}){
    </>}
   </>}
  </div>;
+}
+
+// Captures are role-protected, and an <img src> cannot carry the session token,
+// so each one is fetched with it and shown from a local object URL.
+function Capture({url,alt}){
+ const [src,setSrc]=useState(null);const [failed,setFailed]=useState(false);
+ useEffect(()=>{let live=true,obj=null;setSrc(null);setFailed(false);
+  fetch(`/api${url}`,{headers:authHeaders()}).then(r=>r.ok?r.blob():Promise.reject())
+   .then(b=>{if(live){obj=URL.createObjectURL(b);setSrc(obj);}}).catch(()=>{if(live)setFailed(true);});
+  return()=>{live=false;if(obj)URL.revokeObjectURL(obj);};},[url]);
+ if(failed)return <p className="muted">This capture could not be loaded.</p>;
+ if(!src)return <p className="muted">Loading capture…</p>;
+ return <a href={src} target="_blank" rel="noreferrer"><img className="xai-capture" src={src} alt={alt}/></a>;
 }

@@ -1,0 +1,48 @@
+/* Competitor intelligence page, plus the note-extraction and market-context
+   blocks it lends to the application workspace. */
+.ci .ci-metrics{flex-wrap:wrap;align-items:center}
+.ci .ci-metrics>div{min-width:120px}
+.ci .ci-metrics .button{margin-left:auto}
+.ci-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.ci-two>.panel{margin-bottom:0}
+.ci-two h3{font-size:13px;margin:12px 0 8px;color:#0d347c}
+.ci-chart{height:260px;margin:4px 0 8px}
+.ci-chart.small{height:200px}
+.ci-chart.tall{height:340px}
+/* Customer behaviour section */
+.ci-behaviour{margin:8px 0 16px}
+.ci-section-head h2{display:flex;align-items:center;gap:8px;font-size:20px;margin:18px 0 4px;color:var(--ink)}
+.ci-section-head p{margin:0 0 12px;color:var(--muted);font-size:13.5px;max-width:900px}
+.ci-behaviour .info-box b{display:inline-flex;align-items:center;gap:5px}
+.ci-pick{font-weight:500;text-align:left}
+.ci-pick.active{color:#071f5e;text-decoration:underline;font-weight:700}
+.ci-list{margin:6px 0;padding-left:18px;font-size:12px;line-height:1.6;color:#41526f}
+.ci-list li{margin:4px 0}
+.chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #ccd9ed;border-radius:14px;padding:4px 10px;font-size:11px;background:#fff}
+.chip small{color:var(--muted)}
+.ci table td{font-size:12px}
+
+/* application: Customer Interaction tab */
+.ci-extract{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.ci-extract .actions{flex-wrap:wrap}
+.ci-sub{font-size:13px;margin:16px 0 8px;color:#0d347c}
+.ci-note-text{font-size:12px;line-height:1.75;margin:6px 0;padding:8px 10px;background:#f7f9fd;border-radius:5px}
+.ci-mark{border-radius:3px;padding:0 2px}
+.ci-mark.lender{background:#dfe9ff;color:#0a2a7a}
+.ci-mark.rate{background:#e3f7ec;color:#146746}
+.ci-mark.unknown{background:#fff3db;color:#8b5905}
+
+/* application: Competitive context card */
+.ci-context{margin-top:10px;border-top:1px solid var(--border);padding-top:8px}
+.ci-context-item{padding:7px 0;border-bottom:1px dashed var(--border)}
+.ci-context-item:last-of-type{border-bottom:0}
+.ci-context-head{display:flex;justify-content:space-between;gap:6px;font-size:12px}
+.ci-line{font-size:11px;line-height:1.55;color:#566681;margin:4px 0}
+.ci-context .badge{padding:2px 7px;font-size:9px}
+.ci-flag{display:flex;gap:5px;align-items:flex-start;font-size:11px;line-height:1.5;color:#8b3a05;background:#fff5df;border-radius:5px;padding:6px 7px;margin:5px 0}
+.ci-comparables{font-size:11px;margin-top:6px}
+.ci-comparables summary{cursor:pointer;color:#0050fa;display:flex;align-items:center;gap:4px}
+.ci-comparables p{font-size:11px;line-height:1.5;margin:6px 0 2px;color:#33425e}
+
+@media(max-width:1150px){.ci-two{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:640px){.ci .ci-metrics>div{min-width:44%}.ci-chart{height:220px}}

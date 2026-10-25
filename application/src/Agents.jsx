@@ -2,12 +2,14 @@ import React,{useEffect,useState} from 'react';
 import {Robot,FlowArrow,ArrowClockwise,WarningCircle,Moon,Info,Wrench,Lightning,Plugs,Package} from '@phosphor-icons/react';
 import {api,titleCase,number} from './api';
 import {Button,Panel,Badge,InfoBox,Empty,DataTable} from './components';
+import {useCanOpen} from './access';
 
 const ms=n=>n==null?'—':n<1?`${n.toFixed(2)} ms`:n<1000?`${n.toFixed(1)} ms`:`${(n/1000).toFixed(2)} s`;
 const when=s=>s?new Date(s).toLocaleString('en-IN'):'—';
 const statusTone=s=>s==='ready'?'green':s==='degraded'?'amber':'blue';
 
 export function Agents({navigate}){
+ const can=useCanOpen();
  const [body,setBody]=useState(null);const [trace,setTrace]=useState(null);const [traces,setTraces]=useState([]);
  const [loading,setLoading]=useState(false);const [error,setError]=useState('');const [note,setNote]=useState('');
  const [tab,setTab]=useState('agents');const [tools,setTools]=useState(null);const [skills,setSkills]=useState(null);
@@ -96,7 +98,7 @@ export function Agents({navigate}){
        </>
       : <Empty icon={Info} title="No decision carries a trace yet">
           {note||'Price a file from the assessment workspace and it will appear here.'}
-          {navigate&&<> <button className="link-button" onClick={()=>navigate('application')}>Open the workspace</button></>}
+          {navigate&&can('application')&&<> <button className="link-button" onClick={()=>navigate('application')}>Open the workspace</button></>}
         </Empty>}
    </Panel>
 

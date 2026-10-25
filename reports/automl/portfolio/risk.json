@@ -1,0 +1,2176 @@
+{
+  "model": "risk",
+  "task": "binary",
+  "target": "defaulted",
+  "framework": "aavas.automl.portfolio random search (catboost 1.2.10, lightgbm 4.7.0, scikit-learn 1.6.1, xgboost 3.2.0)",
+  "metric": "auc",
+  "higher_is_better": true,
+  "units": "bps",
+  "quantiles": null,
+  "features": [
+    "verified_monthly_income",
+    "income_verification_haircut",
+    "sanctioned_loan_amount",
+    "appraised_property_value",
+    "ltv",
+    "bureau_score",
+    "bureau_vintage_months",
+    "delinquency_count_24m",
+    "banking_behaviour_score",
+    "foir",
+    "tenure_years",
+    "applicant_age",
+    "deviation_count",
+    "legal_flag",
+    "technical_flag",
+    "segment",
+    "city",
+    "channel",
+    "property_type",
+    "new_to_credit"
+  ],
+  "monotone_constraints": {},
+  "families_considered": [
+    "logistic_regression",
+    "random_forest",
+    "extra_trees",
+    "hist_gradient_boosting",
+    "xgboost",
+    "lightgbm",
+    "catboost"
+  ],
+  "families_skipped": [],
+  "budget_per_family": {
+    "logistic_regression": 4,
+    "random_forest": 12,
+    "extra_trees": 12,
+    "hist_gradient_boosting": 12,
+    "xgboost": 12,
+    "lightgbm": 12,
+    "catboost": 12
+  },
+  "trials": 76,
+  "trials_failed": 0,
+  "leaderboard": [
+    {
+      "family": "logistic_regression",
+      "trial": 3,
+      "origin": "random",
+      "params": {
+        "C": 0.01366
+      },
+      "explainability": "linear",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.749368,
+        "log_loss": 0.290578,
+        "brier": 0.083203,
+        "ece": 0.009311,
+        "calibration_gap": 0.000949,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.016,
+      "rank": 1
+    },
+    {
+      "family": "logistic_regression",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "C": 0.004256
+      },
+      "explainability": "linear",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.748947,
+        "log_loss": 0.29292,
+        "brier": 0.083805,
+        "ece": 0.019521,
+        "calibration_gap": 0.001009,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.015,
+      "rank": 2
+    },
+    {
+      "family": "logistic_regression",
+      "trial": 2,
+      "origin": "random",
+      "params": {
+        "C": 0.002332
+      },
+      "explainability": "linear",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.748214,
+        "log_loss": 0.296036,
+        "brier": 0.084533,
+        "ece": 0.025491,
+        "calibration_gap": 0.001018,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.017,
+      "rank": 3
+    },
+    {
+      "family": "extra_trees",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "n_estimators": 315,
+        "max_depth": 8,
+        "min_samples_leaf": 6,
+        "max_features": 0.7
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.747213,
+        "log_loss": 0.292982,
+        "brier": 0.083983,
+        "ece": 0.015766,
+        "calibration_gap": 0.001575,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.713,
+      "rank": 4
+    },
+    {
+      "family": "logistic_regression",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "C": 1.0
+      },
+      "explainability": "linear",
+      "explainability_tier": 1,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.746044,
+        "log_loss": 0.291504,
+        "brier": 0.083267,
+        "ece": 0.010405,
+        "calibration_gap": 0.000744,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.019,
+      "rank": 5
+    },
+    {
+      "family": "extra_trees",
+      "trial": 7,
+      "origin": "random",
+      "params": {
+        "n_estimators": 280,
+        "max_depth": 6,
+        "min_samples_leaf": 16,
+        "max_features": 1.0
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.745647,
+        "log_loss": 0.29429,
+        "brier": 0.084301,
+        "ece": 0.01427,
+        "calibration_gap": 0.001623,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.62,
+      "rank": 6
+    },
+    {
+      "family": "extra_trees",
+      "trial": 5,
+      "origin": "random",
+      "params": {
+        "n_estimators": 238,
+        "max_depth": 9,
+        "min_samples_leaf": 15,
+        "max_features": 1.0
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.745119,
+        "log_loss": 0.292246,
+        "brier": 0.083809,
+        "ece": 0.009785,
+        "calibration_gap": 0.0014,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.741,
+      "rank": 7
+    },
+    {
+      "family": "xgboost",
+      "trial": 4,
+      "origin": "random",
+      "params": {
+        "n_estimators": 225,
+        "max_depth": 3,
+        "learning_rate": 0.04428,
+        "subsample": 0.8077,
+        "colsample_bytree": 0.7065,
+        "reg_lambda": 0.1207,
+        "min_child_weight": 9.217
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.744943,
+        "log_loss": 0.29138,
+        "brier": 0.083606,
+        "ece": 0.005384,
+        "calibration_gap": 0.00021,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.2,
+      "rank": 8
+    },
+    {
+      "family": "extra_trees",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 12,
+        "min_samples_leaf": 5,
+        "max_features": 0.5
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.744226,
+        "log_loss": 0.293015,
+        "brier": 0.084112,
+        "ece": 0.009097,
+        "calibration_gap": 0.001104,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.743,
+      "rank": 9
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 4,
+      "origin": "random",
+      "params": {
+        "max_iter": 367,
+        "learning_rate": 0.02178,
+        "max_depth": 3,
+        "min_samples_leaf": 26,
+        "l2_regularization": 7.378
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.743357,
+        "log_loss": 0.29171,
+        "brier": 0.083467,
+        "ece": 0.007119,
+        "calibration_gap": 2e-05,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.645,
+      "rank": 10
+    },
+    {
+      "family": "catboost",
+      "trial": 5,
+      "origin": "random",
+      "params": {
+        "iterations": 435,
+        "depth": 4,
+        "learning_rate": 0.03839,
+        "l2_leaf_reg": 1.537
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.742938,
+        "log_loss": 0.293244,
+        "brier": 0.083913,
+        "ece": 0.008093,
+        "calibration_gap": 0.002747,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.11,
+      "rank": 11
+    },
+    {
+      "family": "extra_trees",
+      "trial": 6,
+      "origin": "random",
+      "params": {
+        "n_estimators": 189,
+        "max_depth": 11,
+        "min_samples_leaf": 4,
+        "max_features": 1.0
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.741876,
+        "log_loss": 0.292791,
+        "brier": 0.084017,
+        "ece": 0.006225,
+        "calibration_gap": 0.00149,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.608,
+      "rank": 12
+    },
+    {
+      "family": "extra_trees",
+      "trial": 2,
+      "origin": "random",
+      "params": {
+        "n_estimators": 252,
+        "max_depth": 18,
+        "min_samples_leaf": 17,
+        "max_features": 1.0
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.741447,
+        "log_loss": 0.293048,
+        "brier": 0.083994,
+        "ece": 0.008271,
+        "calibration_gap": 0.001187,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.817,
+      "rank": 13
+    },
+    {
+      "family": "extra_trees",
+      "trial": 3,
+      "origin": "random",
+      "params": {
+        "n_estimators": 311,
+        "max_depth": 12,
+        "min_samples_leaf": 29,
+        "max_features": 0.5
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.740069,
+        "log_loss": 0.295485,
+        "brier": 0.084557,
+        "ece": 0.01293,
+        "calibration_gap": 0.001454,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.696,
+      "rank": 14
+    },
+    {
+      "family": "lightgbm",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "n_estimators": 200,
+        "num_leaves": 16,
+        "learning_rate": 0.04399,
+        "subsample": 0.9922,
+        "colsample_bytree": 0.8969,
+        "reg_lambda": 4.366,
+        "min_child_samples": 44
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.739535,
+        "log_loss": 0.294151,
+        "brier": 0.084462,
+        "ece": 0.011318,
+        "calibration_gap": 0.002739,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.375,
+      "rank": 15
+    },
+    {
+      "family": "catboost",
+      "trial": 2,
+      "origin": "random",
+      "params": {
+        "iterations": 393,
+        "depth": 5,
+        "learning_rate": 0.03334,
+        "l2_leaf_reg": 3.067
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.739521,
+        "log_loss": 0.293439,
+        "brier": 0.083913,
+        "ece": 0.004859,
+        "calibration_gap": 0.002483,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.782,
+      "rank": 16
+    },
+    {
+      "family": "extra_trees",
+      "trial": 10,
+      "origin": "random",
+      "params": {
+        "n_estimators": 208,
+        "max_depth": 18,
+        "min_samples_leaf": 27,
+        "max_features": 0.7
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.738971,
+        "log_loss": 0.294238,
+        "brier": 0.084187,
+        "ece": 0.009174,
+        "calibration_gap": 0.001305,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.562,
+      "rank": 17
+    },
+    {
+      "family": "random_forest",
+      "trial": 2,
+      "origin": "random",
+      "params": {
+        "n_estimators": 309,
+        "max_depth": 16,
+        "min_samples_leaf": 25,
+        "max_features": 0.33
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.738743,
+        "log_loss": 0.294284,
+        "brier": 0.084246,
+        "ece": 0.01126,
+        "calibration_gap": 0.001665,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.398,
+      "rank": 18
+    },
+    {
+      "family": "extra_trees",
+      "trial": 4,
+      "origin": "random",
+      "params": {
+        "n_estimators": 166,
+        "max_depth": 12,
+        "min_samples_leaf": 23,
+        "max_features": 0.7
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.738559,
+        "log_loss": 0.294177,
+        "brier": 0.084129,
+        "ece": 0.0132,
+        "calibration_gap": 0.001334,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.451,
+      "rank": 19
+    },
+    {
+      "family": "random_forest",
+      "trial": 4,
+      "origin": "random",
+      "params": {
+        "n_estimators": 155,
+        "max_depth": 7,
+        "min_samples_leaf": 22,
+        "max_features": 0.33
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.73854,
+        "log_loss": 0.295031,
+        "brier": 0.084401,
+        "ece": 0.016635,
+        "calibration_gap": 0.000837,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.567,
+      "rank": 20
+    },
+    {
+      "family": "extra_trees",
+      "trial": 11,
+      "origin": "random",
+      "params": {
+        "n_estimators": 343,
+        "max_depth": 7,
+        "min_samples_leaf": 19,
+        "max_features": 0.33
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.738482,
+        "log_loss": 0.300787,
+        "brier": 0.085727,
+        "ece": 0.027833,
+        "calibration_gap": 0.001568,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.576,
+      "rank": 21
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 11,
+      "origin": "random",
+      "params": {
+        "max_iter": 342,
+        "learning_rate": 0.02402,
+        "max_depth": 4,
+        "min_samples_leaf": 60,
+        "l2_regularization": 2.992
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.738253,
+        "log_loss": 0.293708,
+        "brier": 0.084148,
+        "ece": 0.005522,
+        "calibration_gap": 0.001205,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.971,
+      "rank": 22
+    },
+    {
+      "family": "extra_trees",
+      "trial": 9,
+      "origin": "random",
+      "params": {
+        "n_estimators": 304,
+        "max_depth": 13,
+        "min_samples_leaf": 28,
+        "max_features": 0.33
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.737368,
+        "log_loss": 0.29823,
+        "brier": 0.085195,
+        "ece": 0.019882,
+        "calibration_gap": 0.001657,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.662,
+      "rank": 23
+    },
+    {
+      "family": "random_forest",
+      "trial": 10,
+      "origin": "random",
+      "params": {
+        "n_estimators": 369,
+        "max_depth": 15,
+        "min_samples_leaf": 26,
+        "max_features": 0.33
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.737078,
+        "log_loss": 0.294867,
+        "brier": 0.084451,
+        "ece": 0.009268,
+        "calibration_gap": 0.001381,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.763,
+      "rank": 24
+    },
+    {
+      "family": "random_forest",
+      "trial": 8,
+      "origin": "random",
+      "params": {
+        "n_estimators": 252,
+        "max_depth": 13,
+        "min_samples_leaf": 29,
+        "max_features": 0.5
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.736295,
+        "log_loss": 0.294364,
+        "brier": 0.084389,
+        "ece": 0.004532,
+        "calibration_gap": 0.001294,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.695,
+      "rank": 25
+    },
+    {
+      "family": "random_forest",
+      "trial": 11,
+      "origin": "random",
+      "params": {
+        "n_estimators": 158,
+        "max_depth": 9,
+        "min_samples_leaf": 23,
+        "max_features": 0.5
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.735992,
+        "log_loss": 0.294333,
+        "brier": 0.084349,
+        "ece": 0.006754,
+        "calibration_gap": 0.000865,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.972,
+      "rank": 26
+    },
+    {
+      "family": "random_forest",
+      "trial": 3,
+      "origin": "random",
+      "params": {
+        "n_estimators": 268,
+        "max_depth": 8,
+        "min_samples_leaf": 6,
+        "max_features": 0.5
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.734544,
+        "log_loss": 0.295171,
+        "brier": 0.084623,
+        "ece": 0.008745,
+        "calibration_gap": 0.001012,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.635,
+      "rank": 27
+    },
+    {
+      "family": "random_forest",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "n_estimators": 278,
+        "max_depth": 7,
+        "min_samples_leaf": 3,
+        "max_features": 0.7
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.734369,
+        "log_loss": 0.295242,
+        "brier": 0.084607,
+        "ece": 0.005988,
+        "calibration_gap": 0.000837,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 2.032,
+      "rank": 28
+    },
+    {
+      "family": "random_forest",
+      "trial": 7,
+      "origin": "random",
+      "params": {
+        "n_estimators": 156,
+        "max_depth": 6,
+        "min_samples_leaf": 18,
+        "max_features": 0.7
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.734129,
+        "log_loss": 0.294988,
+        "brier": 0.084492,
+        "ece": 0.005099,
+        "calibration_gap": 0.000307,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.063,
+      "rank": 29
+    },
+    {
+      "family": "lightgbm",
+      "trial": 10,
+      "origin": "random",
+      "params": {
+        "n_estimators": 271,
+        "num_leaves": 19,
+        "learning_rate": 0.03077,
+        "subsample": 0.6933,
+        "colsample_bytree": 0.8386,
+        "reg_lambda": 0.03745,
+        "min_child_samples": 35
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.733827,
+        "log_loss": 0.296145,
+        "brier": 0.084739,
+        "ece": 0.014957,
+        "calibration_gap": 0.006297,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.623,
+      "rank": 30
+    },
+    {
+      "family": "random_forest",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 12,
+        "min_samples_leaf": 5,
+        "max_features": 0.5
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.732803,
+        "log_loss": 0.296202,
+        "brier": 0.084918,
+        "ece": 0.006088,
+        "calibration_gap": 0.003085,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 2.348,
+      "rank": 31
+    },
+    {
+      "family": "random_forest",
+      "trial": 9,
+      "origin": "random",
+      "params": {
+        "n_estimators": 365,
+        "max_depth": 9,
+        "min_samples_leaf": 17,
+        "max_features": 1.0
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.732003,
+        "log_loss": 0.295493,
+        "brier": 0.084678,
+        "ece": 0.002373,
+        "calibration_gap": 0.001201,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 4.461,
+      "rank": 32
+    },
+    {
+      "family": "random_forest",
+      "trial": 6,
+      "origin": "random",
+      "params": {
+        "n_estimators": 373,
+        "max_depth": 9,
+        "min_samples_leaf": 9,
+        "max_features": 1.0
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.731357,
+        "log_loss": 0.295892,
+        "brier": 0.084837,
+        "ece": 0.004411,
+        "calibration_gap": 0.001383,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 4.522,
+      "rank": 33
+    },
+    {
+      "family": "lightgbm",
+      "trial": 3,
+      "origin": "random",
+      "params": {
+        "n_estimators": 218,
+        "num_leaves": 17,
+        "learning_rate": 0.05874,
+        "subsample": 0.7227,
+        "colsample_bytree": 0.9379,
+        "reg_lambda": 8.318,
+        "min_child_samples": 67
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.731142,
+        "log_loss": 0.296868,
+        "brier": 0.08466,
+        "ece": 0.013512,
+        "calibration_gap": 0.004677,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.412,
+      "rank": 34
+    },
+    {
+      "family": "xgboost",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "n_estimators": 412,
+        "max_depth": 5,
+        "learning_rate": 0.03295,
+        "subsample": 0.822,
+        "colsample_bytree": 0.7395,
+        "reg_lambda": 0.2504,
+        "min_child_weight": 1.893
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.730239,
+        "log_loss": 0.298279,
+        "brier": 0.085056,
+        "ece": 0.019937,
+        "calibration_gap": 0.009332,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.616,
+      "rank": 35
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 9,
+      "origin": "random",
+      "params": {
+        "max_iter": 380,
+        "learning_rate": 0.03813,
+        "max_depth": 8,
+        "min_samples_leaf": 67,
+        "l2_regularization": 0.06541
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.726269,
+        "log_loss": 0.306032,
+        "brier": 0.086566,
+        "ece": 0.028692,
+        "calibration_gap": 0.013572,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 2.371,
+      "rank": 36
+    },
+    {
+      "family": "random_forest",
+      "trial": 5,
+      "origin": "random",
+      "params": {
+        "n_estimators": 372,
+        "max_depth": 14,
+        "min_samples_leaf": 4,
+        "max_features": 0.7
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.726148,
+        "log_loss": 0.29884,
+        "brier": 0.085495,
+        "ece": 0.010408,
+        "calibration_gap": 0.005219,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 4.329,
+      "rank": 37
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 5,
+      "origin": "random",
+      "params": {
+        "max_iter": 309,
+        "learning_rate": 0.1121,
+        "max_depth": 4,
+        "min_samples_leaf": 29,
+        "l2_regularization": 4.091
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.72602,
+        "log_loss": 0.301517,
+        "brier": 0.08572,
+        "ece": 0.020223,
+        "calibration_gap": 0.006577,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.786,
+      "rank": 38
+    },
+    {
+      "family": "extra_trees",
+      "trial": 8,
+      "origin": "random",
+      "params": {
+        "n_estimators": 244,
+        "max_depth": 16,
+        "min_samples_leaf": 2,
+        "max_features": 0.7
+      },
+      "explainability": "bagged_trees",
+      "explainability_tier": 3,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.724665,
+        "log_loss": 0.29911,
+        "brier": 0.085552,
+        "ece": 0.008841,
+        "calibration_gap": 0.005319,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.764,
+      "rank": 39
+    },
+    {
+      "family": "lightgbm",
+      "trial": 7,
+      "origin": "random",
+      "params": {
+        "n_estimators": 207,
+        "num_leaves": 45,
+        "learning_rate": 0.04277,
+        "subsample": 0.6166,
+        "colsample_bytree": 0.763,
+        "reg_lambda": 4.48,
+        "min_child_samples": 78
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.724328,
+        "log_loss": 0.299549,
+        "brier": 0.085085,
+        "ece": 0.018839,
+        "calibration_gap": 0.0071,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.917,
+      "rank": 40
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 0,
+      "origin": "incumbent",
+      "params": {
+        "max_iter": 300,
+        "max_depth": 5,
+        "learning_rate": 0.06,
+        "min_samples_leaf": 40
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.721918,
+        "log_loss": 0.304744,
+        "brier": 0.086506,
+        "ece": 0.022712,
+        "calibration_gap": 0.007899,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.117,
+      "rank": 41
+    },
+    {
+      "family": "xgboost",
+      "trial": 6,
+      "origin": "random",
+      "params": {
+        "n_estimators": 415,
+        "max_depth": 7,
+        "learning_rate": 0.03108,
+        "subsample": 0.8895,
+        "colsample_bytree": 0.6205,
+        "reg_lambda": 1.956,
+        "min_child_weight": 3.02
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.721461,
+        "log_loss": 0.303097,
+        "brier": 0.085785,
+        "ece": 0.024619,
+        "calibration_gap": 0.014746,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.737,
+      "rank": 42
+    },
+    {
+      "family": "xgboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "n_estimators": 400,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.721117,
+        "log_loss": 0.305624,
+        "brier": 0.086236,
+        "ece": 0.028863,
+        "calibration_gap": 0.017158,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.629,
+      "rank": 43
+    },
+    {
+      "family": "xgboost",
+      "trial": 10,
+      "origin": "random",
+      "params": {
+        "n_estimators": 451,
+        "max_depth": 6,
+        "learning_rate": 0.02739,
+        "subsample": 0.9707,
+        "colsample_bytree": 0.9235,
+        "reg_lambda": 0.2051,
+        "min_child_weight": 1.067
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.720086,
+        "log_loss": 0.304672,
+        "brier": 0.085868,
+        "ece": 0.026002,
+        "calibration_gap": 0.016539,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.758,
+      "rank": 44
+    },
+    {
+      "family": "catboost",
+      "trial": 11,
+      "origin": "random",
+      "params": {
+        "iterations": 727,
+        "depth": 4,
+        "learning_rate": 0.07683,
+        "l2_leaf_reg": 1.357
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.717962,
+        "log_loss": 0.305919,
+        "brier": 0.086687,
+        "ece": 0.025953,
+        "calibration_gap": 0.009775,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.412,
+      "rank": 45
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 7,
+      "origin": "random",
+      "params": {
+        "max_iter": 227,
+        "learning_rate": 0.1283,
+        "max_depth": 5,
+        "min_samples_leaf": 63,
+        "l2_regularization": 2.898
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.715381,
+        "log_loss": 0.310176,
+        "brier": 0.087455,
+        "ece": 0.03322,
+        "calibration_gap": 0.01075,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.072,
+      "rank": 46
+    },
+    {
+      "family": "lightgbm",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "n_estimators": 400,
+        "num_leaves": 31,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "min_child_samples": 20
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.714196,
+        "log_loss": 0.324409,
+        "brier": 0.088447,
+        "ece": 0.041805,
+        "calibration_gap": 0.032283,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.042,
+      "rank": 47
+    },
+    {
+      "family": "xgboost",
+      "trial": 5,
+      "origin": "random",
+      "params": {
+        "n_estimators": 526,
+        "max_depth": 5,
+        "learning_rate": 0.06811,
+        "subsample": 0.9611,
+        "colsample_bytree": 0.8287,
+        "reg_lambda": 5.396,
+        "min_child_weight": 11.76
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.713956,
+        "log_loss": 0.307642,
+        "brier": 0.086622,
+        "ece": 0.029132,
+        "calibration_gap": 0.00848,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.741,
+      "rank": 48
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 10,
+      "origin": "random",
+      "params": {
+        "max_iter": 153,
+        "learning_rate": 0.1124,
+        "max_depth": 8,
+        "min_samples_leaf": 27,
+        "l2_regularization": 0.05307
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.713521,
+        "log_loss": 0.318608,
+        "brier": 0.088944,
+        "ece": 0.041004,
+        "calibration_gap": 0.020674,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.077,
+      "rank": 49
+    },
+    {
+      "family": "catboost",
+      "trial": 4,
+      "origin": "random",
+      "params": {
+        "iterations": 405,
+        "depth": 5,
+        "learning_rate": 0.1351,
+        "l2_leaf_reg": 6.072
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.710426,
+        "log_loss": 0.309593,
+        "brier": 0.087012,
+        "ece": 0.031205,
+        "calibration_gap": 0.013735,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.053,
+      "rank": 50
+    },
+    {
+      "family": "lightgbm",
+      "trial": 9,
+      "origin": "random",
+      "params": {
+        "n_estimators": 392,
+        "num_leaves": 80,
+        "learning_rate": 0.03073,
+        "subsample": 0.9348,
+        "colsample_bytree": 0.7074,
+        "reg_lambda": 1.792,
+        "min_child_samples": 58
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.71014,
+        "log_loss": 0.324069,
+        "brier": 0.08799,
+        "ece": 0.041752,
+        "calibration_gap": 0.033084,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 2.884,
+      "rank": 51
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 2,
+      "origin": "random",
+      "params": {
+        "max_iter": 207,
+        "learning_rate": 0.1127,
+        "max_depth": 7,
+        "min_samples_leaf": 48,
+        "l2_regularization": 0.9412
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.708748,
+        "log_loss": 0.323711,
+        "brier": 0.088998,
+        "ece": 0.041466,
+        "calibration_gap": 0.020926,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.416,
+      "rank": 52
+    },
+    {
+      "family": "catboost",
+      "trial": 0,
+      "origin": "defaults",
+      "params": {
+        "iterations": 600,
+        "depth": 6,
+        "learning_rate": 0.08,
+        "l2_leaf_reg": 3.0
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.707323,
+        "log_loss": 0.315686,
+        "brier": 0.087749,
+        "ece": 0.036895,
+        "calibration_gap": 0.022627,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.44,
+      "rank": 53
+    },
+    {
+      "family": "catboost",
+      "trial": 8,
+      "origin": "random",
+      "params": {
+        "iterations": 309,
+        "depth": 8,
+        "learning_rate": 0.1103,
+        "l2_leaf_reg": 1.424
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.70532,
+        "log_loss": 0.337908,
+        "brier": 0.089258,
+        "ece": 0.04902,
+        "calibration_gap": 0.041467,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.238,
+      "rank": 54
+    },
+    {
+      "family": "xgboost",
+      "trial": 9,
+      "origin": "random",
+      "params": {
+        "n_estimators": 270,
+        "max_depth": 5,
+        "learning_rate": 0.1297,
+        "subsample": 0.8659,
+        "colsample_bytree": 0.8008,
+        "reg_lambda": 0.7999,
+        "min_child_weight": 10.06
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.702855,
+        "log_loss": 0.320479,
+        "brier": 0.089566,
+        "ece": 0.039071,
+        "calibration_gap": 0.011655,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.324,
+      "rank": 55
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 8,
+      "origin": "random",
+      "params": {
+        "max_iter": 348,
+        "learning_rate": 0.09402,
+        "max_depth": 6,
+        "min_samples_leaf": 36,
+        "l2_regularization": 1.391
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.702402,
+        "log_loss": 0.329426,
+        "brier": 0.089599,
+        "ece": 0.043115,
+        "calibration_gap": 0.024336,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 2.142,
+      "rank": 56
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 6,
+      "origin": "random",
+      "params": {
+        "max_iter": 234,
+        "learning_rate": 0.1107,
+        "max_depth": 7,
+        "min_samples_leaf": 67,
+        "l2_regularization": 1.563
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.701639,
+        "log_loss": 0.326511,
+        "brier": 0.089206,
+        "ece": 0.040835,
+        "calibration_gap": 0.019765,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.566,
+      "rank": 57
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "max_iter": 340,
+        "learning_rate": 0.1084,
+        "max_depth": 6,
+        "min_samples_leaf": 46,
+        "l2_regularization": 0.4747
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.700751,
+        "log_loss": 0.339889,
+        "brier": 0.090545,
+        "ece": 0.051062,
+        "calibration_gap": 0.028202,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.879,
+      "rank": 58
+    },
+    {
+      "family": "lightgbm",
+      "trial": 5,
+      "origin": "random",
+      "params": {
+        "n_estimators": 320,
+        "num_leaves": 39,
+        "learning_rate": 0.08711,
+        "subsample": 0.9041,
+        "colsample_bytree": 0.9292,
+        "reg_lambda": 0.1365,
+        "min_child_samples": 40
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.698522,
+        "log_loss": 0.371981,
+        "brier": 0.092126,
+        "ece": 0.063075,
+        "calibration_gap": 0.047382,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.232,
+      "rank": 59
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 3,
+      "origin": "random",
+      "params": {
+        "max_iter": 382,
+        "learning_rate": 0.1388,
+        "max_depth": 5,
+        "min_samples_leaf": 17,
+        "l2_regularization": 2.159
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.697422,
+        "log_loss": 0.340545,
+        "brier": 0.090775,
+        "ece": 0.049154,
+        "calibration_gap": 0.028407,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.815,
+      "rank": 60
+    },
+    {
+      "family": "lightgbm",
+      "trial": 2,
+      "origin": "random",
+      "params": {
+        "n_estimators": 511,
+        "num_leaves": 117,
+        "learning_rate": 0.126,
+        "subsample": 0.9674,
+        "colsample_bytree": 0.6739,
+        "reg_lambda": 0.5308,
+        "min_child_samples": 56
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.697285,
+        "log_loss": 0.555628,
+        "brier": 0.098089,
+        "ece": 0.089714,
+        "calibration_gap": 0.074837,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 3.314,
+      "rank": 61
+    },
+    {
+      "family": "catboost",
+      "trial": 6,
+      "origin": "random",
+      "params": {
+        "iterations": 872,
+        "depth": 5,
+        "learning_rate": 0.06393,
+        "l2_leaf_reg": 1.105
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.696844,
+        "log_loss": 0.318572,
+        "brier": 0.088201,
+        "ece": 0.036034,
+        "calibration_gap": 0.019661,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.937,
+      "rank": 62
+    },
+    {
+      "family": "xgboost",
+      "trial": 8,
+      "origin": "random",
+      "params": {
+        "n_estimators": 370,
+        "max_depth": 6,
+        "learning_rate": 0.131,
+        "subsample": 0.7432,
+        "colsample_bytree": 0.6394,
+        "reg_lambda": 1.29,
+        "min_child_weight": 3.316
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.694946,
+        "log_loss": 0.35611,
+        "brier": 0.092088,
+        "ece": 0.061129,
+        "calibration_gap": 0.034317,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.52,
+      "rank": 63
+    },
+    {
+      "family": "xgboost",
+      "trial": 2,
+      "origin": "random",
+      "params": {
+        "n_estimators": 443,
+        "max_depth": 7,
+        "learning_rate": 0.07789,
+        "subsample": 0.8302,
+        "colsample_bytree": 0.99,
+        "reg_lambda": 4.784,
+        "min_child_weight": 1.85
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.692762,
+        "log_loss": 0.348566,
+        "brier": 0.090367,
+        "ece": 0.056375,
+        "calibration_gap": 0.039595,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.123,
+      "rank": 64
+    },
+    {
+      "family": "lightgbm",
+      "trial": 4,
+      "origin": "random",
+      "params": {
+        "n_estimators": 676,
+        "num_leaves": 116,
+        "learning_rate": 0.03857,
+        "subsample": 0.6116,
+        "colsample_bytree": 0.9916,
+        "reg_lambda": 0.02423,
+        "min_child_samples": 18
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.692482,
+        "log_loss": 0.574586,
+        "brier": 0.097292,
+        "ece": 0.089366,
+        "calibration_gap": 0.080633,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 7.785,
+      "rank": 65
+    },
+    {
+      "family": "catboost",
+      "trial": 9,
+      "origin": "random",
+      "params": {
+        "iterations": 697,
+        "depth": 6,
+        "learning_rate": 0.1074,
+        "l2_leaf_reg": 5.692
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.690594,
+        "log_loss": 0.331399,
+        "brier": 0.08942,
+        "ece": 0.046487,
+        "calibration_gap": 0.029112,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.649,
+      "rank": 66
+    },
+    {
+      "family": "catboost",
+      "trial": 3,
+      "origin": "random",
+      "params": {
+        "iterations": 727,
+        "depth": 6,
+        "learning_rate": 0.1312,
+        "l2_leaf_reg": 9.937
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.680903,
+        "log_loss": 0.337881,
+        "brier": 0.090533,
+        "ece": 0.044295,
+        "calibration_gap": 0.029352,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.892,
+      "rank": 67
+    },
+    {
+      "family": "catboost",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "iterations": 514,
+        "depth": 6,
+        "learning_rate": 0.1355,
+        "l2_leaf_reg": 2.376
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.679469,
+        "log_loss": 0.34133,
+        "brier": 0.089941,
+        "ece": 0.054008,
+        "calibration_gap": 0.033675,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.206,
+      "rank": 68
+    },
+    {
+      "family": "catboost",
+      "trial": 10,
+      "origin": "random",
+      "params": {
+        "iterations": 804,
+        "depth": 8,
+        "learning_rate": 0.09055,
+        "l2_leaf_reg": 2.078
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.677213,
+        "log_loss": 0.40003,
+        "brier": 0.093411,
+        "ece": 0.07047,
+        "calibration_gap": 0.060879,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 3.442,
+      "rank": 69
+    },
+    {
+      "family": "xgboost",
+      "trial": 7,
+      "origin": "random",
+      "params": {
+        "n_estimators": 469,
+        "max_depth": 5,
+        "learning_rate": 0.1503,
+        "subsample": 0.816,
+        "colsample_bytree": 0.9856,
+        "reg_lambda": 0.1337,
+        "min_child_weight": 2.266
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.673967,
+        "log_loss": 0.399717,
+        "brier": 0.096685,
+        "ece": 0.070341,
+        "calibration_gap": 0.042209,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.568,
+      "rank": 70
+    },
+    {
+      "family": "lightgbm",
+      "trial": 8,
+      "origin": "random",
+      "params": {
+        "n_estimators": 546,
+        "num_leaves": 55,
+        "learning_rate": 0.1294,
+        "subsample": 0.7991,
+        "colsample_bytree": 0.6116,
+        "reg_lambda": 3.199,
+        "min_child_samples": 67
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.673942,
+        "log_loss": 0.449797,
+        "brier": 0.096445,
+        "ece": 0.07832,
+        "calibration_gap": 0.05769,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 3.172,
+      "rank": 71
+    },
+    {
+      "family": "lightgbm",
+      "trial": 6,
+      "origin": "random",
+      "params": {
+        "n_estimators": 274,
+        "num_leaves": 100,
+        "learning_rate": 0.1775,
+        "subsample": 0.7095,
+        "colsample_bytree": 0.6532,
+        "reg_lambda": 0.01131,
+        "min_child_samples": 32
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.673478,
+        "log_loss": 0.725731,
+        "brier": 0.09902,
+        "ece": 0.093693,
+        "calibration_gap": 0.08166,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 2.709,
+      "rank": 72
+    },
+    {
+      "family": "catboost",
+      "trial": 7,
+      "origin": "random",
+      "params": {
+        "iterations": 735,
+        "depth": 5,
+        "learning_rate": 0.1915,
+        "l2_leaf_reg": 8.845
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.673398,
+        "log_loss": 0.348407,
+        "brier": 0.091721,
+        "ece": 0.053663,
+        "calibration_gap": 0.029221,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.535,
+      "rank": 73
+    },
+    {
+      "family": "lightgbm",
+      "trial": 11,
+      "origin": "random",
+      "params": {
+        "n_estimators": 695,
+        "num_leaves": 63,
+        "learning_rate": 0.1735,
+        "subsample": 0.7366,
+        "colsample_bytree": 0.6253,
+        "reg_lambda": 0.2898,
+        "min_child_samples": 45
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.673175,
+        "log_loss": 0.664816,
+        "brier": 0.100767,
+        "ece": 0.093324,
+        "calibration_gap": 0.073661,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 4.56,
+      "rank": 74
+    },
+    {
+      "family": "xgboost",
+      "trial": 3,
+      "origin": "random",
+      "params": {
+        "n_estimators": 440,
+        "max_depth": 7,
+        "learning_rate": 0.156,
+        "subsample": 0.6547,
+        "colsample_bytree": 0.8821,
+        "reg_lambda": 0.7815,
+        "min_child_weight": 12.02
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.669082,
+        "log_loss": 0.370871,
+        "brier": 0.095346,
+        "ece": 0.064389,
+        "calibration_gap": 0.023246,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.774,
+      "rank": 75
+    },
+    {
+      "family": "xgboost",
+      "trial": 11,
+      "origin": "random",
+      "params": {
+        "n_estimators": 485,
+        "max_depth": 6,
+        "learning_rate": 0.1815,
+        "subsample": 0.7038,
+        "colsample_bytree": 0.8566,
+        "reg_lambda": 0.2498,
+        "min_child_weight": 2.082
+      },
+      "explainability": "boosted_trees",
+      "explainability_tier": 2,
+      "status": "ok",
+      "metrics": {
+        "auc": 0.664239,
+        "log_loss": 0.470552,
+        "brier": 0.100409,
+        "ece": 0.086196,
+        "calibration_gap": 0.051716,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.649,
+      "rank": 76
+    }
+  ],
+  "best_per_family": [
+    {
+      "family": "logistic_regression",
+      "trial": 3,
+      "origin": "random",
+      "params": {
+        "C": 0.01366
+      },
+      "metrics": {
+        "auc": 0.749368,
+        "log_loss": 0.290578,
+        "brier": 0.083203,
+        "ece": 0.009311,
+        "calibration_gap": 0.000949,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.016,
+      "explainability": "linear"
+    },
+    {
+      "family": "extra_trees",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "n_estimators": 315,
+        "max_depth": 8,
+        "min_samples_leaf": 6,
+        "max_features": 0.7
+      },
+      "metrics": {
+        "auc": 0.747213,
+        "log_loss": 0.292982,
+        "brier": 0.083983,
+        "ece": 0.015766,
+        "calibration_gap": 0.001575,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.713,
+      "explainability": "bagged_trees"
+    },
+    {
+      "family": "xgboost",
+      "trial": 4,
+      "origin": "random",
+      "params": {
+        "n_estimators": 225,
+        "max_depth": 3,
+        "learning_rate": 0.04428,
+        "subsample": 0.8077,
+        "colsample_bytree": 0.7065,
+        "reg_lambda": 0.1207,
+        "min_child_weight": 9.217
+      },
+      "metrics": {
+        "auc": 0.744943,
+        "log_loss": 0.29138,
+        "brier": 0.083606,
+        "ece": 0.005384,
+        "calibration_gap": 0.00021,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.2,
+      "explainability": "boosted_trees"
+    },
+    {
+      "family": "hist_gradient_boosting",
+      "trial": 4,
+      "origin": "random",
+      "params": {
+        "max_iter": 367,
+        "learning_rate": 0.02178,
+        "max_depth": 3,
+        "min_samples_leaf": 26,
+        "l2_regularization": 7.378
+      },
+      "metrics": {
+        "auc": 0.743357,
+        "log_loss": 0.29171,
+        "brier": 0.083467,
+        "ece": 0.007119,
+        "calibration_gap": 2e-05,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.645,
+      "explainability": "boosted_trees"
+    },
+    {
+      "family": "catboost",
+      "trial": 5,
+      "origin": "random",
+      "params": {
+        "iterations": 435,
+        "depth": 4,
+        "learning_rate": 0.03839,
+        "l2_leaf_reg": 1.537
+      },
+      "metrics": {
+        "auc": 0.742938,
+        "log_loss": 0.293244,
+        "brier": 0.083913,
+        "ece": 0.008093,
+        "calibration_gap": 0.002747,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.11,
+      "explainability": "boosted_trees"
+    },
+    {
+      "family": "lightgbm",
+      "trial": 1,
+      "origin": "random",
+      "params": {
+        "n_estimators": 200,
+        "num_leaves": 16,
+        "learning_rate": 0.04399,
+        "subsample": 0.9922,
+        "colsample_bytree": 0.8969,
+        "reg_lambda": 4.366,
+        "min_child_samples": 44
+      },
+      "metrics": {
+        "auc": 0.739535,
+        "log_loss": 0.294151,
+        "brier": 0.084462,
+        "ece": 0.011318,
+        "calibration_gap": 0.002739,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 0.375,
+      "explainability": "boosted_trees"
+    },
+    {
+      "family": "random_forest",
+      "trial": 2,
+      "origin": "random",
+      "params": {
+        "n_estimators": 309,
+        "max_depth": 16,
+        "min_samples_leaf": 25,
+        "max_features": 0.33
+      },
+      "metrics": {
+        "auc": 0.738743,
+        "log_loss": 0.294284,
+        "brier": 0.084246,
+        "ece": 0.01126,
+        "calibration_gap": 0.001665,
+        "base_rate": 0.1014
+      },
+      "fit_seconds": 1.398,
+      "explainability": "bagged_trees"
+    }
+  ],
+  "incumbent": {
+    "family": "hist_gradient_boosting",
+    "params": {
+      "max_iter": 300,
+      "max_depth": 5,
+      "learning_rate": 0.06,
+      "min_samples_leaf": 40
+    }
+  },
+  "selected": {
+    "family": "logistic_regression",
+    "label": "Logistic regression",
+    "params": {
+      "C": 0.01366
+    },
+    "trial": 3,
+    "origin": "random",
+    "explainability": "linear",
+    "validation": {
+      "auc": 0.749368,
+      "log_loss": 0.290578,
+      "brier": 0.083203,
+      "ece": 0.009311,
+      "calibration_gap": 0.000949,
+      "base_rate": 0.1014
+    }
+  },
+  "rule": {
+    "statement": "Best validation score, then explainability.",
+    "primary": "highest out-of-time validation auc",
+    "tolerance_rel": 0.01,
+    "tie_break": "families within 1.0% (relative) of the best score are tied; among them the most explainable class wins, then the better score",
+    "explainability_ranking": [
+      "linear",
+      "boosted_trees",
+      "bagged_trees"
+    ],
+    "best_score_family": "logistic_regression",
+    "best_score": 0.749368,
+    "tolerance_abs": 0.007494,
+    "within_tolerance": [
+      "catboost",
+      "extra_trees",
+      "hist_gradient_boosting",
+      "logistic_regression",
+      "xgboost"
+    ],
+    "decided_by": "validation score"
+  },
+  "windows": {
+    "fit": {
+      "rows": 7887,
+      "from": "2024-09-01",
+      "to": "2025-08-26"
+    },
+    "valid": {
+      "rows": 2643,
+      "from": "2025-08-27",
+      "to": "2025-12-23"
+    },
+    "holdout": {
+      "rows": 2637,
+      "from": "2025-12-24",
+      "to": "2026-04-22",
+      "shown_to_search": false
+    }
+  },
+  "seed": 42,
+  "elapsed_seconds": 114.2,
+  "generated_at": "2026-10-20T15:40:11+00:00",
+  "notes": [
+    "The trainers' holdout (the last 20% by application date) was never passed to this search; validation is the later part of the training window.",
+    "Classifiers are ranked on AUC, which calibration cannot change. log_loss, brier and ece are for the raw learner: the trainer calibrates the selected model isotonically afterwards, so deployed calibration is better than recorded here."
+  ]
+}

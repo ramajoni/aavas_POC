@@ -170,11 +170,60 @@ def gen_interactions(df: pd.DataFrame, columns: list[str]) -> list[Candidate]:
     return out
 
 
-GENERATORS: dict[str, Callable[[pd.DataFrame, list[str]], list[Candidate]]] = {
+TREND_WINDOW = "90D"
+TREND_MIN_PERIODS = 30
+
+
+def gen_trend(df: pd.DataFrame, columns: list[str], time: pd.Series | None = None,
+              window: str = TREND_WINDOW, min_periods: int = TREND_MIN_PERIODS) -> list[Candidate]:
+    """Each value against the recent book: ``x - median(x)`` over the applications
+    received in the ``window`` before this one.
+
+    The data has an application date and no per-loan time series, so a "trend"
+    here is the *market's* trend, not the customer's: is this competitor quote,
+    this ticket, this valuation high or low for what the book has been seeing?
+
+    Leakage-safe by construction, for two reasons. The window is ``closed="left"``,
+    so it holds only applications from strictly earlier dates - nothing filed the
+    same day, nothing later. And it is computed over the attribute itself, never
+    over a target or an outcome, so no row learns how an earlier loan turned out.
+    Low-cardinality columns (flags, small counts) are skipped: the trailing median
+    of a flag is almost always 0 and the "trend" would be the flag again.
+    """
+    if time is None:
+        return []
+    stamps = pd.to_datetime(pd.Series(time, index=df.index), errors="coerce")
+    if stamps.isna().any() or len(stamps) < min_periods:
+        return []
+    order = np.argsort(stamps.to_numpy(), kind="stable")
+    sorted_index = pd.DatetimeIndex(stamps.to_numpy()[order])
+    label = window.lower()
+
+    out = []
+    for column in columns:
+        values = pd.to_numeric(df[column], errors="coerce")
+        if values.nunique() <= 10:
+            continue
+        ordered = pd.Series(values.to_numpy(float)[order], index=sorted_index)
+        trailing = ordered.rolling(window, closed="left", min_periods=min_periods).median()
+        baseline = np.empty(len(values))
+        baseline[order] = trailing.to_numpy()
+        out.append(Candidate(
+            name=f"{column}_vs_trailing_{label}",
+            recipe=f"{column} - median({column} over applications in the prior {label})",
+            inputs=[column], generator="trend",
+            values=values - pd.Series(baseline, index=values.index)))
+    return out
+
+
+GENERATORS: dict[str, Callable[..., list[Candidate]]] = {
     "ratio": gen_ratios,
     "gap": gen_gaps,
     "log": gen_log,
     "interaction": gen_interactions,
+    # Needs the application date, so it is only run when a caller passes one -
+    # see ``discover`` and ``features.funnel``. Called without it, it builds nothing.
+    "trend": gen_trend,
 }
 
 
@@ -343,6 +392,10 @@ def discover(df: pd.DataFrame, stage: str = "stage2", target: str | None = None,
         if generator is None:
             log.warning("unknown generator %r, skipped", name)
             continue
+        if name == "trend":
+            time_column = model_config()["data"].get("time_column", "application_date")
+            candidates.extend(gen_trend(numeric, columns, time=df.get(time_column)))
+            continue
         candidates.extend(generator(numeric, columns))
 
     considered = len(candidates)
@@ -389,6 +442,8 @@ def summary() -> dict[str, Any]:
             "gap": "a - b where the two are on the same scale",
             "log": "log1p of strictly positive, skewed amounts",
             "interaction": "a * b, the hardest family to explain and therefore the highest bar",
+            "trend": (f"x - median(x) over applications in the prior {TREND_WINDOW.lower()}: "
+                      "the market's trend, from strictly earlier applications only"),
         },
         "refusals": REFUSALS,
         "thresholds": DEFAULTS,
@@ -482,6 +537,12 @@ FUNCTION_REGISTRY: dict[str, dict[str, Any]] = {
                     "produces": "a * b", "family": "interaction",
                     "why": "captures a joint effect - and is the hardest family to explain, "
                            "so it carries the highest admission bar"},
+    "trend": {"applies_to": "a numeric column with more than ten distinct values, plus the "
+                            "application date",
+              "produces": f"x - median(x over the prior {TREND_WINDOW.lower()})",
+              "family": "temporal",
+              "why": "there is no per-loan history, so the trend that exists is the market's - "
+                     "a quote or a valuation is read against what the book saw just before"},
 }
 
 
