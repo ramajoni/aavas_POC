@@ -27,3 +27,9 @@ reports/omnixai/
 .~lock.*#
 # Borrower documents uploaded through the app
 data/uploads/
+
+# Local-only: the server key and its clone, browser-check screenshots, extra env files
+*.pem
+aavas_POC/
+.playwright-mcp/
+.env.*

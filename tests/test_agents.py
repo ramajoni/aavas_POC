@@ -62,6 +62,9 @@ def test_dormant_agents_say_why():
     """"Not wired in" is a decision. A roster that reported it without the
     reason would leave the next reader to guess whether it was deliberate."""
     for agent in roster.AGENTS:
+        if agent.get("on_demand"):
+            assert agent.get("runs"), f"{agent['name']} runs on request but does not say when"
+            continue
         if not agent["wired"]:
             assert agent.get("dormant_because"), f"{agent['name']} is dormant with no reason given"
             assert not agent["pipeline_positions"] if "pipeline_positions" in agent else True
@@ -90,7 +93,7 @@ def test_status_reflects_missing_artefacts():
 def test_summary_counts_add_up():
     summary = roster.summary(set())
     assert summary["agents"] == len(roster.AGENTS)
-    assert summary["wired"] + summary["dormant"] == summary["agents"]
+    assert summary["wired"] + summary["on_demand"] + summary["dormant"] == summary["agents"]
     assert summary["pipeline_steps"] == len(roster.PIPELINE)
 
 

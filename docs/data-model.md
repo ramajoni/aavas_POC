@@ -164,7 +164,7 @@ All four files live in [`config/`](../config/) and are read through
 [`config.py`](../src/aavas/config.py) (cached; `reload()` clears). **Nothing in `src` may
 hard-code a rate, spread, cost or threshold a business user would reasonably want to change.**
 
-### `pricing_policy.yaml` — business-owned (`HL-POLICY-2026.09`)
+### `pricing_policy.yaml` — business-owned (`HL-POLICY-2026.10`)
 
 | Block | Drives |
 |---|---|

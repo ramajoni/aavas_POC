@@ -1,5 +1,5 @@
 import React,{useEffect,useState} from 'react';
-import {Robot,FlowArrow,ArrowClockwise,WarningCircle,Moon,Info,Wrench,Lightning,Plugs,Package} from '@phosphor-icons/react';
+import {Robot,FlowArrow,ArrowClockwise,WarningCircle,Moon,Info,Wrench,Lightning,Plugs,Package,Broadcast} from '@phosphor-icons/react';
 import {api,titleCase,number} from './api';
 import {Button,Panel,Badge,InfoBox,Empty,DataTable} from './components';
 import {useCanOpen} from './access';
@@ -28,7 +28,8 @@ export function Agents({navigate}){
 
  const agents=body?.agents||[];
  const wired=agents.filter(a=>a.wired);
- const dormant=agents.filter(a=>!a.wired);
+ const onDemand=agents.filter(a=>a.on_demand);
+ const dormant=agents.filter(a=>!a.wired&&!a.on_demand);
  const steps=trace?.steps||[];
  const slowest=Math.max(1,...steps.map(s=>s.ms||0));
 
@@ -44,6 +45,7 @@ export function Agents({navigate}){
    <div className="model-metrics">
     <div><small>Agents</small><b>{body.summary.agents}</b></div>
     <div><small>Wired in</small><b>{body.summary.wired}</b></div>
+    <div><small>On request</small><b>{body.summary.on_demand??0}</b></div>
     <div><small>Dormant</small><b>{body.summary.dormant}</b></div>
     <div><small>Degraded</small><b>{body.summary.degraded}</b></div>
     <div><small>Pipeline steps</small><b>{body.summary.pipeline_steps}</b></div>
@@ -117,6 +119,16 @@ export function Agents({navigate}){
      missing, so the engine is falling back. Every agent here writes onto the same digital twin, which is what
      makes this a pipeline rather than six models called in sequence.</p>
    </Panel>
+
+   {/* ---------------------------------------------------------- on request */}
+   {onDemand.length>0&&<Panel title="Runs on request" icon={Broadcast}>
+    <DataTable columns={[
+      {label:'Agent',render:a=><b>{titleCase(a.name)}</b>},
+      {label:'Decides',render:a=><small>{a.decides}</small>},
+      {label:'When it runs',render:a=><small>{a.runs}</small>},
+      {label:'Module',render:a=><code>{a.module}</code>},
+    ]} rows={onDemand}/>
+   </Panel>}
 
    {/* ------------------------------------------------------------- dormant */}
    {dormant.length>0&&<Panel title="Built, not wired in" icon={Moon}>

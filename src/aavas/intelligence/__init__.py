@@ -13,6 +13,9 @@ span it came from.
                       (measurable only because the data is synthetic)
     competitors       historical analysis joined to outcomes, and the per-loan
                       competitor context a reviewer sees
+    market_rates      competitor rates found online (the market research agent),
+                      kept per lender, and the check on one quoted rate
+    claim_score       how believable a quoted rate is, out of 100
 
 None of it moves a price. Competitor context is for the human reading the file;
 the pricing path's handling of competitor claims is unchanged (see the docstring

@@ -95,6 +95,21 @@ REPORT_DIR = ROOT / "reports" / "omnixai"
 # ------------------------------------------------------------- library plumbing
 
 
+
+def _omnixai_model(bundle):
+    """What OmniXAI is handed as the model. It recognises scikit-learn estimators
+    (XGBoost and LightGBM wrap that API) and calls anything else as a prediction
+    function - which a CatBoost model is not, so it is passed as one."""
+    estimator = bundle.estimator
+    try:
+        from sklearn.base import BaseEstimator
+
+        if isinstance(estimator, BaseEstimator):
+            return estimator
+    except ImportError:                                         # pragma: no cover
+        pass
+    return estimator.predict_proba if bundle.is_classification else estimator.predict
+
 def _quiet_libraries() -> None:
     """KernelSHAP and LIME log every internal step at INFO. That is useful when
     debugging an explainer and useless when explaining six models."""
@@ -506,11 +521,12 @@ def analyse(
     explainer_names = list(LOCAL_EXPLAINERS) + list(GLOBAL_EXPLAINERS)
 
     log.info("[%s] explainers=%s ref=%s holdout=%s", name, explainer_names, len(ref_h), len(test_h))
+    model = _omnixai_model(bundle)
     explainer = TabularExplainer(
         explainers=explainer_names,
         mode=bundle.mode,
         data=ref_tab,
-        model=bundle.estimator,
+        model=model,
         preprocess=preprocess,
         params={
             "shap": {"nsamples": min(100, len(ref_h))},
@@ -520,7 +536,7 @@ def analyse(
     )
     whatif_explainer = TabularExplainer(
         explainers=list(WHATIF_EXPLAINERS), mode=bundle.mode, data=ref_tab,
-        model=bundle.estimator, preprocess=preprocess,
+        model=model, preprocess=preprocess,
     )
     timings["init"] = time.time() - t0
 
@@ -591,7 +607,7 @@ def analyse(
 
     prediction_explanations = PredictionAnalyzer(
         mode=bundle.mode, test_data=_tabular(test_h, bundle), test_targets=y_test,
-        model=bundle.estimator, preprocess=preprocess,
+        model=_omnixai_model(bundle), preprocess=preprocess,
     ).explain()
     timings["dataset+prediction"] = time.time() - t
     timings["total"] = time.time() - t0

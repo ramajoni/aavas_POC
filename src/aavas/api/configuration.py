@@ -60,6 +60,9 @@ DESCRIPTIONS = {
                    "them under, which bare names are ambiguous, and the fuzzy-match bound.",
     "intake": "Online applications: the document types a borrower is asked for, the file "
               "formats accepted (judged by contents), and the size and count limits.",
+    "market_research": "Competitor fact checking: how often a lender's advertised rates "
+                       "are searched again, and the points a quoted rate scores for its "
+                       "evidence, the market and the customer's profile.",
 }
 
 # The environment variables the code actually reads. Declared rather than
@@ -74,6 +77,8 @@ ENV_VARS = [
     {"name": "AAVAS_TRACKING_ENABLED", "controls": "Turns MLflow logging on. Off by default."},
     {"name": "AAVAS_LLM_ENABLED", "controls": "Allows the acceptance agents to call Claude."},
     {"name": "AAVAS_LLM_MODEL", "controls": "Which Claude model the acceptance agents use."},
+    {"name": "AAVAS_LLM_RESEARCH_MODEL", "controls": "Which Claude model the market research agent "
+                                                     "searches competitor rates with."},
     {"name": "AAVAS_MLFLOW_UI_URL", "controls": "Where the admin view links the MLflow UI."},
     {"name": "MLFLOW_TRACKING_URI", "controls": "Tracking store. Overrides model_config.tracking.uri."},
     {"name": "ANTHROPIC_API_KEY", "controls": "Claude credential.", "secret": True},
@@ -88,7 +93,7 @@ VERSION_KEYS = ("policy_version", "model_config_version", "feature_config_versio
                 "acceptance_config_version", "automl_config_version",
                 "federated_config_version", "connectors_config_version",
                 "governance_config_version", "competitors_config_version",
-                "intake_config_version")
+                "intake_config_version", "market_research_config_version")
 
 
 def _path(name: str):

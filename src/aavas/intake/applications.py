@@ -81,8 +81,37 @@ def submit(loan_id: str, applicant: dict[str, Any], owner: str) -> dict[str, Any
     return summary(get(loan_id))
 
 
-def visible_to(owner: str | None) -> list[dict[str, Any]]:
-    """Every application, or only ``owner``'s when given."""
+# What staff may change on a stored file: everything about the applicant and the
+# loan, never who entered it or where it came from.
+FIXED_FIELDS = ("loan_id", "source", "created_by")
+
+
+def update(loan_id: str, changes: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Staff edit a stored application. Returns the new summary and the fields changed."""
+    existing = get(loan_id)
+    if existing is None:
+        raise IntakeError(404, "no such application")
+    before = existing["applicant"] or {}
+    after = {**before, **{k: v for k, v in changes.items() if k not in FIXED_FIELDS}}
+    name = str(after.get("name") or "").strip()[:120]
+    if not name:
+        raise IntakeError(422, "the applicant's name is required")
+    changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
+    store.insert("applications", {
+        "loan_id": loan_id, "owner": existing["owner"], "applicant_name": name,
+        "applicant": {**after, "loan_id": loan_id},
+        "created_at": existing["created_at"], "updated_at": store.now()})
+    return summary(get(loan_id)), changed
+
+
+def set_owner(loan_id: str, owner: str) -> None:
+    """Hand a file to the customer's login (an RM issued it after entering the file)."""
+    with store.connect() as conn:
+        conn.execute("UPDATE applications SET owner = ? WHERE loan_id = ?", (owner, loan_id))
+
+
+def stored(owner: str | None = None) -> list[dict[str, Any]]:
+    """Every stored application, or only ``owner``'s, newest change first."""
     sql = "SELECT * FROM applications"
     params: tuple = ()
     if owner is not None:
@@ -91,7 +120,12 @@ def visible_to(owner: str | None) -> list[dict[str, Any]]:
     rows = store.query(sql + " ORDER BY updated_at DESC", params)
     for row in rows:
         row["applicant"] = store.decode(row["applicant"])
-    return [summary(row) for row in rows]
+    return rows
+
+
+def visible_to(owner: str | None) -> list[dict[str, Any]]:
+    """Every application, or only ``owner``'s when given."""
+    return [summary(row) for row in stored(owner)]
 
 
 def summary(row: dict[str, Any]) -> dict[str, Any]:
@@ -111,6 +145,7 @@ def summary(row: dict[str, Any]) -> dict[str, Any]:
                         "decision_id": pre["decision_id"]} if pre else None),
         "documents": len(docs), "document_types": sorted({d["document_type"] for d in docs}),
         "status": "documents_received" if docs else "awaiting_documents",
+        "source": a.get("source", "online"), "created_by": a.get("created_by", row["owner"]),
         "created_at": row["created_at"], "updated_at": row["updated_at"],
     }
 
@@ -146,7 +181,9 @@ def clean_filename(name: str | None, fmt: str) -> str:
 def add_document(loan_id: str, document_type: str, filename: str | None, content: bytes,
                  uploaded_by: str) -> dict[str, Any]:
     application = get(loan_id)
-    if application is None or application["owner"] != uploaded_by:
+    entered_by = ((application or {}).get("applicant") or {}).get("created_by")
+    # The customer's own file, or one this RM entered for them.
+    if application is None or uploaded_by not in (application["owner"], entered_by):
         # The same answer whether it does not exist or is someone else's.
         raise IntakeError(404, "no such application of yours")
     if document_type not in document_types():

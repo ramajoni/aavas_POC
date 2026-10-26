@@ -1,7 +1,7 @@
 # Solution Architecture — Agentic Credit Pricing OS
 
 **Status:** Proof of concept, running end to end on synthetic data.
-**Version of record:** app `0.1.0` · policy `HL-POLICY-2026.09` · features `FEAT-2026.09` ·
+**Version of record:** app `0.1.0` · policy `HL-POLICY-2026.10` · features `FEAT-2026.09` ·
 model config `MODEL-2026.09` · agent set `ASET-2026.09-d076e1df` · connectors `CONN-2026.09`
 **Last verified against the code:** 23 September 2026, `make test` → 393 passed, 3 skipped.
 **Also versioned:** governance `GOV-2026.09`

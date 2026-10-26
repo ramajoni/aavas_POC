@@ -184,6 +184,8 @@ def _agents_panel(agents: dict[str, Any], missing: list[str]) -> dict[str, Any]:
                     status="warn" if agents["degraded"] else "ok",
                     detail=(f"missing: {', '.join(missing)}" if missing else
                             "every model an agent needs is loaded")),
+            _metric("Runs on request", agents.get("on_demand", 0), "agents/roster.py on_demand",
+                    detail="called from a person's screen, outside the pricing pipeline"),
             _metric("Dormant", agents["dormant"], "agents/roster.py wired=False",
                     status="warn" if agents["dormant"] else "ok",
                     detail="built, tested, and called by nothing"),

@@ -28,7 +28,10 @@ class PricingAgent:
         self.prepayment = prepayment_model
         self.override = override_model
 
-    def recommend(self, twin: CustomerDigitalTwin, expected_loss_pct: float) -> dict:
+    def recommend(self, twin: CustomerDigitalTwin, expected_loss_pct: float,
+                  quoted_band: RateBand | None = None) -> dict:
+        """``quoted_band`` is the indicative range the customer was given at Stage 1;
+        the search stays inside it (see ``optimizer.honour_indicative_band``)."""
         anchor = self._anchor(twin)
         anticipated = self._anticipated_human_rate(twin, anchor["anchor_rate"])
 
@@ -38,6 +41,7 @@ class PricingAgent:
             competitor_rate=twin.get("competitor_rate"),
             anticipated_human_rate=anticipated,
             support_band=self._support_band(twin),
+            quoted_band=quoted_band,
         )
 
         scored = price_optimizer.evaluate_scenarios(

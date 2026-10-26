@@ -1,4 +1,4 @@
-import { sessionToken, endSession } from './session';
+import { sessionToken, endSession, problem } from './session';
 
 // The deployment-local API key, for AAVAS_AUTH_MODE=apikey. Signed-in sessions
 // (the default) send a bearer token from ./session instead.
@@ -31,14 +31,16 @@ export async function api(path, body, options = {}) {
     // revoked: end it, and the app returns to the sign-in screen.
     if (response.status === 401 && token) endSession();
     // Signed in but outside this role: an ordinary error the page can show.
-    if (response.status === 403 && token) throw new Error(detail || 'Your role does not have access to this.');
+    if (response.status === 403 && token) throw new Error(detail || problem(403, null));
     throw new AuthRequiredError(detail || 'This service requires authentication.');
   }
   let data;
-  try { data = await response.json(); } catch { throw new Error('The pricing service is unavailable. Please check that the API is running on port 8000.'); }
+  try { data = await response.json(); } catch { throw new Error(problem(response.status, null)); }
   if (!response.ok) {
     const detail = data.detail;
-    throw new Error(Array.isArray(detail) ? detail.map(e => `${e.loc?.slice(1).join(' ')}: ${e.msg}`).join(' · ') : typeof detail === 'string' ? detail : JSON.stringify(detail || data));
+    const error = new Error(Array.isArray(detail) ? detail.map(e => `${e.loc?.slice(1).join(' ')}: ${e.msg}`).join(' · ') : typeof detail === 'string' ? detail : JSON.stringify(detail || data));
+    error.status = response.status;
+    throw error;
   }
   return data;
 }
@@ -60,20 +62,31 @@ export const percent = (n, digits = 2) => n == null ? '—' : `${Number(n).toFix
 export const titleCase = s => String(s || '').replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 export const emi = (amount, rate, years) => { const r = rate / 1200; const n = years * 12; return r ? amount * r * (1+r)**n / ((1+r)**n - 1) : amount/n; };
 export const newId = () => `APP${Date.now()}`;
-export const initialApplicant = () => ({
-  loan_id: newId(), name: 'Amit Singh', mobile: '9876543210', email: 'amit.singh@example.com',
-  segment: 'salaried_formal', city: 'Jaipur', channel: 'branch_walkin', property_type: 'resale_flat',
-  declared_monthly_income: 55000, requested_loan_amount: 2000000, requested_tenure_years: 20,
-  applicant_age: 35, declared_obligations: 5000, estimated_property_value: 3000000,
-  bureau_score: 750, new_to_credit: false, verified_monthly_income: 53000,
-  appraised_property_value: 2900000, sanctioned_loan_amount: 2000000, tenure_years: 20,
-  bureau_vintage_months: 96, delinquency_count_24m: 0, banking_behaviour_score: 75,
-  deviation_count: 0, legal_flag: 0, technical_flag: 0,
-  sales_context: { competitor_rate: 11.5, competitor_name: 'Other housing finance company',
-    competitor_evidence_verified: false, sales_target_pct: 85, branch_target_pct: 90,
-    customer_negotiating: true, prior_negotiation_rounds: 1, existing_relationship: false,
-    month_end: false, days_to_month_end: 15 },
+// A new file starts empty: nothing is filled in that the customer or the RM did
+// not enter. Choices with no sensible default start unselected too.
+export const emptyApplicant = () => ({
+  loan_id: newId(), name: '', mobile: '', email: '',
+  segment: '', city: '', channel: 'branch_walkin', property_type: '',
+  declared_monthly_income: '', requested_loan_amount: '', requested_tenure_years: '',
+  applicant_age: '', declared_obligations: '', estimated_property_value: '',
+  bureau_score: '', new_to_credit: false,
+  sales_context: { competitor_rate: null, competitor_name: null, competitor_evidence_verified: false },
 });
 const preKeys = ['loan_id','segment','city','channel','property_type','declared_monthly_income','requested_loan_amount','requested_tenure_years','applicant_age','declared_obligations','estimated_property_value','bureau_score','new_to_credit','sales_context'];
 const finalKeys = ['verified_monthly_income','appraised_property_value','sanctioned_loan_amount','tenure_years','bureau_vintage_months','delinquency_count_24m','banking_behaviour_score','deviation_count','legal_flag','technical_flag'];
-export const payload = (a, final = false) => Object.fromEntries([...preKeys, ...(final ? finalKeys : [])].map(k => [k, a[k]]));
+const given = v => v !== '' && v != null;
+// Until a figure is verified, pricing uses the customer's own declared figure -
+// never a made-up one. Anything not given is left out for the service to treat as unknown.
+const PROVISIONAL = { verified_monthly_income: 'declared_monthly_income', appraised_property_value: 'estimated_property_value',
+  sanctioned_loan_amount: 'requested_loan_amount', tenure_years: 'requested_tenure_years' };
+export const payload = (a, final = false) => {
+  const out = {};
+  for (const k of [...preKeys, ...(final ? finalKeys : [])]) {
+    const v = given(a[k]) ? a[k] : (final && PROVISIONAL[k] ? a[PROVISIONAL[k]] : undefined);
+    if (k === 'sales_context') out[k] = Object.fromEntries(Object.entries(v || {}).filter(([, x]) => given(x)));
+    else if (given(v)) out[k] = v;
+  }
+  return out;
+};
+// Whether a file has been opened or entered at all.
+export const hasFile = a => Boolean(a && String(a.name || '').trim() && given(a.requested_loan_amount));

@@ -24,6 +24,95 @@ log = get_logger(__name__)
 _LOCK = threading.Lock()
 
 SCHEMA = """
+-- Borrowers who registered online. Staff accounts live in config/access.yaml.
+CREATE TABLE IF NOT EXISTS borrower_accounts (
+    username        TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    mobile          TEXT NOT NULL,
+    email           TEXT,
+    password        TEXT NOT NULL,
+    created_at      TEXT NOT NULL
+);
+
+-- A borrower login a relationship manager issued with an assisted application.
+-- The temporary password is never stored in clear; until the customer sets their
+-- own (password_changed_at), the account can do nothing but change it.
+CREATE TABLE IF NOT EXISTS customer_logins (
+    username            TEXT PRIMARY KEY,
+    issued_by           TEXT NOT NULL,
+    loan_id             TEXT,
+    issued_at           TEXT NOT NULL,
+    password_changed_at TEXT
+);
+
+-- A reminder an RM sent a customer whose file has stalled (documents due, or a
+-- quote never applied for). ``ref`` is the loan id, or a sample lead's id.
+CREATE TABLE IF NOT EXISTS customer_nudges (
+    nudge_id        TEXT PRIMARY KEY,
+    ref             TEXT NOT NULL,
+    channel         TEXT NOT NULL,
+    message         TEXT NOT NULL,
+    sent_by         TEXT NOT NULL,
+    sent_at         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_nudges_ref ON customer_nudges(ref);
+
+-- What a competitor advertises, found online by the market research agent and
+-- reused per lender until it is old (config/market_research.yaml).
+CREATE TABLE IF NOT EXISTS market_rate_research (
+    research_id     TEXT PRIMARY KEY,
+    lender          TEXT NOT NULL,           -- registry name, or 'market'
+    status          TEXT NOT NULL,           -- ok | not_found | failed
+    researched_at   TEXT NOT NULL,
+    published_min   REAL,
+    published_max   REAL,
+    payload         TEXT NOT NULL,           -- rates with their sources, notes, searches
+    requested_by    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_market_rate_research ON market_rate_research(lender, researched_at);
+
+-- An offer the relationship manager sent, and what the customer then decided.
+CREATE TABLE IF NOT EXISTS offers (
+    offer_id        TEXT PRIMARY KEY,
+    loan_id         TEXT NOT NULL,
+    decision_id     TEXT NOT NULL,
+    rate            REAL NOT NULL,
+    recommended_rate REAL NOT NULL,
+    route           TEXT NOT NULL,
+    reason          TEXT,
+    note            TEXT,
+    request_id      TEXT,
+    sent_by         TEXT NOT NULL,
+    sent_at         TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    customer_decided_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_offers_loan ON offers(loan_id);
+
+-- A lower rate the relationship manager asked the area manager to approve.
+CREATE TABLE IF NOT EXISTS rate_requests (
+    request_id      TEXT PRIMARY KEY,
+    loan_id         TEXT NOT NULL,
+    decision_id     TEXT NOT NULL,
+    applicant_name  TEXT,
+    loan_amount     REAL,
+    requested_rate  REAL NOT NULL,
+    recommended_rate REAL NOT NULL,
+    reason          TEXT NOT NULL,
+    note            TEXT,
+    evidence_verified INTEGER DEFAULT 0,
+    analysis        TEXT,
+    requested_by    TEXT NOT NULL,
+    requested_at    TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    decided_by      TEXT,
+    decided_at      TEXT,
+    approved_rate   REAL,
+    decision_reason TEXT,
+    decision_note   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_rate_requests_status ON rate_requests(status);
+
 CREATE TABLE IF NOT EXISTS applications (
     loan_id         TEXT PRIMARY KEY,
     owner           TEXT NOT NULL,
@@ -383,7 +472,9 @@ def reset() -> None:
                       "monitor_runs",
                       "federated_rounds", "knowledge_indexes", "prompts",
                       "feature_proposals", "applications", "application_documents",
-                      "loan_book", "datasets", "config_changes"):
+                      "loan_book", "datasets", "config_changes", "borrower_accounts",
+                      "offers", "rate_requests", "market_rate_research", "customer_logins",
+                      "customer_nudges"):
             conn.execute(f"DROP TABLE IF EXISTS {table}")
         conn.executescript(SCHEMA)
     log.info("governance store reset (%s)", database_path())

@@ -5,6 +5,8 @@ credible price early, determine the right permissible price after assessment,
 capture every human override with its reason, and learn from what the book
 actually earned.
 
+Solution provider: [Ajoni Technologies](https://www.ajonitech.com/).
+
 The core design decision is that **this is not a rate-prediction model**. A model
 that predicts the sanctioned rate only reproduces historical commercial behaviour,
 including its mistakes. Here, the Stage-2 model produces an *anchor*; the
@@ -403,6 +405,12 @@ the person signed in, at their role's authority, never a name typed into the req
 | `arjun` | `Arjun@2026` | Risk and model validation | Models, XAI, governance; the OS console |
 | `admin` | `Admin@2026` | Platform administrator | Everything ("Sign in with a username instead") |
 
+**Borrowers can register themselves** with "New borrower? Create an account" on the sign-in
+screen: name, mobile, optional email, a username and a password. The account is stored in the
+database (`borrower_accounts`), is always a borrower whatever the request says, cannot take a staff
+or reserved username, and is signed straight in. Turn it off with `registration.borrowers: false`
+in `config/access.yaml`.
+
 A borrower applies after seeing an indicative offer and uploads documents (PDF, JPEG or
 PNG, judged by their contents; types and limits in `config/intake.yaml`). The relationship
 manager's **My applications** lists every submitted application with the range we
@@ -710,6 +718,55 @@ negotiation notes, competitor observations, credit notes and the pricing policy
 itself. Numeric features stay in the feature store where they can be validated,
 versioned and monotone-constrained. The default backend is in-memory TF-IDF;
 pgvector is a config swap behind the same interface.
+
+---
+
+## Proving continuous and federated learning
+
+The **Learning Proof** page (risk and model validation, and the administrator)
+lists each claim with the evidence on file, marks a claim "Not yet" when the
+evidence does not exist rather than assuming it, and says how to check it.
+`GET /learning/continuous` and `GET /learning/federated` serve the same evidence;
+`tests/test_learning_proof.py` asserts it.
+
+**Continuous learning**
+
+| Claim | Evidence |
+|---|---|
+| Every recommendation is recorded with its versions | `decisions` rows, each with model and policy versions |
+| Every override is captured with its reason | `overrides` rows |
+| Every outcome is joined to the decision it judged | `outcomes.decision_id`; expected vs actual conversion per file |
+| Drift is monitored and decides when to retrain | `monitor_runs`; "Run checks now" (or `make monitors`) records a run |
+| More outcomes make the model better | learning-curve backtest, below |
+| A retrained model is promoted only through the gate | `model_registry` champion/challenger rows and the gate in `model_config.yaml` — **not yet**: no challenger has been shadow-compared |
+
+The backtest refits the conversion model on a growing window of history and
+scores every fit on the same held-out months (1 Jan – 22 Apr 2026, 3,759 files),
+which none of them saw:
+
+```
+history  files   AUC    log loss
+ 3 mo     2,995  0.671  0.598
+ 6 mo     6,054  0.679  0.596
+ 9 mo     9,104  0.689  0.593
+12 mo    12,125  0.691  0.589
+16 mo    16,241  0.699  0.584      AUC +2.8 pts, log loss -2.4%, better at every step
+```
+
+**Federated learning**
+
+| Claim | Evidence |
+|---|---|
+| Files stay in their state; only parameters move | 30 rounds × 5 states × 8 numbers = 1,200 numbers sent, against 14,998 files never sent; a fingerprint (hash) of each state's files, computed in place |
+| The shared model learns | error 14.9 bps before any round → 13.9 bps after 30 |
+| It matches pooling all the data centrally | federated 13.94 bps = a model fitted on every state's files in one place, 13.94 bps |
+| Each state can personalise | 4 of 5 states do better with their personalised blend (table above) |
+| Runs are recorded and reproducible | `federated_rounds`; the run id is a hash of the trained parameters, so "Run and record" twice gives the same id |
+
+Viewing the page computes a run without recording it; "Run and record"
+(`POST /learning/federated`) files the round and an audit entry. The rounds are
+an in-process simulation; with Flower installed the same client contract runs
+over the network.
 
 ---
 

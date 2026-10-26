@@ -1,0 +1,16 @@
+/* Disbursements against target: the area manager's page and the RM's strip. */
+.db .app-kpi em{font-style:normal;font-size:12.5px;color:#556274}
+.db .app-table tr.group th{background:none;border-bottom:0;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:#1A3E9E;padding-bottom:0}
+.db .app-table td small{display:block;font-size:11.5px;color:#64748B}
+.db-progress{display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
+.db-progress small{color:#64748B}
+.db-bar{position:relative;display:inline-block;width:110px;height:8px;border-radius:4px;background:#E2E8F0;overflow:visible}
+.db-bar i{display:block;height:100%;border-radius:4px;background:#1A3E9E}
+.db-bar em{position:absolute;top:-3px;width:2px;height:14px;background:#0F172A}
+.db-strip{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr));gap:12px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px}
+.db-strip>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.db-strip small{font-size:12px;color:#556274}
+.db-strip b{font-size:20px;color:var(--ink)}
+.db-strip em{font-style:normal;font-size:12px;color:#556274}
+@media(max-width:800px){.db-strip{grid-template-columns:1fr 1fr}}
+.db-strip .db-bar{width:200px}

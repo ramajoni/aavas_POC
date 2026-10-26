@@ -1,7 +1,7 @@
 """Online applications and borrower documents.
 
 What must hold: a borrower reaches only the applications they submitted; only
-the borrower uploads; a file is judged by its contents, not its name; and the
+the borrower, or the RM who entered an assisted application, uploads; a file is judged by its contents, not its name; and the
 indicative range staff see is the one we recorded, not one the browser sent.
 """
 
@@ -46,7 +46,7 @@ def sign_in(client: TestClient, username: str) -> dict[str, str]:
 
 def applicant(loan_id: str, name: str = "Rahul Verma") -> dict:
     return {
-        "loan_id": loan_id, "name": name, "segment": "salaried_formal", "city": "Pune",
+        "loan_id": loan_id, "name": name, "mobile": "9811100000", "segment": "salaried_formal", "city": "Pune",
         "channel": "digital", "property_type": "resale_flat",
         "declared_monthly_income": 55000, "requested_loan_amount": 2000000,
         "requested_tenure_years": 20, "applicant_age": 35, "declared_obligations": 5000,
@@ -164,3 +164,67 @@ def test_other_staff_roles_and_strangers_are_kept_out(client) -> None:
     quote_and_apply(client, sign_in(client, "rahul"), "APP-KEEP-OUT")
     assert client.get("/applications", headers=sign_in(client, "arjun")).status_code == 403
     assert client.get("/applications").status_code == 401
+
+
+def test_an_rm_enters_an_assisted_application(client) -> None:
+    rohit = sign_in(client, "rohit")
+    summary = quote_and_apply(client, rohit, "APP-ASSISTED-1", name="Walk In Customer")
+    assert summary["source"] == "assisted" and summary["created_by"] == "rohit"
+    assert upload(client, rohit, "APP-ASSISTED-1").status_code == 200, "the RM uploads to the file they entered"
+    listed = client.get("/applications", headers=sign_in(client, "rohit")).json()["applications"]
+    assert any(r["loan_id"] == "APP-ASSISTED-1" and r["source"] == "assisted" for r in listed)
+    mine = client.get("/applications", headers=sign_in(client, "rahul")).json()["applications"]
+    assert all(r["loan_id"] != "APP-ASSISTED-1" for r in mine), "a borrower never sees another's file"
+
+
+def test_the_source_cannot_be_claimed_by_the_request(client) -> None:
+    rahul = sign_in(client, "rahul")
+    summary = quote_and_apply(client, rahul, "APP-SOURCE-1", source="assisted", created_by="rohit")
+    assert summary["source"] == "online" and summary["created_by"] == "rahul"
+
+
+# ------------------------------------------------------------- staff edits
+
+VERIFIED = {"verified_monthly_income": 52000, "appraised_property_value": 2900000,
+            "sanctioned_loan_amount": 2000000, "tenure_years": 20}
+
+
+def test_staff_edits_are_saved_and_who_entered_it_never_changes(client) -> None:
+    rohit = sign_in(client, "rohit")
+    quote_and_apply(client, rohit, "APP-EDIT-1", name="Walk In Customer")
+    changed = client.put("/applications/APP-EDIT-1", headers=rohit, json={"applicant": {
+        **applicant("APP-EDIT-1", "Walk-In Customer"), **VERIFIED,
+        "source": "online", "created_by": "rahul"}})
+    assert changed.status_code == 200, changed.text
+    assert "verified_monthly_income" in changed.json()["changed"] and "name" in changed.json()["changed"]
+    stored = client.get("/applications/APP-EDIT-1", headers=rohit).json()
+    assert stored["applicant_name"] == "Walk-In Customer"
+    assert stored["applicant"]["verified_monthly_income"] == 52000
+    assert stored["source"] == "assisted" and stored["created_by"] == "rohit", "an edit cannot rewrite provenance"
+    actions = [e["action"] for e in client.get("/pricing/audit/APP-EDIT-1",
+                                                headers=sign_in(client, "meera")).json()["audit_entries"]]
+    assert "updated_application" in actions
+
+
+def test_a_borrower_cannot_edit_a_submitted_file_and_unknown_files_are_404(client) -> None:
+    rahul = sign_in(client, "rahul")
+    quote_and_apply(client, rahul, "APP-EDIT-2")
+    assert client.put("/applications/APP-EDIT-2", headers=rahul,
+                      json={"applicant": applicant("APP-EDIT-2")}).status_code == 403
+    assert client.put("/applications/APP-NOPE", headers=sign_in(client, "rohit"),
+                      json={"applicant": applicant("APP-NOPE")}).status_code == 404
+
+
+def test_the_borrower_sees_the_offer_sent_to_them(client) -> None:
+    rahul, rohit = sign_in(client, "rahul"), sign_in(client, "rohit")
+    quote_and_apply(client, rahul, "APP-OFFER-1")
+    assert client.get("/applications/APP-OFFER-1", headers=rahul).json()["offer"] is None
+    priced = client.post("/pricing/final-assessment", headers=rohit,
+                         json={k: v for k, v in {**applicant("APP-OFFER-1"), **VERIFIED}.items() if k != "name"})
+    assert priced.status_code == 200, priced.text
+    rate = priced.json()["recommendation"]["recommended_rate"]
+    assert client.post("/pricing/offers", headers=rohit, json={"loan_id": "APP-OFFER-1", "rate": rate}).status_code == 200
+    offer = client.get("/applications/APP-OFFER-1", headers=rahul).json()["offer"]
+    assert offer["rate"] == rate and offer["status"] == "sent"
+    assert "route" not in offer and "reason" not in offer, "how the rate was reached stays with staff"
+    assert "offer" not in client.get("/applications/APP-OFFER-1", headers=rohit).json()

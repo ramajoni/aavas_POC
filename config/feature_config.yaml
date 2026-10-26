@@ -4,7 +4,11 @@
 # (see `sentinels` below), and new_to_credit joins every contract that holds the
 # score without the flag - conversion, prepayment and override. Both change what
 # a model is fitted on, so artefacts trained under FEAT-2026.09 must be retrained.
-feature_config_version: "FEAT-2026.10"
+# FEAT-2026.11: competitor pricing moves from the Stage-2 (risk-adjusted pricing)
+# model to the conversion (acceptance) model. What a competitor quotes does not
+# change what this customer's loan costs us to make; it changes whether the
+# customer takes our offer. Stage-2 and conversion must be retrained.
+feature_config_version: "FEAT-2026.11"
 
 # Values that are a code, not a measurement. The bureau feed writes -1 for an
 # applicant with no bureau file: a new-to-credit customer has no score at all,
@@ -60,7 +64,6 @@ stage2:
     - deviation_count
     - legal_flag
     - technical_flag
-    - competitor_rate
     - sales_target_pct
     - branch_target_pct
   categorical:
@@ -120,6 +123,7 @@ conversion:
   numeric:
     - offered_rate
     - competitor_gap_bps
+    - competitor_rate           # competitor pricing: acceptance, not price (FEAT-2026.11)
     - verified_monthly_income
     - sanctioned_loan_amount
     - ltv
@@ -134,9 +138,11 @@ conversion:
     - customer_negotiating
     - existing_relationship
     - new_to_credit           # pairs with bureau_score; see `sentinels`
+    - competitor_evidence_verified
   monotone:
     offered_rate: -1          # never learn "more expensive converts better"
     competitor_gap_bps: -1
+    competitor_rate: 1        # a dearer competitor never makes our offer less likely to be taken
 
 # Prepayment / balance-transfer-out within 24 months of disbursal.
 prepayment:

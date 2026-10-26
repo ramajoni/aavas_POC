@@ -75,7 +75,7 @@ structurally impossible here.
   "completeness": { "post_assessment_fields_present": 0, "completeness_ratio": 0.0, "...": "..." },
   "notes": [],
   "model_versions": { "stage1": "v1" },
-  "versions": { "app_version": "...", "policy_version": "HL-POLICY-2026.09", "...": "..." },
+  "versions": { "app_version": "...", "policy_version": "HL-POLICY-2026.10", "...": "..." },
   "elapsed_ms": 18.4,
   "decision_id": "DEC-XXXXXXXXXXXX",
   "disclaimer": "Indicative only. ..."
@@ -118,7 +118,7 @@ Stage-2. Extends `Stage1Request` with the assessment outcome. Query parameter
                    "expected_loss_pct": 0.31, "breakeven_rate": 8.99, "source": "model" },
   "envelope":    { "card_rate": 12.35, "min_rate": 11.75, "max_rate": 13.35,
                    "max_affordable_rate": 13.35, "affordability_binding": false,
-                   "infeasible": false, "policy_version": "HL-POLICY-2026.09" },
+                   "infeasible": false, "policy_version": "HL-POLICY-2026.10" },
   "recommendation": {
     "recommended_rate": 12.79,
     "economics": { "conversion_probability": 0.737, "expected_life_years": 8.0,
@@ -236,7 +236,7 @@ decision's expectation against what the book actually did.
 { "status": "ok",            // "degraded" when artefacts are missing
   "models_loaded": { "stage1": "v1", "stage2": "v1", "...": "..." },
   "models_missing": [],
-  "versions": { "app_version": "...", "policy_version": "HL-POLICY-2026.09",
+  "versions": { "app_version": "...", "policy_version": "HL-POLICY-2026.10",
                 "feature_config_version": "FEAT-2026.09", "model_config_version": "MODEL-2026.09" },
   "decisions_recorded": 128 }
 ```
@@ -270,6 +270,42 @@ the policy text that governs the limit, retrieved from the indexed
 `answers` (the standing review questions answered from data) and `recommendation_quality`
 (override rate, mean human adjustment, share priced up/down, interpretation). Also `503`
 without a training table.
+
+### GET /applications (staff)
+Each file carries its `stage` — `in_progress`, `ready`, `pending_rate_approval`, `offer_sent`,
+`accepted`, `not_accepted` — read from its documents, rate requests and offers, plus
+`missing_documents`, `verified_at` (when the last document verification needs arrived; the list is
+`required_for_verification` in `config/intake.yaml`) and, once `ready`, `suggested`: the
+recommended `rate`, the `acceptance` likely at it and the `sanctioned_amount`. A file that changed
+since it was last priced is priced again first.
+
+### GET /applications/in-progress · POST /applications/nudges
+Files short of verification plus the sample leads in `config/intake.yaml` (`sample: true`), each
+with `detail`, `days_since_activity`, `last_nudge` and the `preview` of the message a nudge sends.
+`POST {ref, channel}` (relationship manager) records a nudge; nothing is delivered — the service
+has no SMS or WhatsApp gateway.
+
+### POST /applications/{loan_id}/offer-decision (borrower)
+`{accepted, loss_reason?}`: the customer accepts or declines the offer waiting for them; the RM's
+list and the outcome record update without anyone re-keying it. `409` when no offer is waiting.
+
+### GET /pricing/rate-requests/{request_id}/deep-dive (area manager)
+The file's acceptance `curve` from below break-even to the policy ceiling, the `breakeven_rate`,
+`requested_rate`, `recommended_rate`, the `ceiling_rate` the customer is still likely to accept
+(`ceiling_capped_by` the quoted range or policy), the floor `build_up` (cost of funds, operating
+cost, capital charge, expected credit loss) and the reasons behind the price.
+
+### GET /pricing/area/disbursements · GET /pricing/my/disbursements
+Month to date: accepted offers at their assessed loan amount against each RM's
+`monthly_disbursement_target_inr` (`config/access.yaml`), pace through the month, and each RM's
+offers (sent, taken, depth below the recommendation) and lower-rate requests. `area` for the area
+manager, `my` for the signed-in RM.
+
+### GET /models/portfolio — `business`
+Beside the model evidence: `segments` (default rate, loss given default, expected credit loss a
+year, starting and typical rate per segment), `acceptance_curves` per segment, `discount_effect`
+(acceptance points a 0.25% discount wins, measured by the uplift model and read off the curve) and
+the fixed `floor` components from the pricing policy.
 
 ---
 

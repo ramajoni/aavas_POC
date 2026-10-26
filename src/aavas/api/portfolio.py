@@ -158,6 +158,25 @@ def _component(name: str, cfg: dict[str, Any], weights: dict[str, Any] | None,
     }
 
 
+def _business() -> dict[str, Any]:
+    """The cards in business terms: each segment's risk and starting rate, its
+    acceptance curve, what a discount buys, and the fixed parts of the floor.
+    One failing piece leaves the others standing."""
+    from ..analytics import segment_view
+
+    out: dict[str, Any] = {}
+    for key, build in (("segments", segment_view.segments),
+                       ("acceptance_curves", segment_view.acceptance_curves),
+                       ("discount_effect", segment_view.discount_effect),
+                       ("floor", segment_view.floor_components)):
+        try:
+            out[key] = build()
+        except Exception as exc:                                   # noqa: BLE001
+            log.warning("model cards: %s unavailable: %s", key, exc)
+            out[key] = None
+    return out
+
+
 def _setting(path: str) -> Any:
     node: Any = policy()
     for part in path.split("."):
@@ -234,4 +253,5 @@ def portfolio_view() -> dict[str, Any]:
             "framework": (any_report or {}).get("framework"),
         },
         "weights_generated_at": (weights or {}).get("generated_at"),
+        "business": _business(),
     }

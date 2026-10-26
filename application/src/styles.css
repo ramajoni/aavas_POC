@@ -142,3 +142,6 @@ progress{appearance:none;border:0;border-radius:3px;overflow:hidden;background:#
 .lx-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 @media(max-width:1200px){.lx-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}.lx-main{grid-template-columns:1fr}.lx-narrative{position:static;max-height:none}.lx-bottom{grid-template-columns:1fr}}
 @media(max-width:640px){.lx-header{position:static;flex-wrap:wrap;gap:8px 12px;padding:10px 14px}.lx-header img{height:30px}.lx-header .button{margin-left:auto;min-height:32px;padding:6px 10px}.lx-title{order:3;flex-basis:100%}.lx-title h1{font-size:18px}.lx-body{padding:12px 14px 24px}.lx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.lx-groups{grid-template-columns:1fr}.lx-waterfall{height:280px}}
+
+/* Solution provider credit (Ajoni Technologies). */
+.footer-provider{border-left:1px solid #718194;padding-left:20px;font-size:10px;color:#d8e3f1;white-space:nowrap}.footer-provider a{color:#fff;font-weight:500;text-decoration:none}.footer-provider a:hover{text-decoration:underline}@media(max-width:800px){.footer-provider{border-left:0;padding-left:0;font-size:9px}}

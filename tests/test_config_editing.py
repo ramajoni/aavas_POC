@@ -114,7 +114,7 @@ def test_a_version_cannot_name_two_different_contents(client, config_copy) -> No
     second = client.put("/config/policy", headers=admin, json={
         "raw": policy_text(config_copy).replace("max_unevidenced_discount_bps: 20",
                                                 "max_unevidenced_discount_bps: 25"),
-        "version": "HL-POLICY-2026.09"})
+        "version": "HL-POLICY-2026.10"})
     assert second.status_code == 422 and "already named different content" in second.json()["detail"]
 
 
@@ -141,7 +141,7 @@ def test_a_change_that_breaks_pricing_is_rolled_back(client, config_copy) -> Non
         "raw": yaml.safe_dump(broken, sort_keys=False), "version": "HL-POLICY-TEST-5"})
     assert response.status_code == 422 and "rolled back" in response.json()["detail"], response.text
     assert policy_text(config_copy) == before
-    assert config.policy()["policy_version"] == "HL-POLICY-2026.09"
+    assert config.policy()["policy_version"] == "HL-POLICY-2026.10"
 
 
 @pytest.mark.parametrize("name", ["features", "governance"])

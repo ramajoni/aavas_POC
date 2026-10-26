@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse, Response
 from ..config import versions
 from ..governance import model_registry, request_log, store
 from ..logging_utils import get_logger
-from . import (access, agents, applications, auth, competitors, customers, configuration, connectors, control_tower,
+from . import (access, agents, applications, auth, competitors, customers, learning, market_check, offers, configuration, connectors, control_tower,
                explain, features, governance, outcome, override, portfolio, security, stage1,
                system_of_record, stage2, tracking, xai)
 from .contracts import HealthResponse
@@ -154,6 +154,9 @@ async def enforce_access(request: Request, call_next):
     if principal is None:
         return JSONResponse({"detail": "sign in to continue"}, status_code=401,
                             headers={"WWW-Authenticate": "Bearer"})
+    if principal.must_change_password and not (path == "/auth" or path.startswith("/auth/")):
+        # A temporary password opens one door: setting your own.
+        return JSONResponse({"detail": "Set your own password before continuing."}, status_code=403)
     if not decision.allowed:
         label = access.role_config(principal.roles[0]).get("label", principal.roles[0])
         return JSONResponse(
@@ -166,6 +169,7 @@ async def enforce_access(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(applications.router)
 app.include_router(customers.router)
+app.include_router(offers.router)
 app.include_router(stage1.router)
 app.include_router(stage2.router)
 app.include_router(explain.router)
@@ -181,6 +185,9 @@ app.include_router(system_of_record.router)
 app.include_router(tracking.router)
 app.include_router(xai.router)
 app.include_router(portfolio.router)
+# Before competitors: its GET /competitors/{name} would otherwise take /competitors/lenders.
+app.include_router(learning.router)
+app.include_router(market_check.router)
 app.include_router(competitors.router)
 
 

@@ -224,10 +224,17 @@ def _explainable(payload: dict) -> tuple[object, object, str]:
     Most artefacts carry the fitted model and its transformer. The uplift model
     is a meta-learner over a propensity adjustment with no single tree to
     explain; it ships a shallow surrogate of the served uplift (in acceptance
-    points) for exactly this, fitted on its own transformer's features.
+    points) for exactly this, fitted on its own transformer's features. The
+    indicative band (stage1) is three quantile models; its median is explained.
     """
     if payload.get("model") is not None and payload.get("transformer") is not None:
         return payload["model"], payload["transformer"], "the fitted model"
+    quantiles = payload.get("models")
+    if isinstance(quantiles, dict) and quantiles and payload.get("transformer") is not None:
+        # The indicative band is three quantile models; its midpoint is the median.
+        key = min(quantiles, key=lambda q: abs(float(q) - 0.5))
+        return (quantiles[key], payload["transformer"],
+                f"the median (q{float(key):.2f}) model of the quoted band")
     estimator = payload.get("estimator")
     if payload.get("surrogate") is not None and getattr(estimator, "transformer", None) is not None:
         return (payload["surrogate"], estimator.transformer,

@@ -65,8 +65,11 @@ def test_features_are_ranked_by_size_of_effect(detail):
 
 def test_features_are_split_into_customer_risk_and_commercial_pressure(detail):
     groups = {f["feature"]: f["group"] for f in detail["models"]["stage2"]["features"]}
-    assert groups["competitor_rate"] == "commercial"
+    assert groups["sales_target_pct"] == "commercial"
     assert groups["bureau_score"] == "customer_risk"
+    # Competitor pricing moves acceptance, not price (FEAT-2026.11).
+    assert "competitor_rate" not in groups
+    assert "competitor_rate" in {f["feature"] for f in detail["models"]["conversion"]["features"]}
     summary = detail["models"]["stage2"]["groups"]
     assert set(summary) == {"customer_risk", "commercial"}
     assert summary["customer_risk"]["share_pct"] + summary["commercial"]["share_pct"] == pytest.approx(100, abs=0.2)

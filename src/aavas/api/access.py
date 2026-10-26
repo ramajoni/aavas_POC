@@ -15,6 +15,17 @@ the safe failure for a POC and is logged once.
 longest path wins. A route no rule matches is open only to a role marked
 ``all_routes`` - deny by default, so a new endpoint is never public by accident.
 
+**Registered borrowers.** Borrowers may also create their own account
+(``register``). Those accounts live in the ``borrower_accounts`` table, never in
+the file, and can only ever hold the borrower role: a registration form is not a
+way to become staff. A username in the file always wins over the table.
+
+**Logins issued by a relationship manager.** When an RM enters an application
+for a customer (``issue_customer_login``), the customer gets a borrower account:
+the mobile number as username, and a one-time temporary password the RM hands
+over. Until the customer sets their own password the account can do nothing
+else (``must_change_password``; enforced in ``api/main.py``).
+
 This is a deployment-local scheme for synthetic personas. Production replaces
 the user table with SSO and roles from the directory; ``security.principal_from_request``
 remains the only seam that changes.
@@ -36,7 +47,10 @@ from typing import Any
 
 import yaml
 
+import re
+
 from ..config import env
+from ..governance import store
 from ..logging_utils import get_logger
 from ..paths import CONFIG_DIR
 
@@ -46,6 +60,7 @@ HASH_SCHEME = "pbkdf2_sha256"
 HASH_ITERATIONS = 200_000
 
 _lock = threading.Lock()
+_register_lock = threading.Lock()
 _cache: dict[str, Any] = {"path": None, "mtime": None, "data": None}
 _revoked: dict[str, float] = {}           # token id -> expiry, for sign-out
 _failures: dict[str, list[float]] = {}    # username -> recent failure times
@@ -86,6 +101,9 @@ class User:
     governance_roles: tuple[str, ...] = ()
     rate_authority: str | None = None
     login_card: bool = True
+    mobile: str = ""
+    email: str = ""
+    must_change_password: bool = False
 
     @property
     def initials(self) -> str:
@@ -100,9 +118,40 @@ def role_config(role: str) -> dict[str, Any]:
     return (config().get("roles") or {}).get(role) or {}
 
 
+BORROWER = "borrower"
+
+
+def _registered(username: str) -> dict[str, Any] | None:
+    try:
+        return store.fetch_one("SELECT * FROM borrower_accounts WHERE username = ?", (username,))
+    except Exception:                                           # noqa: BLE001
+        return None
+
+
+def _issued(username: str) -> dict[str, Any] | None:
+    try:
+        return store.fetch_one("SELECT * FROM customer_logins WHERE username = ?", (username,))
+    except Exception:                                           # noqa: BLE001
+        return None
+
+
+def is_borrower_account(username: str | None) -> bool:
+    return bool(username) and username not in (config().get("users") or {}) \
+        and _registered(username) is not None
+
+
 def user(username: str) -> User | None:
     entry = (config().get("users") or {}).get(username)
-    if not entry or entry.get("role") not in (config().get("roles") or {}):
+    if entry is None:
+        row = _registered(username)
+        if row is None or BORROWER not in (config().get("roles") or {}):
+            return None
+        issued = _issued(username)
+        return User(username=username, name=row["name"], role=BORROWER, title="Borrower",
+                    description="Login issued by the branch" if issued else "Registered online",
+                    login_card=False, mobile=row["mobile"] or "", email=row["email"] or "",
+                    must_change_password=bool(issued) and not issued.get("password_changed_at"))
+    if entry.get("role") not in (config().get("roles") or {}):
         return None
     return User(
         username=username, name=entry.get("name", username), role=entry["role"],
@@ -125,6 +174,9 @@ def profile(u: User) -> dict[str, Any]:
         "roles": u.roles, "rate_authority": u.rate_authority,
         "landing": role.get("landing"), "pages": role.get("pages") or [],
         "all_pages": bool(role.get("all_pages")), "console": bool(role.get("console")),
+        "mobile": u.mobile, "email": u.email, "must_change_password": u.must_change_password,
+        "limits": {k: role[k] for k in ("offer_below_recommendation_bps",
+                                        "approve_below_recommendation_bps") if k in role},
     }
 
 
@@ -163,7 +215,7 @@ def authenticate(username: str, password: str) -> User:
     limit = int(settings.get("max_failed_logins", 5))
     window = float(settings.get("lockout_minutes", 5)) * 60
     now = time.time()
-    entry = (config().get("users") or {}).get(username) or {}
+    entry = (config().get("users") or {}).get(username) or _registered(username) or {}
     found = user(username)
 
     # Count the attempt as a failure *before* the slow password check, under the
@@ -186,6 +238,203 @@ def authenticate(username: str, password: str) -> User:
                             "Try again in a few minutes.")
     with _lock:
         _failures.pop(username, None)
+    return found
+
+
+# -------------------------------------------------------------- registration
+
+# A plain username, or an email address used as one.
+USERNAME = re.compile(r"^[a-z0-9][a-z0-9._-]{2,63}$")
+USERNAME_CHARS = re.compile(r"[^a-z0-9._@+-]")
+MOBILE = re.compile(r"^[6-9]\d{9}$")
+EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+RESERVED = {"admin", "administrator", "root", "system", "support", "staff", "aavas", "anonymous"}
+
+
+def suggest_username(text: str) -> str:
+    """'Priya Menon' -> 'priya.menon': what a person probably meant."""
+    words = re.findall(r"[a-z0-9]+", (text or "").lower())
+    return ".".join(words)[:64]
+
+
+def username_problem(username: str) -> str | None:
+    """Why ``username`` cannot be used, in words the person can act on, or None."""
+    if not username:
+        return "enter a username"
+    if " " in username:
+        return f"a username cannot contain spaces: try {suggest_username(username)}"
+    if "@" in username:
+        return None if EMAIL.match(username) and len(username) <= 64 and not USERNAME_CHARS.search(username) \
+            else "that email address is not valid as a username"
+    if len(username) < 3:
+        return "a username needs at least 3 characters"
+    if len(username) > 64:
+        return "a username can have at most 64 characters"
+    bad = sorted(set(USERNAME_CHARS.findall(username)) | ({"+"} & set(username)))
+    if bad:
+        return (f"a username can only use letters, digits, dots, dashes and underscores "
+                f"(not {' '.join(bad)}), or be your email address")
+    if not USERNAME.match(username):
+        return "a username must start with a letter or a digit"
+    return None
+
+
+class RegistrationRejected(Exception):
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+
+
+def registration_open() -> bool:
+    return bool((config().get("registration") or {}).get("borrowers", False))
+
+
+def register(username: str, password: str, name: str, mobile: str, email: str | None) -> User:
+    """Create a borrower account. Only ever the borrower role, whatever is sent."""
+    if not registration_open():
+        raise RegistrationRejected(403, "online registration is closed")
+    username = (username or "").strip().lower()
+    name = " ".join((name or "").split())
+    mobile = re.sub(r"[\s-]", "", mobile or "")
+    mobile = mobile[3:] if mobile.startswith("+91") else mobile
+    email = (email or "").strip().lower()
+    problem = username_problem(username)
+    if problem:
+        raise RegistrationRejected(422, problem)
+    if not 2 <= len(name) <= 80:
+        raise RegistrationRejected(422, "enter your full name")
+    if not MOBILE.match(mobile):
+        raise RegistrationRejected(422, "enter a 10-digit Indian mobile number")
+    if email and not EMAIL.match(email):
+        raise RegistrationRejected(422, "enter a valid email address, or leave it empty")
+    _check_password(password, username)
+    roles = set(config().get("roles") or {})
+    staff = set(config().get("users") or {})
+    # Its own lock: config() takes _lock, and a threading.Lock cannot be taken twice.
+    with _register_lock:
+        if username in RESERVED or username in roles or username in staff \
+                or _registered(username) is not None:
+            raise RegistrationRejected(409, "that username is taken; choose another")
+        store.insert("borrower_accounts", {
+            "username": username, "name": name, "mobile": mobile, "email": email or None,
+            "password": hash_password(password), "created_at": store.now()})
+    found = user(username)
+    if found is None:                                           # pragma: no cover
+        raise RegistrationRejected(500, "the account could not be created")
+    return found
+
+
+def _check_password(password: str, username: str) -> None:
+    if len(password or "") < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+        raise RegistrationRejected(422, "use a password of at least 8 characters with a letter and a digit")
+    if password.lower() == username:
+        raise RegistrationRejected(422, "the password cannot be the username")
+
+
+# ------------------------------------------------- logins issued by the branch
+
+# No 0/O or 1/l/I: the RM reads this out or writes it down.
+_TEMP_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
+
+
+def temporary_password() -> str:
+    while True:
+        candidate = "".join(secrets.choice(_TEMP_CHARS) for _ in range(10))
+        if re.search(r"[A-Za-z]", candidate) and re.search(r"\d", candidate):
+            return candidate
+
+
+def _account_by_mobile(mobile: str) -> dict[str, Any] | None:
+    try:
+        return store.fetch_one("SELECT * FROM borrower_accounts WHERE mobile = ? ORDER BY created_at LIMIT 1",
+                               (mobile,))
+    except Exception:                                           # noqa: BLE001
+        return None
+
+
+def issue_customer_login(name: str, mobile: str, email: str | None, *, issued_by: str,
+                         loan_id: str | None) -> tuple[User, str | None, bool]:
+    """A borrower login for a customer an RM is serving: (user, temporary password, created).
+
+    A customer who already has an account - registered online or issued before -
+    keeps it: the file is linked to it and no password changes (None). Otherwise
+    the account is created with the mobile number as username (or the name, if
+    that number is somehow taken by a username) and a temporary password, which is
+    returned once and never stored in clear.
+    """
+    name = " ".join((name or "").split())
+    mobile = re.sub(r"[\s-]", "", mobile or "")
+    mobile = mobile[3:] if mobile.startswith("+91") else mobile
+    email = (email or "").strip().lower()
+    if not 2 <= len(name) <= 80:
+        raise RegistrationRejected(422, "the customer's full name is needed to create their login")
+    if not MOBILE.match(mobile):
+        raise RegistrationRejected(422, "a 10-digit mobile number is needed to create the customer's login")
+    if email and not EMAIL.match(email):
+        email = ""
+    staff = set(config().get("users") or {}) | set(config().get("roles") or {}) | RESERVED
+    with _register_lock:
+        existing = _account_by_mobile(mobile)
+        if existing is not None:
+            found = user(existing["username"])
+            if found is not None:
+                return found, None, False
+        username = mobile
+        base, n = suggest_username(name) or "customer", 1
+        while username in staff or _registered(username) is not None or username_problem(username):
+            n += 1
+            username = f"{base}{n}"
+        password = temporary_password()
+        now = store.now()
+        store.insert("borrower_accounts", {
+            "username": username, "name": name, "mobile": mobile, "email": email or None,
+            "password": hash_password(password), "created_at": now})
+        store.insert("customer_logins", {"username": username, "issued_by": issued_by,
+                                         "loan_id": loan_id, "issued_at": now,
+                                         "password_changed_at": None})
+    found = user(username)
+    if found is None:                                           # pragma: no cover
+        raise RegistrationRejected(500, "the login could not be created")
+    return found, password, True
+
+
+def reset_customer_password(username: str, *, issued_by: str, loan_id: str | None) -> str:
+    """A new temporary password for a borrower who has lost theirs; they set their own again."""
+    if not is_borrower_account(username):
+        raise RegistrationRejected(404, "this file has no customer login")
+    password = temporary_password()
+    with _register_lock:
+        with store.connect() as conn:
+            conn.execute("UPDATE borrower_accounts SET password = ? WHERE username = ?",
+                         (hash_password(password), username))
+        previous = _issued(username) or {}
+        store.insert("customer_logins", {"username": username, "issued_by": issued_by,
+                                         "loan_id": loan_id or previous.get("loan_id"),
+                                         "issued_at": store.now(), "password_changed_at": None})
+    with _lock:
+        _failures.pop(username, None)
+    return password
+
+
+def change_password(username: str, current: str, new: str) -> User:
+    """A borrower sets their own password. Staff passwords live in the access file."""
+    if not is_borrower_account(username):
+        raise RegistrationRejected(400, "staff passwords are set by the administrator")
+    row = _registered(username) or {}
+    if not verify_password(current or "", row.get("password") or _DUMMY_HASH):
+        raise RegistrationRejected(403, "the current password is not right")
+    _check_password(new, username)
+    if current == new:
+        raise RegistrationRejected(422, "choose a password different from the temporary one")
+    with _register_lock:
+        with store.connect() as conn:
+            conn.execute("UPDATE borrower_accounts SET password = ? WHERE username = ?",
+                         (hash_password(new), username))
+            conn.execute("UPDATE customer_logins SET password_changed_at = ? WHERE username = ?",
+                         (store.now(), username))
+    found = user(username)
+    if found is None:                                           # pragma: no cover
+        raise RegistrationRejected(500, "the password could not be changed")
     return found
 
 

@@ -20,8 +20,46 @@
 .borrower-documents .document-upload select{width:100%}
 .borrower-documents .document-upload input[type=file]{padding:8px 0;width:100%}
 .borrower-documents .document-upload .button{height:42px;justify-self:start}
+.staff-upload{margin-bottom:16px}
+.staff-upload .document-upload{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) auto;gap:12px;align-items:end}
+.staff-upload .document-upload select{width:100%}
+.staff-upload .document-upload input[type=file]{padding:8px 0;width:100%}
+.staff-upload .document-upload .button{height:42px}
+@media(max-width:700px){.staff-upload .document-upload{grid-template-columns:1fr}}
 .document-name{display:inline-flex;align-items:center;gap:6px;word-break:break-all}
 .form-error{color:#b42318;font-size:14px;margin:6px 0}
 @media(max-width:800px){
   .app-kpis{grid-template-columns:1fr}
 }
+.app-kpi.tab{font:inherit;text-align:left;cursor:pointer}
+.app-kpi.tab:focus-visible{outline:3px solid #8fb0ff;outline-offset:2px}
+.app-kpi b.cost{color:#B45309}
+.mgr-history{font-size:18px;color:var(--ink);margin:18px 0 6px}
+/* Borrower's final step: everything they entered, and the bank's final offer. */
+.your-details{margin:4px 0 14px}
+.your-details h3{margin:0 0 6px;font-size:15px;color:#07216d}
+.your-details dl{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
+.your-details dl div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #e6edf7;font-size:13px}
+.your-details dt{color:#62708b}
+.your-details dd{margin:0;font-weight:500;color:#0c2259;text-align:right;overflow-wrap:anywhere}
+.final-offer{display:flex;flex-direction:column;gap:2px;background:#ecfdf3;border:1px solid #b7ebcb;border-radius:10px;padding:12px 16px;margin:4px 0 14px}
+.final-offer small{font-size:12px;color:#15803d;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.final-offer b{font-size:26px;color:#0c2259}
+.final-offer span{font-size:13px;color:#334155}
+.final-offer em{font-style:normal;font-size:12px;color:#475569}
+@media(max-width:700px){.your-details dl{grid-template-columns:1fr}}
+/* My applications: four stages, sample leads and nudges. */
+.app-kpis.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1000px){.app-kpis.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.app-table td b .sample-tag,.sample-tag{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:9px;background:#F1F5F9;color:#475569;font-size:11px;font-weight:500;vertical-align:1px}
+.app-table td.row-actions{white-space:nowrap}
+.app-table td.row-actions .link-button+.link-button{margin-left:14px}
+.app-table .suggested{white-space:nowrap}
+.app-table .suggested b{display:inline;font-weight:600}
+.nudge-channels{display:flex;gap:18px;margin:10px 0}
+.nudge-channels label{display:inline-flex;align-items:center;gap:6px;font-size:14px}
+.nudge-message{margin:8px 0 10px;padding:12px 14px;border-left:3px solid #1A3E9E;background:#F4F6FA;border-radius:0 8px 8px 0;font-size:14px;line-height:1.5;color:var(--ink)}
+.final-offer-actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.final-offer-decline{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.final-offer-decline label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#334155}
+.final-offer-decline select{max-width:360px}

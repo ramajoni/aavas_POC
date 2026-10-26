@@ -1,0 +1,25 @@
+/* The online competitor check (market research agent). */
+.cc{border:1px solid var(--border);border-left:4px solid #94A3B8;border-radius:12px;padding:14px 18px;display:flex;flex-direction:column;gap:8px;background:#fff}
+.cc-credible{border-left-color:#15803D}
+.cc-plausible{border-left-color:#1A3E9E}
+.cc-unconfirmed{border-left-color:#D97706}
+.cc-doubtful{border-left-color:#B42318}
+.cc-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.cc-title{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:600;color:var(--ink)}
+.cc-score{font-size:14px;color:var(--muted)}
+.cc-score b{font-size:20px;color:var(--ink)}
+.cc-credible .cc-score b{color:#15803D}
+.cc-unconfirmed .cc-score b{color:#B45309}
+.cc-doubtful .cc-score b{color:#B42318}
+.cc-line,.cc-guidance,.cc-status{margin:0;font-size:14px;line-height:1.5;color:var(--ink)}
+.cc-status{display:flex;align-items:flex-start;gap:6px;color:var(--muted)}
+.cc-guidance{color:#334155}
+.cc-detail summary{cursor:pointer;font-size:13px;color:#1A3E9E}
+.cc-detail[open]{display:flex;flex-direction:column;gap:8px}
+.cc-points{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.45}
+.cc-points b{display:inline-block;min-width:34px}
+.cc-sources{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:13px}
+.cc-sources small{color:var(--muted)}
+.cc-sources a{display:inline-flex;align-items:center;gap:4px;color:#1A3E9E}
+.cc-again{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;font-size:13px}
+.mgr-request + .cc{margin-bottom:12px}

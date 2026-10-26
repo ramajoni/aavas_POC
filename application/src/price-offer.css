@@ -1,0 +1,84 @@
+/* RM "Price and send offer" (wireframe 04), and the area manager's approval views. */
+.price-offer{display:flex;flex-direction:column;gap:20px}
+.po-head{display:flex;flex-direction:column;gap:4px}
+.po-crumbs{font-size:14px;color:var(--muted)}
+.po-head h1{margin:0;font-size:28px;color:var(--ink)}
+.po-meta{font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.po-edit{display:inline-flex;align-items:center;gap:4px;font-size:13px}
+.po-layout{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+.po-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:28px 32px;display:flex;flex-direction:column;gap:22px;flex:999 1 520px;min-width:0}
+.po-pending p{display:flex;align-items:center;gap:8px;margin:0;color:var(--muted)}
+.po-why{flex:1 1 300px;padding:24px;gap:12px}
+.po-why h2{margin:0;font-size:17px;color:var(--ink)}
+.po-why ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.45}
+.po-why .link-button{display:inline-flex;align-items:center;gap:5px;align-self:flex-start}
+.po-top{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-end}
+.po-label{display:block;font-size:14px;color:var(--muted)}
+.po-label.strong{font-size:15px;font-weight:500;color:var(--ink)}
+.po-rate{display:block;font-size:56px;font-weight:700;color:#15803D;line-height:1}
+.po-facts{display:flex;flex-direction:column;gap:4px;padding-bottom:6px;font-size:14px;color:var(--muted)}
+.po-facts b{font-size:18px;font-weight:500;color:var(--ink)}
+.po-authority{display:flex;flex-direction:column;gap:10px}
+.po-authority small{font-size:13px;color:var(--muted)}
+.po-bands{display:flex;min-height:40px;border-radius:8px;overflow:hidden;font-size:13px}
+.po-band{display:flex;align-items:center;justify-content:center;text-align:center;padding:6px 8px;min-width:0}
+.po-band.mgr{background:#FDE7D3;color:#7C2D12}
+.po-band.reason{background:#FEF3C7;color:#78350F}
+.po-band.direct{background:#15803D;color:#fff;font-weight:500}
+.po-band.here{box-shadow:inset 0 0 0 3px #0B2A5B;font-weight:700}
+.po-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:end}
+.po-form.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.po-form label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#556274}
+.po-form input,.po-form select,.po-form textarea{font:inherit;font-size:15px;color:var(--ink);padding:10px 12px;border:1px solid #CBD5E1;border-radius:8px;background:#fff;min-width:0}
+.po-form select:disabled,.po-form input:disabled{background:#F4F6FA;color:var(--muted)}
+.po-pair{display:grid;grid-template-columns:1fr 90px;gap:8px}
+.po-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.po-actions small{font-size:13px;color:var(--muted)}
+.po-error{color:#b42318;font-size:14px;margin:0}
+.po-warn{color:#B45309;font-size:14px;margin:0}
+.po-decision{border-top:1px solid var(--border);padding-top:18px;display:flex;flex-direction:column;gap:14px}
+.po-decision h3{margin:0;font-size:17px;color:var(--ink)}
+.po-details{flex:none}
+.po-details-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px}
+.po-details h2{margin:0;font-size:19px;color:var(--ink)}
+.po-sections{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px}
+.po-details h3{margin:0 0 6px;font-size:13px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#1A3E9E}
+.po-dl{margin:0}
+.po-group+.po-group{margin-top:22px}
+.po-dl div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 0;border-bottom:1px solid #EEF1F5;font-size:14px}
+.po-dl dt{color:var(--muted)}
+.po-dl dd{margin:0;color:var(--ink);font-weight:500;text-align:right;overflow-wrap:anywhere}
+.po-notes p{margin:0;font-size:15px;line-height:1.5;color:var(--ink);white-space:pre-wrap}
+/* Area manager: the request on the full analysis page, and her decision */
+.mgr-request{background:#fff;border:1px solid var(--border);border-radius:16px;padding:24px 28px;display:flex;flex-direction:column;gap:16px;margin-bottom:12px}
+.mgr-request h2{margin:0;font-size:22px;color:var(--ink);line-height:1.35}
+.mgr-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.mgr-tiles>div{border-radius:12px;padding:14px 16px;background:#EEF4FF;display:flex;flex-direction:column;gap:3px}
+.mgr-tiles>div.cost{background:#FFF7ED}
+.mgr-tiles small{font-size:13px;color:#556274}
+.mgr-tiles b{font-size:21px;color:var(--ink)}
+.mgr-tiles>div.cost b{color:#B45309}
+.mgr-tiles em{font-style:normal;font-size:12px;color:#556274}
+.mgr-reason{background:#F8FAFC;border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:3px;font-size:15px}
+.mgr-reason small{font-size:13px;color:#556274}
+.mgr-reason .warn{color:#B45309}
+.mgr-decision .po-form{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) minmax(0,2fr)}
+@media(max-width:1100px){.mgr-tiles,.po-sections{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:800px){.po-form,.po-form.four,.mgr-decision .po-form{grid-template-columns:1fr}.po-bands{flex-direction:column}.mgr-tiles,.po-sections{grid-template-columns:1fr}}
+.app-table th.key,.app-table td.key{background:#F5F8FF}
+.app-table td.key b{color:#1A3E9E}
+.app-table td.key small{display:block;font-size:11.5px;color:#64748B}
+.mgr-actions{white-space:nowrap}
+.mgr-actions .link-button+.link-button{margin-left:12px}
+/* Where the file stands: sanction on verified documents, then the final offer. */
+.po-stages{list-style:none;margin:10px 0 2px;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.po-stages li{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-top:3px solid #E2E8F0;font-size:13px;color:#64748B}
+.po-stages li span{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#F1F5F9;font-size:11.5px;font-weight:600;color:#475569}
+.po-stages li b{font-weight:500}
+.po-stages li small{font-size:12px;color:#64748B}
+.po-stages li.done{border-top-color:#1A3E9E;color:#334155}
+.po-stages li.done span{background:none;color:#1A3E9E}
+.po-stages li.current{border-top-color:#1A3E9E;background:#EEF4FF;border-radius:0 0 8px 8px;color:var(--ink)}
+.po-stages li.current span{background:#1A3E9E;color:#fff}
+.po-stages li.current b{font-weight:600}
+@media(max-width:900px){.po-stages{grid-template-columns:repeat(3,minmax(0,1fr))}}

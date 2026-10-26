@@ -14,8 +14,8 @@ from aavas.api.main import app
 from aavas.automl import portfolio
 from aavas.config import model_config
 
-DECK_ORDER = ["Indicative pricing", "Risk", "Risk-adjusted pricing", "Acceptance",
-              "Pricing uplift"]
+DECK_ORDER = ["Indicative pricing", "Credit risk", "Benchmark rate", "Acceptance",
+              "What a discount buys"]
 
 
 @pytest.fixture()
@@ -102,7 +102,7 @@ def test_a_complete_model_shows_its_evidence(empty):
     assert set(risk["card"]["holdout_metrics"]) == {"auc", "brier", "calibration_gap"}
     assert len(risk["weights"]["top"]) == model_config()["portfolio"]["top_weights"]
     row = next(r for r in body["automl_table"] if r["model"] == "risk")
-    assert row["deck_model"] == "Risk" and row["trials"] == 16 and row["families"] == 2
+    assert row["deck_model"] == "Credit risk" and row["trials"] == 16 and row["families"] == 2
     assert body["selection_rule"]["holdout"]["from"] == "2025-12-24"
 
 

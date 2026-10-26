@@ -246,24 +246,24 @@ portfolio:
       question: What rate band can we credibly quote before any document is verified?
       models: [stage1]
     - key: risk
-      title: Risk
+      title: Credit risk
       stage: Stage 2 - post-assessment
-      question: How likely is this file to default, how much would we lose if it did, and what grade and expected loss follow?
+      question: How likely is this file to default, and how much would we lose if it did? Their product is the expected credit loss - the risk part of the break-even floor.
       models: [risk, lgd]
     - key: risk_adjusted_pricing
-      title: Risk-adjusted pricing
+      title: Benchmark rate
       stage: Stage 2 - anchor
-      question: Given the verified file and its risk, what price does a file like this clear at?
+      question: At what rate has the bank sanctioned verified files like this one? A reference from the book (segment, risk grade, loan to value), not the price itself.
       models: [stage2]
     - key: acceptance
       title: Acceptance
       stage: Stage 2 - optimisation input
-      question: At a given price, how likely is this customer to take the loan?
+      question: At each rate, how likely is a customer to take the loan? The curves below show it for each segment.
       models: [conversion]
     - key: pricing_uplift
-      title: Pricing uplift
+      title: What a discount buys
       stage: Stage 2 - negotiation
-      question: How much acceptance does a discount actually buy for this file?
+      question: How many more customers does a 0.25% discount win? Measured from the discounts the bank actually gave, adjusted for which files got them.
       models: [uplift]
   # Roles shown when a deck model is made of more than one repo model.
   roles:
@@ -296,4 +296,4 @@ portfolio:
   # Models whose global SHAP weights are computed (slide 12) by
   # scripts/run_model_selection.py --weights into global_weights.json. Uplift is
   # explained through its surrogate of the served uplift (acceptance points).
-  weights: [risk, stage2, conversion, lgd, uplift]
+  weights: [stage1, risk, stage2, conversion, lgd, uplift]

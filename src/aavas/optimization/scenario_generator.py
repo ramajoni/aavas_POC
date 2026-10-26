@@ -42,6 +42,7 @@ def generate(
     anticipated_human_rate: float | None = None,
     step_bps: int | None = None,
     support_band: tuple[float, float] | None = None,
+    quoted_band: RateBand | None = None,
 ) -> ScenarioSet:
     pol = policy()
     step = (step_bps or pol["optimizer"]["step_bps"]) / 100.0
@@ -69,7 +70,31 @@ def generate(
     else:
         notes.append("searching the full policy-permissible band")
 
-    # Never search where the conversion model has no data to stand on.
+    # The range the customer was quoted at Stage 1 is a promise: the final price
+    # moves inside it as the file is verified, never out of it.
+    held = False
+    if quoted_band is not None and pol["optimizer"].get("honour_indicative_band", True):
+        held_low, held_high = max(low, quoted_band.min_rate), min(high, quoted_band.max_rate)
+        if held_low <= held_high:
+            low, high, held = held_low, held_high, True
+            notes.append(f"held to the indicative range quoted at Stage 1 "
+                         f"({quoted_band.min_rate:.2f}-{quoted_band.max_rate:.2f}%)")
+        else:
+            # Policy wins, but only as far as it must: the price goes to the
+            # permissible rate nearest the promise, never anywhere in the band. A
+            # verified file graded worse than its quote must not be walked up to
+            # the policy ceiling because the demand curve happens to be flat.
+            edge = low if quoted_band.max_rate < low else high
+            notes.append(f"the indicative range quoted at Stage 1 ({quoted_band.min_rate:.2f}-"
+                         f"{quoted_band.max_rate:.2f}%) lies outside the policy band ({low:.2f}-"
+                         f"{high:.2f}%); priced at the nearest permissible rate, {edge:.2f}%, "
+                         "and the customer must be told why")
+            low = high = edge
+            held = True
+
+    # Never search where the conversion model has no data to stand on - except
+    # that a held range is never trimmed away entirely: an extrapolated price
+    # inside the quoted range beats a supported one outside it.
     if support_band is not None:
         support_low, support_high = support_band
         if support_high < low or support_low > high:
@@ -99,7 +124,8 @@ def generate(
 
     rates = np.arange(low, high + 1e-9, step)
 
-    anchors: dict[str, float] = {"card_rate": card, "policy_floor": low, "policy_ceiling": high}
+    anchors: dict[str, float] = ({"card_rate": card, "quoted_min": low, "quoted_max": high} if held
+                                 else {"card_rate": card, "policy_floor": low, "policy_ceiling": high})
     if stage2_band is not None:
         anchors["stage2_anchor"] = round((stage2_band.min_rate + stage2_band.max_rate) / 2, 2)
     if competitor_rate is not None and np.isfinite(competitor_rate):

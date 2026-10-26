@@ -13,7 +13,40 @@ document_types:
   property_papers: "Property documents (sale agreement, title)"
   other: "Other supporting document"
 
+# How a nudge or a worklist names a document that is still due.
+document_short_names:
+  income_proof: "salary slips"
+  bank_statement: "bank statement"
+  identity_address: "PAN and Aadhaar"
+  property_papers: "property papers"
+
 # Checked against the file's contents, not the name or the browser's claim.
 allowed_formats: [pdf, jpeg, png]
 max_file_mb: 10
 max_documents_per_application: 20
+
+# A file is verified - ready for a final offer - once these are in. Until then it
+# sits in the RM's "In progress" list with what is still due.
+required_for_verification: [income_proof, bank_statement, identity_address]
+
+# The RM's "In progress" list: files that have not reached verification. Real
+# files awaiting documents are listed from the store; these sample leads stand in
+# for the rest of a real RM's pipeline (quotes never applied for, customers who
+# stopped part-way) and are marked as samples on screen.
+sample_in_progress:
+  - {ref: LEAD-S01, name: "Priya Deshmukh", mobile: "98XXXXX214", city: Pune, segment: salaried_formal,
+     loan_amount: 3200000, stage: quote_not_applied, quoted: {min_rate: 9.65, max_rate: 10.40}, days_since_activity: 6}
+  - {ref: LEAD-S02, name: "Imran Shaikh", mobile: "97XXXXX508", city: Pune, segment: self_employed_non_professional,
+     loan_amount: 1800000, stage: documents_pending, missing: [bank_statement, identity_address], days_since_activity: 3}
+  - {ref: LEAD-S03, name: "Kavita Joshi", mobile: "99XXXXX731", city: Pune, segment: self_employed_professional,
+     loan_amount: 4500000, stage: dropped_off, stopped_at: "Loan and property details", days_since_activity: 9}
+  - {ref: LEAD-S04, name: "Sandeep More", mobile: "90XXXXX126", city: Pune, segment: salaried_informal,
+     loan_amount: 2200000, stage: documents_pending, missing: [income_proof], days_since_activity: 1}
+
+# What a nudge says, by where the customer stopped. Recorded against the file;
+# delivery needs an SMS or WhatsApp gateway, which this service does not have.
+nudge_channels: [whatsapp, sms]
+nudge_messages:
+  documents_pending: "Hi {first}, your Aavas home loan application is waiting for {missing}. Upload them from your Aavas login, or reply here and I will collect them. - {rm}, Aavas"
+  quote_not_applied: "Hi {first}, the home loan rate we quoted you ({quoted}) is still open. Applying takes five minutes from your Aavas login, or reply here and I will help. - {rm}, Aavas"
+  dropped_off: "Hi {first}, you were nearly done with your Aavas home loan application. Pick up where you left off, or reply here and I will call you. - {rm}, Aavas"

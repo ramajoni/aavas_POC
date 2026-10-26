@@ -1,0 +1,49 @@
+# Competitor fact checking - what a competitor advertises today, and how believable
+# a quoted rate is against it.
+#
+# The market research agent (agents/market_research_agent.py) searches the web for
+# a lender's published home-loan rates; the claim score (intelligence/claim_score.py)
+# combines what it found with whether a sanction letter was seen and whether the
+# customer could get that lender's best rate. Both are guidance for a person: an
+# internet search never moves a recommendation.
+
+market_research_config_version: "MR-2026.10"
+
+online_research:
+  max_age_days: 7            # a lender's published rates are reused this long
+  retry_after_minutes: 30    # after a search that failed or found nothing
+  max_searches: 6
+  max_fetches: 4
+  # Asked about when the customer did not name the lender (or named only a
+  # "local bank"): the quote is then compared with the market as a whole.
+  market_lenders: [HDFC, SBI, LIC HF, Bajaj HF, PNB Housing, ICICI HFC, Aadhar HF,
+                   Aptus, Home First, India Shelter]
+
+# Points, out of 100. Every component is shown with the score, so a reviewer can
+# see why a quote scored what it did.
+claim_scoring:
+  # Evidence decides where a claim starts.
+  base: {seen: 70, not_seen: 35}
+  # The quote against the lender's advertised range. A quote inside the range is
+  # believable; an unverified one gains more from it than a letter already does.
+  within_range: {seen: 15, not_seen: 25}
+  above_range: {seen: 10, not_seen: 15}
+  # Under the lowest advertised rate, by how far (max_bps: null = any further).
+  below_floor:
+    - {max_bps: 25, points: -10}     # festive and special offers sit about here
+    - {max_bps: 75, points: -25}
+    - {max_bps: null, points: -45}
+  # Rates found only on news or comparison sites count for less than the
+  # lender's own website.
+  secondary_source_weight: 0.6
+  # A quote this close to the lender's lowest rate is its best rate, which goes
+  # to its best borrowers.
+  best_rate_window_bps: 15
+  best_rate_min_credit_score: 750   # when the lender does not publish its own
+  weak_profile_points: -15
+  weak_segments: [salaried_informal, self_employed_non_professional]
+  bands:
+    - {min: 80, key: credible, label: Credible}
+    - {min: 55, key: plausible, label: Plausible}
+    - {min: 35, key: unconfirmed, label: Unconfirmed}
+    - {min: 0, key: doubtful, label: Doubtful}

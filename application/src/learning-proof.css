@@ -1,0 +1,41 @@
+/* Learning Proof: claims, their evidence, and how to check them. */
+.lp-tabs{display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.lp-tabs button{border:0;background:none;padding:10px 14px;font-size:15px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.lp-tabs button.active{color:#1A3E9E;border-bottom-color:#1A3E9E;font-weight:600}
+.lp-loading{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:14px}
+.lp-body{display:flex;flex-direction:column;gap:16px}
+.lp-claims{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.lp-claims li{display:grid;grid-template-columns:24px 1fr auto;gap:12px;align-items:start;background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 16px}
+.lp-claims li div{display:flex;flex-direction:column;gap:2px}
+.lp-claims li b{font-size:15px;color:var(--ink);font-weight:600}
+.lp-claims li span{font-size:13.5px;color:#475569}
+.lp-claims li em{font-style:normal;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.lp-claims li.proven svg{color:#15803D}.lp-claims li.proven em{background:#ECFDF3;color:#15803D}
+.lp-claims li.open svg{color:#B45309}.lp-claims li.open em{background:#FFF7ED;color:#B45309}
+.lp-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px 24px;display:flex;flex-direction:column;gap:12px}
+.lp-card h2{margin:0;font-size:18px;color:var(--ink)}
+.lp-card h3{margin:6px 0 0;font-size:13px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#1A3E9E}
+.lp-card-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.lp-actions{display:flex;gap:8px;align-items:center}
+.lp-actions select{width:auto;min-width:110px}
+.lp-note{margin:0;font-size:14px;line-height:1.55;color:#475569}
+.lp-result{margin:0;font-size:15px;color:var(--ink)}
+.lp-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.lp-steps>div{background:#EEF4FF;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.lp-steps small{font-size:12.5px;color:#556274}
+.lp-steps b{font-size:22px;color:var(--ink);line-height:1.2}
+.lp-steps b.lp-id{font-size:15px;font-family:ui-monospace,monospace;overflow-wrap:anywhere}
+.lp-steps em{font-style:normal;font-size:12px;color:#556274}
+.lp-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.lp-table th{text-align:left;font-weight:500;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--border)}
+.lp-table td{padding:7px 8px;border-bottom:1px solid #EEF1F5;color:var(--ink);white-space:nowrap}
+.lp-table td.better{color:#15803D;font-weight:600}
+.lp-rounds{max-width:520px}
+.lp-bar{display:inline-block;width:90px;height:8px;background:#E2E8F0;border-radius:4px;margin-right:10px;vertical-align:middle;overflow:hidden}
+.lp-bar i{display:block;height:100%;background:#1A3E9E}
+.lp-gates{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:14px;color:#334155}
+.lp-how{background:#F8FAFC;border:1px solid var(--border);border-radius:12px;padding:12px 16px}
+.lp-how summary{cursor:pointer;font-weight:600;color:#1A3E9E}
+.lp-how ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.5;color:#334155}
+@media(max-width:1000px){.lp-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.lp-card{overflow-x:auto}}
+@media(max-width:600px){.lp-steps{grid-template-columns:1fr}.lp-claims li{grid-template-columns:24px 1fr}.lp-claims li em{grid-column:2}}

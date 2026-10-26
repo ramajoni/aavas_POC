@@ -1,0 +1,16 @@
+/* RM "New application" (wireframe 02). */
+.new-app form.po-card{gap:22px}
+.new-app fieldset{border:0;padding:0;margin:0}
+.new-app legend{font-size:17px;font-weight:500;color:var(--ink);margin-bottom:12px;padding:0}
+.new-app .po-form{grid-template-columns:repeat(2,minmax(0,1fr));align-items:end}
+.new-app .na-wide{grid-column:1 / -1}
+.new-app textarea{font:inherit;font-size:15px;padding:10px 12px;border:1px solid #CBD5E1;border-radius:8px;resize:vertical}
+.new-app .na-check{flex-direction:row!important;align-items:center;gap:8px!important;font-size:14px!important;color:var(--ink)!important;padding-bottom:10px}
+.new-app .na-check input{width:18px;height:18px}
+.na-side{flex:1 1 320px;display:flex;flex-direction:column;gap:16px}
+.na-side .po-card{flex:none;padding:22px 24px;gap:8px}
+.na-range{font-size:32px;font-weight:700;color:var(--ink);line-height:1.15}
+.na-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.45}
+.na-side>.button{height:48px;font-size:15px}
+.na-hint{display:inline-flex;align-items:center;gap:5px}
+@media(max-width:800px){.new-app .po-form{grid-template-columns:1fr}}

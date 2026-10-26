@@ -1,6 +1,6 @@
 # Business-owned pricing policy. Credit/Product edit this file; no code change required.
 # Every rate in this file is an annual percentage (9.75 == 9.75% p.a.), spreads are in bps.
-policy_version: "HL-POLICY-2026.09"
+policy_version: "HL-POLICY-2026.10"
 product: home_loan
 effective_from: "2026-09-01"
 
@@ -131,6 +131,12 @@ optimizer:
   #                       Safer and more conservative, but it can only reproduce
   #                       historical pricing behaviour, never improve on it.
   search_space: permissible_band
+  # The final recommendation stays inside the indicative range the customer was
+  # quoted at Stage 1 (the latest pre-assessment on the same loan id). Verified
+  # details may move the price within that range, never out of it; and an offer
+  # may not be sent above its top. Policy still wins: where the quoted range lies
+  # outside the permissible band, the band applies and the file says why.
+  honour_indicative_band: true
   stage2_interval_sigmas: 3.0
   # The optimizer may not trade away conversion without limit: a recommendation
   # whose conversion probability is below this is rejected even if EV is highest.

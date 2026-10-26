@@ -10,6 +10,11 @@
 # SSO and roles from the directory.
 version: ACCESS-2026.10
 
+# Borrowers may create their own account from the sign-in screen. Such accounts
+# are stored in the database and can only ever be borrowers.
+registration:
+  borrowers: true
+
 session:
   ttl_minutes: 480          # a working day
   max_failed_logins: 5      # per username, then locked for lockout_minutes
@@ -22,6 +27,10 @@ session:
 # console:   may open the Agentic Credit Pricing OS console (/os.html).
 # rate_authority: the approval_authority level from pricing_policy.yaml that this
 #            role's rate decisions are recorded under.
+# offer_below_recommendation_bps: how far below the system recommendation this role may
+#            send an offer itself, with a reason; lower needs the next role up.
+# approve_below_recommendation_bps: how far below the recommendation this role may
+#            approve a requested rate; lower goes to the credit head.
 roles:
   borrower:
     label: "Borrower"
@@ -30,19 +39,24 @@ roles:
   relationship_manager:
     label: "Relationship manager"
     landing: applications
-    pages: [applications, application, competitors, audit, policy]
+    pages: [applications, new-application, application, policy]
     rate_authority: sales_officer
+    # Matches pricing_policy.yaml override.max_unevidenced_discount_bps.
+    offer_below_recommendation_bps: 15
+    # Disbursement target a month, per RM (a user may set monthly_target_inr).
+    monthly_disbursement_target_inr: 20000000
   area_manager:
     label: "Area manager"
-    landing: dashboard
-    pages: [dashboard, learning, audit, policy, competitors]
+    landing: approvals
+    pages: [approvals, disbursements, application, dashboard, learning, audit, policy, competitors]
     rate_authority: regional_manager
+    approve_below_recommendation_bps: 40
   model_validation:
     label: "Risk and model validation"
     landing: models
     console: true
     pages: [models, xai, credit-score, xai-dash, mlflow, features, runtime, record,
-            governance, control-tower, agents, learning, audit, policy, config]
+            governance, control-tower, agents, learning, learning-proof, audit, policy, config]
   administrator:
     label: "Platform administrator"
     landing: dashboard
@@ -98,6 +112,8 @@ public:
   - {path: /auth/login, methods: [POST]}
   - {path: /auth/logout, methods: [POST]}     # only ever revokes the caller's own token
   - {path: /auth/personas, methods: [GET]}
+  - {path: /auth/register, methods: [POST]}
+  - {path: /auth/registration, methods: [GET]}
 
 # -------------------------------------------------------------- route rules
 # The matching rule with the longest path wins. Anything no rule matches is
@@ -108,29 +124,48 @@ routes:
   # Online applications: the borrower submits and uploads; staff read. Which
   # application a borrower reaches (only their own) is checked in api/applications.py.
   - {path: /applications, methods: [GET], roles: [borrower, relationship_manager, area_manager]}
-  - {path: /applications, methods: [POST], roles: [borrower]}
+  # A borrower applies online; a relationship manager enters an assisted application.
+  - {path: /applications, methods: [POST], roles: [borrower, relationship_manager]}
+  # Staff correct the details on a file (Edit details); who entered it never changes.
+  - {path: /applications, methods: [PUT], roles: [relationship_manager, area_manager]}
 
   # Pricing: the customer and the RM quote; only the RM prices a verified file.
-  - {path: /pricing/pre-assessment, methods: [POST], roles: [borrower, relationship_manager]}
-  - {path: /pricing/final-assessment, methods: [POST], roles: [relationship_manager]}
-  - {path: /pricing/decision, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
-  - {path: /pricing/audit, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
+  # The area manager prices too: opening a file to approve a rate re-prices it.
+  - {path: /pricing/pre-assessment, methods: [POST], roles: [borrower, relationship_manager, area_manager]}
+  - {path: /pricing/final-assessment, methods: [POST], roles: [relationship_manager, area_manager]}
+  - {path: /pricing/decision, methods: [GET], roles: [area_manager, model_validation]}
+  - {path: /pricing/audit, methods: [GET], roles: [area_manager, model_validation]}
   - {path: /pricing/policy/explain, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
-  - {path: /pricing/explain, roles: [relationship_manager, area_manager, model_validation]}
+  # The analysis behind a price - model drivers, the written explanation, uplift,
+  # customer behaviour - is the area manager's and risk's, not the relationship manager's.
+  - {path: /pricing/explain, roles: [area_manager, model_validation]}
+
+  # Offers and rate approvals. Who may decide a request is checked in api/offers.py.
+  - {path: /pricing/offers, roles: [relationship_manager, area_manager]}
+  - {path: /pricing/rate-requests, roles: [relationship_manager, area_manager]}
+  # The area's disbursements against target, by RM: the area manager's.
+  - {path: /pricing/area, methods: [GET], roles: [area_manager]}
+  - {path: /pricing/my, methods: [GET], roles: [relationship_manager]}
 
   # The human decision: the RM proposes, the area manager approves below RM authority.
   - {path: /pricing/override, methods: [POST], roles: [relationship_manager, area_manager]}
   - {path: /pricing/override/reasons, methods: [GET], roles: [relationship_manager, area_manager]}
-  - {path: /pricing/uplift, methods: [POST], roles: [relationship_manager, area_manager]}
+  - {path: /pricing/uplift, methods: [POST], roles: [area_manager]}
   - {path: /pricing/outcome, roles: [relationship_manager]}
   - {path: /pricing/learning, methods: [GET], roles: [area_manager, model_validation]}
 
   # How the customer on the file is behaving, against similar customers in the loan book.
-  - {path: /customers, methods: [GET], roles: [relationship_manager, area_manager]}
+  - {path: /customers, methods: [GET], roles: [area_manager]}
 
   # Market context from the RM's conversation.
-  - {path: /notes, roles: [relationship_manager, area_manager]}
-  - {path: /competitors, roles: [relationship_manager, area_manager]}
+  # Competitor intelligence (the notes it reads and the lender tables): the area manager's.
+  - {path: /notes, roles: [area_manager]}
+  # Reading the notes on the one file being entered is part of an assisted application.
+  - {path: /notes/extract, methods: [POST], roles: [relationship_manager, area_manager]}
+  - {path: /competitors, roles: [area_manager]}
+  # The online check on the quote in front of them: both who price a file.
+  - {path: /competitors/check, methods: [POST], roles: [relationship_manager, area_manager]}
+  - {path: /competitors/lenders, methods: [GET], roles: [relationship_manager, area_manager]}
 
   # Models, evidence and governance: risk and model validation.
   - {path: /model-cards, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
@@ -141,6 +176,8 @@ routes:
   - {path: /system-of-record, methods: [GET], roles: [model_validation]}
   - {path: /control-tower, methods: [GET], roles: [model_validation]}
   - {path: /governance, roles: [model_validation]}
+  # Proof that the engine learns: continuous learning and federated rounds.
+  - {path: /learning, roles: [model_validation]}
   - {path: /agents, methods: [GET], roles: [model_validation]}
   - {path: /config, methods: [GET], roles: [model_validation]}
   # /connectors: administrator only (no rule).

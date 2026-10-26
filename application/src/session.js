@@ -41,11 +41,23 @@ async function call(path, options = {}) {
   let body = null;
   try { body = await response.json(); } catch { /* no body */ }
   if (!response.ok) {
-    const error = new Error(typeof body?.detail === 'string' ? body.detail : 'The pricing service is unavailable. Please check that the API is running on port 8000.');
+    const error = new Error(problem(response.status, body));
     error.status = response.status;
     throw error;
   }
   return body;
+}
+
+// What went wrong, in words a borrower or a branch can act on. A 403 that is not
+// the API's own JSON comes from the firewall in front of it, which limits how many
+// sign-in attempts one network may make.
+export function problem(status, body) {
+  const detail = body?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) return detail.map(d => d.msg).filter(Boolean).join('; ') || 'Please check the details and try again.';
+  if (status === 403 || status === 429) return 'Too many attempts from your network. Please wait a few minutes and try again.';
+  if (status >= 500 || status === 0) return 'The pricing service is not responding right now. Please try again in a minute.';
+  return 'Something went wrong. Please try again.';
 }
 
 export async function signIn(username, password) {
@@ -53,6 +65,23 @@ export async function signIn(username, password) {
   startSession(body.token, body.user);
   return body.user;
 }
+
+// A borrower's own account: created, then signed in, in one step.
+export async function register(fields) {
+  const body = await call('/auth/register', { method: 'POST', body: JSON.stringify(fields) });
+  startSession(body.token, body.user);
+  return body.user;
+}
+
+// A customer replaces the temporary password the branch gave them with their own.
+export async function changePassword(currentPassword, newPassword) {
+  const body = await call('/auth/password', { method: 'POST',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) });
+  startSession(memory.token, body.user);
+  return body.user;
+}
+
+export const registrationOpen = () => call('/auth/registration').then(b => b.borrowers).catch(() => false);
 
 export async function signOut() {
   try { await call('/auth/logout', { method: 'POST' }); } catch { /* signing out locally is what matters */ }

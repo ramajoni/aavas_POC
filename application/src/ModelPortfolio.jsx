@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {Stack,ArrowClockwise,WarningCircle,TreeStructure,Scales,Gavel,Trophy} from '@phosphor-icons/react';
 import {api,number,titleCase} from './api';
 import {Button,Panel,Badge,InfoBox,Empty,DataTable} from './components';
+import {RiskToPrice,SegmentCard,AcceptanceBySegment,DiscountEffect} from './ModelCards';
 import './ModelPortfolio.css';
 
 // The five deck models with the evidence behind each: how AutoML chose the
@@ -47,13 +48,18 @@ export function ModelPortfolio(){
  if(!body)return <Empty icon={Stack} title="Reading the model portfolio">Selection reports, model cards and global weights…</Empty>;
  const rule=body.selection_rule,h=rule.holdout;
  return <section className="mp">
-  <div className="mp-head"><div><h2><Stack size={21}/> Model portfolio</h2><p className="muted">The five models behind a price, how each learner was chosen, and what it weighs.</p></div>
+  <div className="mp-head"><div><h2><Stack size={21}/> Model portfolio</h2><p className="muted">The five models behind a price, what each means for the business, how each learner was chosen, and what it weighs.</p></div>
    <Button busy={loading} onClick={load}><ArrowClockwise/> Refresh</Button></div>
   <InfoBox><b>{rule.statement}</b> Validation is {rule.validation}{h?.from?` — holdout ${h.from} to ${h.to}, ${number(h.rows)} files`:''}. Ties within {(100*(rule.tolerance_rel||0)).toFixed(0)}% go to the more explainable family ({rule.explainability_ranking.map(titleCase).join(' › ')}).{rule.framework&&<> <span className="mp-framework">{rule.framework}</span></>}</InfoBox>
-  <div className="mp-grid">{body.models.map((m,i)=><Panel key={m.key} className={`mp-card ${m.components.length>1?'wide':''}`} title={<><span className="mp-n">{i+1}</span>{m.title}</>} action={<Badge tone={tone(m.status)}>{m.status}</Badge>}>
+  <RiskToPrice business={body.business}/>
+  <div className="mp-grid">{body.models.map((m,i)=>{
+   // The acceptance card carries its curves by segment; the discount card its table.
+   const extra=m.key==='acceptance'?<AcceptanceBySegment curves={body.business?.acceptance_curves}/>:m.key==='pricing_uplift'?<DiscountEffect effect={body.business?.discount_effect}/>:null;
+   const size=m.key==='pricing_uplift'&&extra?'full extra':extra?'wide extra':m.components.length>1?'wide':'';
+   return <React.Fragment key={m.key}><Panel className={`mp-card ${size}`} title={<><span className="mp-n">{i+1}</span>{m.title}</>} action={<Badge tone={tone(m.status)}>{m.status}</Badge>}>
    <p className="mp-stage">{m.stage}</p><p className="mp-question">{m.question}</p>
-   <div className="mp-components">{m.components.map(c=><Component key={c.model} c={c} multi={m.components.length>1}/>)}</div>
-  </Panel>)}</div>
+   <div className="mp-components">{m.components.map(c=><Component key={c.model} c={c} multi={m.components.length>1}/>)}{extra}</div>
+  </Panel>{m.key==='risk'&&<SegmentCard segments={body.business?.segments}/>}</React.Fragment>;})}</div>
   <Panel title="AutoML model selection" icon={TreeStructure}>
    <DataTable empty="No selection has been run yet: python scripts/run_model_selection.py" columns={[
     {label:'Model',render:r=><><b>{r.deck_model}</b>{r.role&&<small className="mp-cell-sub">{r.role}</small>}</>},

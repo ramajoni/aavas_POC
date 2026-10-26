@@ -45,7 +45,9 @@ class FederatedRun:
 
 
 def run(clients: list[RegionalAdjustmentClient], rounds: int | None = None,
-        strategy_name: str | None = None) -> FederatedRun:
+        strategy_name: str | None = None, persist: bool = True) -> FederatedRun:
+    """``persist=False`` computes the same run (and the same id) without recording
+    it: a screen showing the evidence should not write a round each time it opens."""
     cfg = federated_config()
     rounds = rounds or cfg["rounds"]
     # Resolve the strategy once. FedProx differs from FedAvg in the *client*
@@ -87,10 +89,20 @@ def run(clients: list[RegionalAdjustmentClient], rounds: int | None = None,
     result.client_sizes = {c.dataset.region: len(c.dataset) for c in clients}
     result.strategy = strategy_name
     result.proximal_mu = fit_config["proximal_mu"]
-    result.run_id = _persist(result)
+    result.run_id = _persist(result) if persist else run_id_for(result)
     log.info("federated run complete: %s rounds, strategy %s, final global MAE %.2f bps (%s)",
              rounds, strategy_name, result.history[-1]["global_mae_bps"], result.run_id)
     return result
+
+
+def run_id_for(result: "FederatedRun") -> str:
+    """A content hash of what each client trained: the same data and settings give the same id."""
+    import hashlib
+    import json
+
+    blob = json.dumps({r: p.tolist() for r, p in result.client_parameters.items()},
+                      sort_keys=True).encode()
+    return f"FED-{hashlib.sha256(blob).hexdigest()[:12]}"
 
 
 def _persist(result: "FederatedRun") -> str | None:
@@ -103,15 +115,10 @@ def _persist(result: "FederatedRun") -> str | None:
     the audit store is unwritable.
     """
     try:
-        import hashlib
-        import json
-
         from ..governance import audit, store
 
-        blob = json.dumps({r: p.tolist() for r, p in result.client_parameters.items()},
-                          sort_keys=True).encode()
-        digest = hashlib.sha256(blob).hexdigest()
-        run_id = f"FED-{digest[:12]}"
+        run_id = run_id_for(result)
+        digest = run_id.removeprefix("FED-")
         store.insert("federated_rounds", {
             "run_id": run_id, "created_at": store.now(), "strategy": result.strategy,
             "proximal_mu": result.proximal_mu, "rounds": len(result.history),

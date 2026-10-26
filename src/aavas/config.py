@@ -26,6 +26,7 @@ _FILES = {
     "governance": "governance.yaml",
     "competitors": "competitors.yaml",
     "intake": "intake.yaml",
+    "market_research": "market_research.yaml",
 }
 
 

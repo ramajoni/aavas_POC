@@ -1,0 +1,41 @@
+/* Deep dive: the acceptance curve with floor, ask, recommendation and ceiling. */
+.dd{display:flex;flex-direction:column;gap:16px}
+.dd-loading{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.dd-points{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.dd-points>div{border-radius:10px;padding:10px 12px;background:#F4F6FA;display:flex;flex-direction:column;gap:2px;border-top:3px solid #94A3B8}
+.dd-points>div.rec{border-top-color:#0F172A;background:#EEF4FF}
+.dd-points>div.ceiling{border-top-color:#1A3E9E}
+.dd-points small{font-size:12px;color:#556274}
+.dd-points b{font-size:20px;color:var(--ink)}
+.dd-points em{font-style:normal;font-size:12px;color:#556274}
+.dd-chart{position:relative;margin:0}
+.dd-chart figcaption{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px}
+.dd-chart svg{width:100%;height:auto;display:block;touch-action:none}
+.dd-room{fill:#EEF4FF}
+.dd-grid{stroke:#E5E9F0;stroke-width:1}
+.dd-axis{font-size:11px;fill:#64748B}
+.dd-line{fill:none;stroke:#1A3E9E;stroke-width:2;stroke-linejoin:round}
+.dd-mark{stroke:#64748B;stroke-width:1.25}
+.dd-mark.floor{stroke-dasharray:5 4}
+.dd-mark.ask{stroke-dasharray:2 3}
+.dd-mark.rec{stroke:#0F172A;stroke-width:1.75}
+.dd-mark.ceiling{stroke:#1A3E9E;stroke-dasharray:5 4}
+.dd-mark-label{font-size:11.5px;fill:#334155;font-weight:500}
+.dd-dot{fill:#1A3E9E;stroke:#fff;stroke-width:2}
+.dd-dot.hover{fill:#0F172A}
+.dd-cross{stroke:#94A3B8;stroke-width:1}
+.dd-tip{position:absolute;top:30px;transform:translateX(-50%);background:#0F172A;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;display:flex;flex-direction:column;gap:1px;pointer-events:none;white-space:nowrap}
+.dd-tip b{font-size:13px}
+.dd-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.dd-grid2 h3{margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#1A3E9E}
+.dd-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.dd-table td{padding:6px 4px;border-bottom:1px solid #EEF1F5;color:var(--ink)}
+.dd-table td:last-child{text-align:right;font-weight:500}
+.dd-table tr.total td{font-weight:700;border-top:2px solid #CBD5E1}
+.dd-table tr.margin td{color:#15803D;font-weight:600}
+.dd-note{margin:8px 0 0;font-size:13px;color:#475569;line-height:1.5}
+.dd-reasons{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13.5px}
+.dd-reasons li{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid #EEF1F5}
+.dd-reasons b.down{color:#334155}.dd-reasons b.up{color:#334155}
+@media(max-width:800px){.dd-points{grid-template-columns:repeat(2,minmax(0,1fr))}.dd-grid2{grid-template-columns:1fr}}
+.floor-build{padding:4px 2px}

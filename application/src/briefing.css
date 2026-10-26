@@ -1,0 +1,35 @@
+/* The area manager's briefing before approving a lower rate. */
+.bf{background:#fff;border:1px solid var(--border);border-radius:16px;padding:22px 26px;display:flex;flex-direction:column;gap:14px;margin-bottom:12px}
+.bf-loading{display:flex;align-items:center;gap:8px;margin:0;color:var(--muted);font-size:14px}
+.bf-head h2{margin:0;font-size:20px;color:var(--ink)}
+.bf-head small{font-size:13px;color:var(--muted)}
+.bf-signals{margin:0;padding:12px 16px 12px 32px;background:#F8FAFC;border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.5;color:#1E293B}
+.bf-tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--border)}
+.bf-tabs button{display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:9px 12px;font-size:14px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.bf-tabs button.active{color:#1A3E9E;border-bottom-color:#1A3E9E;font-weight:600}
+.bf-body{display:flex;flex-direction:column;gap:16px}
+.bf-body h3{margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#1A3E9E}
+.bf-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.bf-tiles.six{grid-template-columns:repeat(3,minmax(0,1fr))}
+.bf-tile{border-radius:12px;padding:12px 14px;background:#EEF4FF;display:flex;flex-direction:column;gap:3px;min-width:0}
+.bf-tile small{font-size:12.5px;color:#556274}
+.bf-tile b{font-size:20px;color:var(--ink);line-height:1.2}
+.bf-tile em{font-style:normal;font-size:12px;color:#556274}
+.bf-tile.good{background:#ECFDF3}.bf-tile.good b{color:#15803D}
+.bf-tile.bad{background:#FEF3F2}.bf-tile.bad b{color:#B42318}
+.bf-tile.flat{background:#F8FAFC}
+.bf-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.bf-mini{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.bf-mini .bf-tile b{font-size:17px}
+.bf-note{margin:0 0 8px;font-size:13.5px;color:#475569}
+.bf-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.bf-table th{text-align:left;font-weight:500;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.bf-table td{padding:7px 8px;border-bottom:1px solid #EEF1F5;color:var(--ink);white-space:nowrap}
+.bf-table td small{color:var(--muted);font-size:11.5px;margin-left:4px}
+.bf-table tr.mine td{background:#FFF7E6;font-weight:600}
+.bf-bar{display:inline-block;width:60px;height:7px;background:#E2E8F0;border-radius:4px;margin-right:8px;vertical-align:middle;overflow:hidden}
+.bf-bar i{display:block;height:100%;background:#1A3E9E}
+.bf-caveats summary{cursor:pointer;font-size:13px;color:#1A3E9E}
+.bf-caveats ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:#475569;display:flex;flex-direction:column;gap:4px}
+@media(max-width:1100px){.bf-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.bf-tiles.six{grid-template-columns:repeat(2,minmax(0,1fr))}.bf-grid{grid-template-columns:1fr}}
+@media(max-width:700px){.bf{padding:16px}.bf-tiles,.bf-tiles.six,.bf-mini{grid-template-columns:1fr}}

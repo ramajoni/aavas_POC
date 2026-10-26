@@ -55,6 +55,8 @@ class Principal:
     mode: str = DISABLED
     display_name: str | None = None
     rate_authority: str | None = None
+    # A login the branch issued, still on its temporary password.
+    must_change_password: bool = False
 
     def has(self, role: str) -> bool:
         return role in self.roles
@@ -89,7 +91,8 @@ def session_principal(token: str | None) -> Principal | None:
         return None
     return Principal(name=found.username, roles=found.roles, authenticated=True,
                      mode=SESSION, display_name=found.name,
-                     rate_authority=found.rate_authority)
+                     rate_authority=found.rate_authority,
+                     must_change_password=found.must_change_password)
 
 
 def known_roles() -> list[str]:

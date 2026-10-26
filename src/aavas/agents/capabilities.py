@@ -147,6 +147,13 @@ TOOLS: list[dict[str, Any]] = [
      "unavailable_when": "the governance store cannot be read - the decision count is one "
                          "of the four triggers",
      "fallback": "the assessment runs on the drift triggers alone and says so"},
+    {"name": "llm.web_research", "kind": "llm", "module": "aavas.agents.market_research_agent",
+     "provides": "The home-loan rates a lender advertises online today, each tied to a page the "
+                 "search actually returned.",
+     "unavailable_when": "ANTHROPIC_API_KEY is unset, web search is off for the organisation, "
+                         "or the search fails",
+     "fallback": "the competitor quote is scored on its evidence and the customer's profile "
+                 "alone, and the check says the fact check did not run"},
     {"name": "llm.claude", "kind": "llm", "module": "aavas.acceptance.extraction_agent",
      "provides": "Signal extraction from free text with a verbatim quote.",
      "unavailable_when": "ANTHROPIC_API_KEY is unset or the call fails",
@@ -198,6 +205,11 @@ SKILLS: list[dict[str, Any]] = [
      "does": "The closed set of acceptance signals and their coercion rules. An extractor "
              "may not invent a signal outside it.",
      "governed_by": "config/acceptance.yaml"},
+    {"name": "claim_scoring", "module": "aavas.intelligence.claim_score",
+     "does": "How believable a competitor's quoted rate is, out of 100: the evidence seen, "
+             "the quote against what the lender advertises, and whether the customer could "
+             "get its best rate; and how far the quote can justify a discount.",
+     "governed_by": "config/market_research.yaml (claim_scoring)"},
 ]
 
 # ---------------------------------------------------------------- permissions
@@ -243,6 +255,9 @@ PERMISSIONS: dict[str, dict[str, Any]] = {
     # Dormant. Declared so that wiring them in is a permission decision taken in
     # daylight rather than a side effect of flipping `wired`.
     "extraction": {"llm.claude": [READ], "connector.mcp": [READ], "source.registry": [READ]},
+    # On request, outside the priced path: reads the web, writes nothing itself
+    # (intelligence/market_rates.py keeps what it found).
+    "market_research": {"llm.web_research": [READ]},
     "acceptance": {"source.registry": [READ]},
 }
 

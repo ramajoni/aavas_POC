@@ -22,7 +22,7 @@ import pandas as pd
 
 from ..config import versions
 from ..governance import decision_logger, model_registry
-from ..ingestion.schemas import Stage
+from ..ingestion.schemas import RateBand, Stage
 from ..logging_utils import get_logger
 from .conversion_agent import ConversionAgent
 from .explanation_agent import ExplanationAgent
@@ -72,6 +72,18 @@ class PricingOrchestrator:
         return result
 
     # ------------------------------------------------------------- stage 2
+    @staticmethod
+    def _quoted_band(loan_id: str | None) -> dict[str, Any] | None:
+        """The indicative range this loan was quoted at Stage 1, if it was."""
+        if not loan_id:
+            return None
+        quote = decision_logger.latest_for_loan(loan_id, stage=Stage.PRE_ASSESSMENT.value)
+        band = ((quote or {}).get("payload") or {}).get("band") or {}
+        if band.get("min_rate") is None or band.get("max_rate") is None:
+            return None
+        return {"min_rate": float(band["min_rate"]), "max_rate": float(band["max_rate"]),
+                "decision_id": quote.get("decision_id"), "quoted_at": quote.get("created_at")}
+
     def process(self, application: dict | pd.DataFrame, persist: bool = True) -> dict:
         if not self.bundle.ready:
             log.warning("running with missing model artefacts: %s", self.bundle.missing)
@@ -107,10 +119,13 @@ class PricingOrchestrator:
                             + (", evidence verified" if anchored.get("competitor_evidence_verified")
                                else ""))
 
-        # 4. Scenario simulation and yield optimization.
+        # 4. Scenario simulation and yield optimization, inside the range the
+        # customer was quoted at Stage 1 when there was one.
+        quoted = self._quoted_band(twin.loan_id)
         with trace.step("pricing", "optimise yield") as step:
             recommendation = self.pricing.recommend(
-                twin, expected_loss_pct=risk["expected_loss_pct"])
+                twin, expected_loss_pct=risk["expected_loss_pct"],
+                quoted_band=RateBand(quoted["min_rate"], quoted["max_rate"]) if quoted else None)
             step.summary = (f"recommends {recommendation.get('recommended_rate')}% from "
                             f"{len(recommendation.get('scenarios') or [])} scenario(s)")
 
@@ -154,6 +169,9 @@ class PricingOrchestrator:
             "policy": policy_check,
             "envelope": envelope,
             "recommendation": recommendation,
+            "indicative_band": ({**quoted, "within": bool(quoted["min_rate"] - 1e-9 <= rate
+                                                          <= quoted["max_rate"] + 1e-9)}
+                                if quoted else None),
             "price_sensitivity": elasticity,
             "sales_context": sales_context,
             "explanation": explanation,

@@ -96,6 +96,21 @@ AGENTS: list[dict[str, Any]] = [
      "decides": "What happens after the decision: the human override and the eventual "
                 "outcome, captured so the next model can be fitted on them."},
 
+    # ------------------------------------------------------------- on request
+    # Runs, but not in the pricing pipeline: a person's screen calls it.
+    {"name": "market_research", "cls": "MarketResearchAgent",
+     "module": "aavas.agents.market_research_agent", "wired": False, "on_demand": True,
+     "stages": ["competitor_check"], "models": [],
+     "tools": ["llm.web_research"],
+     "skills": ["claim_scoring"],
+     "decides": "Whether a competitor's quoted rate is believable: what that lender advertises "
+                "online today, set against the quote, whether a sanction letter was seen and "
+                "the customer's profile, as a score out of 100.",
+     "runs": "When a relationship manager or area manager opens a file with a competitor "
+             "quote; findings are reused per lender for a week. Outside the priced path: an "
+             "internet search never moves a recommendation, it says how far a quote can "
+             "justify a discount."},
+
     # ---------------------------------------------------------------- dormant
     {"name": "feature_discovery", "cls": "FeatureDiscoveryAgent",
      "module": "aavas.features.discovery", "wired": False,
@@ -161,7 +176,8 @@ def roster(loaded_models: set[str] | None = None) -> list[dict[str, Any]]:
                    if loaded_models is not None else [])
         out.append({**agent, "pipeline_positions": positions.get(agent["name"], []),
                     "missing_models": missing,
-                    "status": ("dormant" if not agent["wired"]
+                    "status": ("on_demand" if agent.get("on_demand")
+                               else "dormant" if not agent["wired"]
                                else "degraded" if missing else "ready")})
     return out
 
@@ -170,6 +186,7 @@ def summary(loaded_models: set[str] | None = None) -> dict[str, Any]:
     agents = roster(loaded_models)
     return {"agents": len(agents),
             "wired": sum(1 for a in agents if a["wired"]),
-            "dormant": sum(1 for a in agents if not a["wired"]),
+            "on_demand": sum(1 for a in agents if a["status"] == "on_demand"),
+            "dormant": sum(1 for a in agents if a["status"] == "dormant"),
             "degraded": sum(1 for a in agents if a["status"] == "degraded"),
             "pipeline_steps": len(PIPELINE)}

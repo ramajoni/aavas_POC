@@ -417,7 +417,9 @@ def test_agents_index_separates_wired_from_dormant(client):
     for name in ("extraction", "evidence", "acceptance"):
         assert by_name[name]["status"] == "dormant"
         assert by_name[name]["dormant_because"]
-    assert body["summary"]["wired"] + body["summary"]["dormant"] == body["summary"]["agents"]
+    assert (body["summary"]["wired"] + body["summary"]["on_demand"] + body["summary"]["dormant"]
+            == body["summary"]["agents"])
+    assert by_name["market_research"]["status"] == "on_demand" and by_name["market_research"]["runs"]
 
 
 def test_a_priced_decision_carries_its_step_trace(client):
