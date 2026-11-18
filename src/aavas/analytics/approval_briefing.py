@@ -99,7 +99,8 @@ def adjusted_effect(df: pd.DataFrame, propensity: np.ndarray | None, reason: str
         return None
     mask = (df["override_direction"] == DISCOUNT).to_numpy()
     if reason:
-        mask &= (df["override_reason"] == reason).to_numpy()
+        # Not &=: under pandas 3 copy-on-write, to_numpy() can return a read-only view.
+        mask = mask & (df["override_reason"] == reason).to_numpy()
     effect = override_learning.propensity_adjusted(df, propensity, group_mask=mask, label=label)
     out = effect.as_dict()
     for key in ("s2d_lift_pts", "value_lift_inr", "value_lift_se_inr", "mean_override_bps"):
