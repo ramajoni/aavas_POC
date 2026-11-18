@@ -137,6 +137,7 @@ permissible band  ──► grid at optimizer.step_bps (5 bps)
                       ─ trimmed to the conversion model's support band
                           "upper end trimmed from 16.50% to 13.73%: beyond that the
                            conversion model is extrapolating, not predicting"
+                          (an example from HL-POLICY-2026.10; the ceiling is now 17.00%)
 
 for each rate:  P(conversion)  P(BT-out) ─► expected life
                 lifetime value = (rate − funding − servicing − capital − EL)

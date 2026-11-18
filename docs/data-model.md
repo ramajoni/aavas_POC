@@ -164,21 +164,28 @@ All four files live in [`config/`](../config/) and are read through
 [`config.py`](../src/aavas/config.py) (cached; `reload()` clears). **Nothing in `src` may
 hard-code a rate, spread, cost or threshold a business user would reasonably want to change.**
 
-### `pricing_policy.yaml` — business-owned (`HL-POLICY-2026.10`)
+### `pricing_policy.yaml` — business-owned (`HL-LAP-POLICY-2026.14`)
+
+The same file, byte for byte, is the policy of the LangGraph rule engine
+(`aavas_pricing_os_langgraph/policy_engine/policies/hl_lap_policy_2026.14.yaml`).
+`scripts/check_policy.py` checks its invariants; `tests/data/policy_cases.csv` is its sample data.
 
 | Block | Drives |
 |---|---|
-| `reference` | `plr`, `card_rate_floor` (8.60), `card_rate_ceiling` (16.50) |
+| `reference` | `plr` 14.50, `card_rate_floor` 13.00, `card_rate_ceiling` 17.00 |
 | `economics` | Funding 7.90%, servicing 0.45%, acquisition 0.55%, processing fee 0.50%, capital 0.35%, discount rate 9.00%, `behavioural_horizon_years` 8 — every rupee in the yield calculator |
-| `base_spread_bps` | Segment spread over the floor (55 → 185 bps) |
-| `risk_grade_loading_bps` | A 0 → E 240 bps |
-| `ltv_loading_bps`, `property_type_loading_bps`, `deviation_loading_bps` | The rest of the card rate |
-| `constraints` | `max_ltv` 0.90, `max_foir` 0.55, `max_tenure_years` 30, `min_credit_score` 620, NTC rules, `max_loan_amount`, `absolute_discount_floor_bps` 60 |
-| `approval_authority` | Level → max discount / max premium bps (sales officer 10 → pricing committee 999) |
-| `override` | `allowed_reasons` (10), `evidence_required_reasons`, `max_unevidenced_discount_bps` 15 |
-| `stage1` | Quantiles, `min/max_band_width_bps` (25/125), `round_to_bps` 5, `eligibility_foir_cap` 0.50 |
-| `fair_pricing` | `commercial_uplift_review_bps` 10, `quote_validity_days` 30, risk-grade scale wording |
-| `optimizer` | `step_bps` 5, `search_space` (`permissible_band` \| `stage2_interval`), `min_conversion_probability` 0.25, `max_bt_out_probability` 0.45, `ev_tolerance_pct` 1.0 |
+| `risk_grade_loading_bps` | A+ 0, A 100, B 200, C 300 bps over the floor; D `null` = no offer |
+| `tenure_loading_bps` | 0 / 50 / 100 bps for 36–60 / 61–84 / 85–120 months: with the grade loading, the pricing matrix |
+| `base_spread_bps`, `ltv_loading_bps`, `property_type_loading_bps`, `deviation_loading_bps` | All 0: segment, LTV and property are priced through the grade |
+| `constraints` | `max_ltv` 0.90, `max_foir` 0.55, tenure 36–120 months (`max_tenure_years` 10), `min_credit_score` 675, `new_to_credit_allowed` false (priced, then manual review), `max_loan_amount` 75 lakh, `absolute_discount_floor_bps` 60, age 21 to 60 (salaried) / 70 (self-employed) at maturity |
+| `approval_authority` | Level → max discount bps (sales officer 10, branch 25, regional 40, credit head 60, pricing committee 999); max premium 0 at every level: the matrix rate is the ceiling |
+| `override` | `allowed_reasons` (10), `evidence_required_reasons`, `max_unevidenced_discount_bps` 15, `uplift` (never above the card rate) |
+| `stage1` | Quantiles, `min/max_band_width_bps` (25/125), `round_to_bps` 5, `eligibility_foir_cap` 0.50, quote band 13–17% |
+| `fair_pricing` | `commercial_uplift_review_bps` 10, `quote_validity_days` 30, grade scale A+..D |
+| `optimizer` | `step_bps` 5, `search_space` `stage2_interval`, `min_conversion_probability` 0.25, `max_bt_out_probability` 0.45, `ev_tolerance_pct` 1.0 |
+| `pricing`, `eligibility_limits` | The matrix; `stress_test_add_pct` 2.00 — affordability is tested at the quoted rate + 2% against the grade's `foir_max` (55 / 50 / 45 / 40%) |
+| `scorecard`, `grades`, `mandatory_rules`, `guardrails`, `controls`, `decision_record` | The rule engine: 32 scored measures, grade bands, 61 guardrail rules written as pre / condition / post |
+| `actions`, `model_variant_routing`, `reason_codes`, `invariants`, `decisions` | The engine contract, and decisions D-01..D-09 taken for Risk approval |
 
 ### `model_config.yaml` — ML-owned (`MODEL-2026.09`)
 

@@ -30,6 +30,9 @@ the offending field path.
 
 ---
 
+> The example responses below were recorded under the earlier HL-POLICY-2026.10 (8.60-16.50%, tenures up to 30 years); under HL-LAP-POLICY-2026.14 every rate lies in 13-17% and every tenure in 36-120 months.
+> The response shapes are unchanged; the values are illustrative.
+
 ## POST /pricing/pre-assessment
 
 Stage-1. Only pre-assessment fields are accepted — the feature contract makes verified data

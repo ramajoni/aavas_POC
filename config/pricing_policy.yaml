@@ -721,89 +721,284 @@ mandatory_rules:
   high_score_overrides_mandatory: false
 
 # ---------------------------------------------------------------- guardrails
+# Every rule is written in three parts:
+#   pre        when the rule applies: the parties on the file it covers
+#              ("all" = every party below; "borrowers" = see party_groups)
+#   condition  what is tested: the check, its evidence settings, and any trigger the
+#              engine evaluates from observations (metric_ge / _gt / _le / _lt; with
+#              several triggers, match: any | all). With no trigger, the owner team
+#              records the finding.
+#   post       what follows when the condition is met: the outcome, other outcomes
+#              the owner may record (alternatives), the owner, and any treatment or
+#              follow-up action.
+# A finding outside a rule's post outcomes, or on a rule whose pre fails, is rejected.
 guardrails:
-  outcomes: [PASS, HOLD, REFER, DECLINE, CONDITION]
+  outcomes: [PASS, HOLD, REFER, DECLINE, CONDITION, OUTSIDE_POLICY]
   evidence_states: [NOT_APPLICABLE, NOT_FOUND, INCONCLUSIVE, VERIFIED_CLEAR, VERIFIED_ADVERSE]
   not_applicable_requires_rationale: true
   provider_failure_is_pass: false
   outside_credit_score: [aml, pep, criminal_investigation]
   parties: [applicants, co_applicants, entity_and_controllers, security_providers_and_sellers, employer, builder_project, intermediaries]
+  party_groups:
+    borrowers: [applicants, co_applicants, entity_and_controllers]
+  no_extra_history_deduction: true     # historical behaviour rules (HIS)
   rules:
     # AML and identity
-    AML01: {check: identity_integrity, outcome: HOLD, owner: kyc}
-    AML02: {check: entity_existence_authority, outcome: HOLD, owner: kyc_legal}
-    AML03: {check: beneficial_ownership, outcome: HOLD, owner: compliance}
-    AML04: {check: sanctions_screening, outcome: HOLD_or_statutory_action, owner: compliance}
-    AML05: {check: source_of_contribution, outcome: HOLD, owner: credit_compliance, trace_pct: 1.00}
-    AML06: {check: transaction_rationale, outcome: REFER, owner: fraud_compliance}
+    AML01:
+      pre:       {parties: [all]}
+      condition: {check: identity_integrity}
+      post:      {outcome: HOLD, owner: kyc}
+    AML02:
+      pre:       {parties: [entity_and_controllers]}
+      condition: {check: entity_existence_authority}
+      post:      {outcome: HOLD, owner: kyc_legal}
+    AML03:
+      pre:       {parties: [entity_and_controllers]}
+      condition: {check: beneficial_ownership}
+      post:      {outcome: HOLD, owner: compliance}
+    AML04:
+      pre:       {parties: [all]}
+      condition: {check: sanctions_screening}
+      post:      {outcome: HOLD, alternatives: [DECLINE], action: statutory_action, owner: compliance}
+    AML05:
+      pre:       {parties: [borrowers]}
+      condition: {check: source_of_contribution, trace_pct: 1.00}
+      post:      {outcome: HOLD, owner: credit_compliance}
+    AML06:
+      pre:       {parties: [all]}
+      condition: {check: transaction_rationale}
+      post:      {outcome: REFER, owner: fraud_compliance}
     AML07:
-      check: banking_patterns
-      outcome: REFER
-      owner: aml_analyst
-      triggers: {unexplained_cash_share_ge: 0.20, unexplained_third_party_share_ge: 0.10, pass_through_7d_gt: 0.50}
-      note: investigation triggers, not statutory reporting thresholds
-    AML08: {check: repayment_source_end_use, outcome: REFER, owner: monitoring}
+      pre:       {parties: [borrowers]}
+      condition:
+        check: banking_patterns
+        trigger: {unexplained_cash_share_ge: 0.20, unexplained_third_party_share_ge: 0.10, pass_through_7d_gt: 0.50}
+        match: any
+        note: investigation triggers, not statutory reporting thresholds
+      post:      {outcome: REFER, owner: aml_analyst}
+    AML08:
+      pre:       {parties: [borrowers]}
+      condition: {check: repayment_source_end_use}
+      post:      {outcome: REFER, owner: monitoring}
     # CrimeCheck / PEP
-    CRM01: {check: match_resolution, outcome: HOLD, owner: screening_analyst}
-    CRM02: {check: case_relevance, outcome: REFER_material, owner: legal}
-    CRM03: {check: material_allegations, outcome: REFER, owner: legal_fraud_compliance}
-    CRM04: {check: verified_adverse_outcome, outcome: DECLINE_if_prohibited, owner: legal}
-    CRM05: {check: non_material_litigation, outcome: document_only, owner: legal}
-    PEP01: {check: pep_relationship, outcome: REFER, owner: compliance}
-    PEP02: {check: enhanced_due_diligence, outcome: HOLD_until_approved, owner: compliance}
-    PEP03: {check: status_change, outcome: re_review, owner: compliance}
+    CRM01:
+      pre:       {parties: [all]}
+      condition: {check: match_resolution}
+      post:      {outcome: HOLD, owner: screening_analyst}
+    CRM02:
+      pre:       {parties: [all]}
+      condition: {check: case_relevance, scope: material_cases}
+      post:      {outcome: REFER, owner: legal}
+    CRM03:
+      pre:       {parties: [all]}
+      condition: {check: material_allegations}
+      post:      {outcome: REFER, owner: legal_fraud_compliance}
+    CRM04:
+      pre:       {parties: [all]}
+      condition: {check: verified_adverse_outcome, scope: prohibited}
+      post:      {outcome: DECLINE, owner: legal}
+    CRM05:
+      pre:       {parties: [all]}
+      condition: {check: non_material_litigation}
+      post:      {outcome: PASS, action: document_only, owner: legal}
+    PEP01:
+      pre:       {parties: [all]}
+      condition: {check: pep_relationship}
+      post:      {outcome: REFER, owner: compliance}
+    PEP02:
+      pre:       {parties: [all]}
+      condition: {check: enhanced_due_diligence}
+      post:      {outcome: HOLD, until: edd_approved, owner: compliance}
+    PEP03:
+      pre:       {parties: [all]}
+      condition: {check: status_change}
+      post:      {outcome: REFER, action: re_review, owner: compliance}
     # Employer
-    EMP01: {check: existence_and_employment, outcome: HOLD, owner: verification}
-    EMP02: {check: payroll_authenticity, outcome: HOLD, confirmed_fraud: DECLINE, owner: verification, min_months: 6}
-    EMP03: {check: income_change, outcome: REFER, trigger: {latest_3m_vs_prior_3m_gt: 0.20}, treatment: exclude_unexplained_uplift}
-    EMP04: {check: employment_uncertainty, outcome: REFER, trigger: {contract_expiry_within_months: 6}, owner: credit}
-    EMP05: {check: employer_stress, outcome: REFER, owner: credit}
-    EMP06: {check: concentration_conflict, outcome: REFER_or_HOLD, owner: portfolio_risk}
+    EMP01:
+      pre:       {parties: [employer]}
+      condition: {check: existence_and_employment}
+      post:      {outcome: HOLD, owner: verification}
+    EMP02:
+      pre:       {parties: [employer]}
+      condition: {check: payroll_authenticity, min_months: 6}
+      post:      {outcome: HOLD, alternatives: [DECLINE], decline_when: confirmed_fraud, owner: verification}
+    EMP03:
+      pre:       {parties: [employer]}
+      condition: {check: income_change, trigger: {latest_3m_vs_prior_3m_gt: 0.20}}
+      post:      {outcome: REFER, treatment: exclude_unexplained_uplift}
+    EMP04:
+      pre:       {parties: [employer]}
+      condition: {check: employment_uncertainty, trigger: {contract_expiry_months_le: 6}}
+      post:      {outcome: REFER, owner: credit}
+    EMP05:
+      pre:       {parties: [employer]}
+      condition: {check: employer_stress}
+      post:      {outcome: REFER, owner: credit}
+    EMP06:
+      pre:       {parties: [employer]}
+      condition: {check: concentration_conflict}
+      post:      {outcome: REFER, alternatives: [HOLD], owner: portfolio_risk}
     # Historical behaviour
-    HIS01: {check: current_obligations, outcome: HOLD_or_REFER, owner: credit}
-    HIS02: {check: delinquency_recurrence, outcome: REFER, trigger: {distinct_1plus_dpd_months_12m_ge: 3}}
-    HIS03: {check: severe_adverse_events, outcome: outside_policy}   # [changed] (D-04)
-    HIS04: {check: bounces_and_ptp, outcome: REFER, trigger: {unfulfilled_ptp_6m_ge: 3}}
-    HIS05: {check: loan_stacking, outcome: REFER, trigger: {new_facilities_90d_ge: 3, obligations_increase_gt: 0.20}}
-    HIS06: {check: top_up_refinance, outcome: REFER, trigger: {paid_emis_lt: 12}}
-    HIS07: {check: disputes_hardship, outcome: HOLD_disputed_facts}
-    HIS08: {check: earlier_fraud_exit, outcome: fraud_legal_review}
-    no_extra_history_deduction: true
+    HIS01:
+      pre:       {parties: [borrowers]}
+      condition: {check: current_obligations}
+      post:      {outcome: HOLD, alternatives: [REFER], owner: credit}
+    HIS02:
+      pre:       {parties: [borrowers]}
+      condition: {check: delinquency_recurrence, trigger: {distinct_1plus_dpd_months_12m_ge: 3}}
+      post:      {outcome: REFER}
+    HIS03:
+      pre:       {parties: [borrowers]}
+      condition: {check: severe_adverse_events}
+      post:      {outcome: OUTSIDE_POLICY}   # [changed] was REFER, action outside_auto_approval (D-04)
+    HIS04:
+      pre:       {parties: [borrowers]}
+      condition: {check: bounces_and_ptp, trigger: {unfulfilled_ptp_6m_ge: 3}}
+      post:      {outcome: REFER}
+    HIS05:
+      pre:       {parties: [borrowers]}
+      condition: {check: loan_stacking, trigger: {new_facilities_90d_ge: 3, obligations_increase_gt: 0.20}, match: any}
+      post:      {outcome: REFER}
+    HIS06:
+      pre:       {parties: [borrowers]}
+      condition: {check: top_up_refinance, trigger: {paid_emis_lt: 12}}
+      post:      {outcome: REFER}
+    HIS07:
+      pre:       {parties: [borrowers]}
+      condition: {check: disputes_hardship, scope: disputed_facts}
+      post:      {outcome: HOLD}
+    HIS08:
+      pre:       {parties: [borrowers]}
+      condition: {check: earlier_fraud_exit}
+      post:      {outcome: HOLD, action: fraud_legal_review}
     # Industry
-    IND01: {check: activity_and_licence, outcome: HOLD_or_DECLINE, owner: legal_credit}
-    IND02: {check: sector_exposure, outcome: HOLD_above_limit, warn_at_usage: 0.90, owner: portfolio_risk}
-    IND03: {check: business_deterioration, outcome: REFER, trigger: {sales_fall_gt: 0.20, gross_margin_fall_pp_gt: 5}}
-    IND04: {check: working_capital_quality, outcome: REFER, trigger: {receivables_90d_share_gt: 0.25}}
-    IND05: {check: counterparty_shock, outcome: REFER, trigger: {top_customer_or_supplier_gt: 0.50}}
-    IND06: {check: related_party_leverage, outcome: adjust_and_REFER, owner: credit}
+    IND01:
+      pre:       {parties: [entity_and_controllers]}
+      condition: {check: activity_and_licence}
+      post:      {outcome: HOLD, alternatives: [DECLINE], owner: legal_credit}
+    IND02:
+      pre:       {parties: [entity_and_controllers]}
+      condition: {check: sector_exposure, scope: above_limit, warn_at_usage: 0.90}
+      post:      {outcome: HOLD, owner: portfolio_risk}
+    IND03:
+      pre:       {parties: [entity_and_controllers]}
+      condition: {check: business_deterioration, trigger: {sales_fall_gt: 0.20, gross_margin_fall_pp_gt: 5}, match: any}
+      post:      {outcome: REFER}
+    IND04:
+      pre:       {parties: [entity_and_controllers]}
+      condition: {check: working_capital_quality, trigger: {receivables_90d_share_gt: 0.25}}
+      post:      {outcome: REFER}
+    IND05:
+      pre:       {parties: [entity_and_controllers]}
+      condition: {check: counterparty_shock, trigger: {top_customer_or_supplier_gt: 0.50}}
+      post:      {outcome: REFER}
+    IND06:
+      pre:       {parties: [entity_and_controllers]}
+      condition: {check: related_party_leverage}
+      post:      {outcome: REFER, treatment: adjust_leverage, owner: credit}
     # Property
-    PRP01: {check: identity_and_ownership, outcome: HOLD, owner: legal_technical}
-    PRP02: {check: title_and_authority, outcome: HOLD, owner: panel_advocate}
-    PRP03: {check: charges_and_attachments, outcome: HOLD, owner: legal}
-    PRP04: {check: approvals_and_use, outcome: HOLD_or_DECLINE, owner: legal_technical}
-    PRP05: {check: restricted_collateral, outcome: outside_policy, owner: legal}
-    PRP06: {check: possession_liquidity, outcome: REFER, owner: collateral}
-    PRP07: {check: valuation_integrity, outcome: HOLD, trigger: {inter_valuer_diff_gt: 0.15}}
-    PRP08: {check: safety_hazard, outcome: REFER, unsafe: DECLINE}
-    PRP09: {check: end_use_cash_trail, outcome: HOLD, owner: fraud_legal}
+    PRP01:
+      pre:       {parties: [security_providers_and_sellers]}
+      condition: {check: identity_and_ownership}
+      post:      {outcome: HOLD, owner: legal_technical}
+    PRP02:
+      pre:       {parties: [security_providers_and_sellers]}
+      condition: {check: title_and_authority}
+      post:      {outcome: HOLD, owner: panel_advocate}
+    PRP03:
+      pre:       {parties: [security_providers_and_sellers]}
+      condition: {check: charges_and_attachments}
+      post:      {outcome: HOLD, owner: legal}
+    PRP04:
+      pre:       {parties: [security_providers_and_sellers]}
+      condition: {check: approvals_and_use}
+      post:      {outcome: HOLD, alternatives: [DECLINE], owner: legal_technical}
+    PRP05:
+      pre:       {parties: [security_providers_and_sellers]}
+      condition: {check: restricted_collateral}
+      post:      {outcome: OUTSIDE_POLICY, owner: legal}
+    PRP06:
+      pre:       {parties: [security_providers_and_sellers]}
+      condition: {check: possession_liquidity}
+      post:      {outcome: REFER, owner: collateral}
+    PRP07:
+      pre:       {parties: [security_providers_and_sellers]}
+      condition: {check: valuation_integrity, trigger: {inter_valuer_diff_gt: 0.15}}
+      post:      {outcome: HOLD}
+    PRP08:
+      pre:       {parties: [security_providers_and_sellers]}
+      condition: {check: safety_hazard}
+      post:      {outcome: REFER, alternatives: [DECLINE], decline_when: unsafe}
+    PRP09:
+      pre:       {parties: [security_providers_and_sellers]}
+      condition: {check: end_use_cash_trail}
+      post:      {outcome: HOLD, owner: fraud_legal}
     # Builder / project
-    BLD01: {check: rera_registration, outcome: HOLD, owner: legal}
-    BLD02: {check: promoter_project_match, outcome: HOLD, owner: verification_legal}
-    BLD03: {check: title_approvals_finance, outcome: HOLD, owner: project_legal}
-    BLD04: {check: delivery_record, outcome: REFER, owner: project_risk, lookback_years: 5}
-    BLD05: {check: disputes_insolvency, outcome: REFER_or_HOLD, owner: legal}
-    BLD06: {check: project_viability, outcome: HOLD_on_funding_gap}
-    BLD07: {check: progress_diversion, outcome: HOLD_new_tranche, owner: project_risk}
+    BLD01:
+      pre:       {parties: [builder_project]}
+      condition: {check: rera_registration}
+      post:      {outcome: HOLD, owner: legal}
+    BLD02:
+      pre:       {parties: [builder_project]}
+      condition: {check: promoter_project_match}
+      post:      {outcome: HOLD, owner: verification_legal}
+    BLD03:
+      pre:       {parties: [builder_project]}
+      condition: {check: title_approvals_finance}
+      post:      {outcome: HOLD, owner: project_legal}
+    BLD04:
+      pre:       {parties: [builder_project]}
+      condition: {check: delivery_record, lookback_years: 5}
+      post:      {outcome: REFER, owner: project_risk}
+    BLD05:
+      pre:       {parties: [builder_project]}
+      condition: {check: disputes_insolvency}
+      post:      {outcome: REFER, alternatives: [HOLD], owner: legal}
+    BLD06:
+      pre:       {parties: [builder_project]}
+      condition: {check: project_viability, scope: funding_gap}
+      post:      {outcome: HOLD}
+    BLD07:
+      pre:       {parties: [builder_project]}
+      condition: {check: progress_diversion}
+      post:      {outcome: HOLD, action: hold_new_tranche, owner: project_risk}
     # Banking / financial / GST / fraud
-    BNK01: {check: statement_completeness, outcome: HOLD, min_months: 12}
-    BNK02: {check: cash_flow_integrity, outcome: recompute_and_REFER}
-    BNK03: {check: debt_completeness, outcome: HOLD_material_mismatch}
-    FIN01: {check: income_substantiation, outcome: HOLD, trigger: {unexplained_variance_gt: 0.10}}
-    FIN02: {check: solvency_profitability, outcome: REFER_or_outside_model}
-    FIN03: {check: capacity_stress, outcome: reduce_or_REFER_DECLINE, business_scenario: {sales_shock: -0.20, margin_shock_pp: -3}}
-    GST01: {check: registration_returns, outcome: HOLD}
-    FRD01: {check: application_linkage, outcome: investigate, guilt_by_association: false}
-    FRD02: {check: valuer_channel_conduct, outcome: HOLD, owner: independent_recheck}
+    BNK01:
+      pre:       {parties: [borrowers]}
+      condition: {check: statement_completeness, min_months: 12}
+      post:      {outcome: HOLD}
+    BNK02:
+      pre:       {parties: [borrowers]}
+      condition: {check: cash_flow_integrity}
+      post:      {outcome: REFER, treatment: recompute_cash_flow}
+    BNK03:
+      pre:       {parties: [borrowers]}
+      condition: {check: debt_completeness, scope: material_mismatch}
+      post:      {outcome: HOLD}
+    FIN01:
+      pre:       {parties: [borrowers]}
+      condition: {check: income_substantiation, trigger: {unexplained_variance_gt: 0.10}}
+      post:      {outcome: HOLD}
+    FIN02:
+      pre:       {parties: [entity_and_controllers]}
+      condition: {check: solvency_profitability}
+      post:      {outcome: REFER, alternatives: [OUTSIDE_POLICY]}
+    FIN03:
+      pre:       {parties: [borrowers]}
+      condition: {check: capacity_stress, business_scenario: {sales_shock: -0.20, margin_shock_pp: -3}}
+      post:      {outcome: REFER, alternatives: [DECLINE], treatment: reduce_amount}
+    GST01:
+      pre:       {parties: [entity_and_controllers]}
+      condition: {check: registration_returns}
+      post:      {outcome: HOLD}
+    FRD01:
+      pre:       {parties: [all]}
+      condition: {check: application_linkage, guilt_by_association: false}
+      post:      {outcome: REFER, action: investigate}
+    FRD02:
+      pre:       {parties: [intermediaries]}
+      condition: {check: valuer_channel_conduct}
+      post:      {outcome: HOLD, owner: independent_recheck}
 
 # ---------------------------------------------------------------- execution controls
 controls:
@@ -859,7 +1054,8 @@ acceptance_criteria:
 # ---------------------------------------------------------------- action catalogue
 # Every action or outcome word used in Part B, the guardrail outcome it resolves to,
 # and who may clear it. Combined outcomes on one file: the worst wins, in this order
-#   DECLINE > HOLD > REFER > CONDITION > PASS
+#   DECLINE > OUTSIDE_POLICY > HOLD > REFER > CONDITION > PASS
+# (the rule engine's SEVERITY order; OUTSIDE_POLICY = no standard offer, non-standard route only)
 # and decision_priority decides which step speaks first. A compound action ("X_or_Y")
 # resolves to the stricter of the two until its named owner records which applies;
 # the engine never picks the lenient one on its own (provider_failure_is_pass: false
@@ -869,22 +1065,17 @@ actions:
   reject:                       {outcome: DECLINE, cleared_by: none}
   decline:                      {outcome: DECLINE, cleared_by: none}
   DECLINE:                      {outcome: DECLINE, cleared_by: none}
-  DECLINE_if_prohibited:        {outcome: DECLINE, cleared_by: legal, note: "REFER until legal confirms not prohibited"}
   no_standard_offer:            {outcome: DECLINE, cleared_by: none, note: "rate or tenure outside 13-17% / 36-120 months"}
-  outside_policy:               {outcome: DECLINE, cleared_by: credit_head, as: recorded_policy_deviation,
+  OUTSIDE_POLICY:               {outcome: OUTSIDE_POLICY, cleared_by: credit_head, as: recorded_policy_deviation}
+  outside_policy:               {outcome: OUTSIDE_POLICY, cleared_by: credit_head, as: recorded_policy_deviation,
                                  note: "no standard offer; only route is a deviation recorded with override.record_fields (D-04)"}
   outside_standard_uc_policy:   {outcome: DECLINE, cleared_by: none}
   # --- evidence or resolution outstanding
   hold:                         {outcome: HOLD, cleared_by: rule_owner}
   HOLD:                         {outcome: HOLD, cleared_by: rule_owner}
-  HOLD_until_approved:          {outcome: HOLD, cleared_by: rule_owner}
-  HOLD_disputed_facts:          {outcome: HOLD, cleared_by: rule_owner}
-  HOLD_material_mismatch:       {outcome: HOLD, cleared_by: rule_owner}
-  HOLD_on_funding_gap:          {outcome: HOLD, cleared_by: rule_owner}
-  HOLD_new_tranche:             {outcome: HOLD, cleared_by: rule_owner, scope: next_tranche_only}
-  HOLD_above_limit:             {outcome: HOLD, cleared_by: portfolio_risk}
+  hold_new_tranche:             {outcome: HOLD, cleared_by: project_risk, scope: next_tranche_only}
+  statutory_action:             {outcome: HOLD, cleared_by: compliance, note: "statutory reporting duty (AML04); credit cannot clear it"}
   hold_new_exposure:            {outcome: HOLD, cleared_by: portfolio_risk}
-  HOLD_or_statutory_action:     {outcome: HOLD, cleared_by: compliance}
   inconclusive:                 {outcome: HOLD, cleared_by: rule_owner, note: "missing evidence on a subscore factor"}
   no_automatic_recommendation:  {outcome: HOLD, cleared_by: rule_owner, note: "subscores.employer.inconclusive_mandatory_factor"}
   resolve:                      {outcome: HOLD, cleared_by: compliance, note: "possible sanctions match until resolved"}
@@ -893,21 +1084,13 @@ actions:
   fraud_legal_review:           {outcome: HOLD, cleared_by: fraud_legal}
   # --- compound: stricter of the two until the owner decides
   hold_or_reject:               {outcome: HOLD, worst_case: DECLINE, cleared_by: legal_technical}
-  HOLD_or_DECLINE:              {outcome: HOLD, worst_case: DECLINE, cleared_by: rule_owner}
-  HOLD_or_REFER:                {outcome: HOLD, cleared_by: rule_owner}
-  REFER_or_HOLD:                {outcome: HOLD, cleared_by: rule_owner}
   shorten_tenure_or_reject:     {outcome: CONDITION, worst_case: DECLINE, condition: "tenure shortened until the breach clears; DECLINE if no tenure >= 36 months clears it"}
   shorten_tenure_or_refer:      {outcome: CONDITION, worst_case: REFER, condition: "tenure shortened until the breach clears; REFER if no tenure >= 36 months clears it"}
   reduce_or_decline:            {outcome: CONDITION, worst_case: DECLINE, condition: "amount reduced to stressed capacity; DECLINE if below the product minimum or fails at 120 months"}
-  reduce_or_REFER_DECLINE:      {outcome: CONDITION, worst_case: DECLINE, cleared_by: credit}
-  REFER_or_outside_model:       {outcome: REFER, worst_case: DECLINE, cleared_by: credit}
   separate_model_or_manual:     {outcome: REFER, cleared_by: credit, note: "until the thin-file variant exists, manual review"}
   # --- referral to an authorised owner
   refer:                        {outcome: REFER, cleared_by: rule_owner}
   REFER:                        {outcome: REFER, cleared_by: rule_owner}
-  REFER_material:               {outcome: REFER, cleared_by: legal, note: "PASS when legal records the case as not material"}
-  adjust_and_REFER:             {outcome: REFER, cleared_by: credit, note: "adjust obligations first, then refer"}
-  recompute_and_REFER:          {outcome: REFER, cleared_by: credit, note: "recompute cash flows first, then refer"}
   manual_credit_approval:       {outcome: REFER, cleared_by: credit}
   project_risk_approval:        {outcome: REFER, cleared_by: project_risk}
   senior_committee_referral:    {outcome: REFER, cleared_by: credit_committee}

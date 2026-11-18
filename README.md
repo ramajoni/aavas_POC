@@ -161,6 +161,8 @@ upper end trimmed from 16.50% to 13.73%: beyond that the conversion model
 is extrapolating, not predicting
 ```
 
+(Example recorded under the earlier HL-POLICY-2026.10 (8.60-16.50%); under HL-LAP-POLICY-2026.14 every rate lies in 13-17%.)
+
 ---
 
 ## Human overrides: the confounding problem
