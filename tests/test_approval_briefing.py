@@ -67,6 +67,8 @@ def test_the_area_manager_gets_a_briefing_on_the_files_branch(client) -> None:
     assert b["performance"]["branch"]["files"] < b["performance"]["all_branches"]["files"]
     assert b["performance"]["rm"]["requests"] >= 1 and b["performance"]["rm"]["pending"] >= 1
     assert b["signals"], "the briefing leads with what to read first"
+    assert all({"topic", "verdict", "tone", "text"} <= set(s) for s in b["signals"])
+    assert not any("bps" in s["text"] for s in b["signals"]), "plain per cent, not basis points"
     mine = b["competitors"]["this_file"]
     assert mine["competitor"] == "HDFC" and mine["benchmark"]["n"] > 0
     assert any(r["competitor"] == "HDFC" for r in b["competitors"]["landscape"])
@@ -119,5 +121,7 @@ def test_a_discount_deeper_than_any_before_is_called_out() -> None:
                "recommended_rate": 14.4, "requested_rate": 10.0}
     b = ab.briefing(request, {"city": "Jaipur"}, history=history)
     assert b["overrides"]["similar_here"]["files"] == 0
-    assert any("went this deep" in s and "440 bps asked" in s for s in b["signals"])
+    deep = next(s for s in b["signals"] if s["topic"] == "depth")
+    assert deep["verdict"] == "Deeper than any discount before" and deep["tone"] == "bad"
+    assert "4.40% below the recommendation" in deep["text"], "rates in per cent, not basis points"
     assert b["overrides"]["similar_here"]["deepest_bps"] < 440 and len(jaipur)

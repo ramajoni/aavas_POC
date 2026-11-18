@@ -66,7 +66,8 @@ def test_band_never_escapes_the_product_envelope(base_row):
 def test_discount_beyond_policy_is_rejected(base_row):
     card = float(constraints.card_rate(base_row)[0])
     limit = policy()["constraints"]["absolute_discount_floor_bps"]
-    ok = constraints.check(base_row, card - (limit - 5) / 100)
+    # Within the discount limit, and never below the product's absolute floor.
+    ok = constraints.check(base_row, max(card - (limit - 5) / 100, policy()["reference"]["card_rate_floor"]))
     too_far = constraints.check(base_row, card - (limit + 10) / 100)
     assert ok.allowed
     assert not too_far.allowed

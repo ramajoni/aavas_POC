@@ -201,6 +201,9 @@ def test_narrative_returns_the_sections_and_flags_unsupported_figures(client, de
     sent = narrated.beta.messages.calls[0]
     assert sent["output_config"]["format"]["type"] == "json_schema"
     assert decision["decision_id"] in sent["messages"][0]["content"]
+    # Prompt caching sits on the shared instructions; the loan's facts come after it.
+    assert sent["system"][-1]["cache_control"] == {"type": "ephemeral"}
+    assert decision["decision_id"] not in sent["system"][-1]["text"]
 
 
 def test_a_second_request_is_served_from_cache_unless_refreshed(client, decision, narrated):

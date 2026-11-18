@@ -123,6 +123,12 @@ def test_the_agent_keeps_only_rates_tied_to_a_page_its_search_returned() -> None
     assert len(client.calls) == 2, "a paused turn is resumed, not abandoned"
     assert client.calls[1]["messages"][-1]["role"] == "assistant"
     assert client.calls[0]["fallbacks"] == "default"
+    for call in client.calls:   # prompt caching: the fixed instructions, then the conversation so far
+        assert call["system"][-1]["cache_control"] == {"type": "ephemeral"}
+        assert call["cache_control"] == {"type": "ephemeral"}
+    assert client.calls[0]["system"] == client.calls[1]["system"], "the cached prefix never changes"
+    assert set(out["tokens"]) == {"input_tokens", "cache_creation_input_tokens",
+                                  "cache_read_input_tokens", "output_tokens"}
     assert out["status"] == "ok" and (out["published_min"], out["published_max"]) == (8.0, 9.5)
     assert [r["source_seen"] for r in out["rates"]] == [True, False]
     assert out["source_quality"] == "lender_website" and out["searches"] == 4

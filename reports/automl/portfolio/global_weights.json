@@ -1,29 +1,26 @@
 {
-  "generated_at": "2026-10-26T14:43:30+00:00",
+  "generated_at": "2026-10-27T09:37:59+00:00",
   "definition": "share of mean |SHAP| per feature on the trainer's untouched holdout (the last 20% by application date), from the trained artefact",
   "models": {
     "stage1": {
       "model": "stage1",
       "artefact": {
         "version": "v1",
-        "learner": "xgboost_quantile",
-        "trained_at": "2026-10-21T06:11:28+00:00",
+        "learner": "catboost_quantile",
+        "trained_at": "2026-10-27T09:37:58+00:00",
         "selection": {
           "status": "selected",
-          "family": "xgboost_quantile",
+          "family": "catboost_quantile",
           "task": "quantile",
           "params": {
-            "n_estimators": 369,
-            "max_depth": 3,
-            "learning_rate": 0.06832,
-            "subsample": 0.9185,
-            "colsample_bytree": 0.6804,
-            "reg_lambda": 0.1811,
-            "min_child_weight": 8.855
+            "iterations": 366,
+            "depth": 4,
+            "learning_rate": 0.03941,
+            "l2_leaf_reg": 3.334
           },
           "metric": "pinball_bps",
-          "value": 7.382225,
-          "selected_at": "2026-10-20T16:05:13+00:00",
+          "value": 13.309608,
+          "selected_at": "2026-10-27T09:37:38+00:00",
           "report": "reports/automl/portfolio/stage1.json"
         }
       },
@@ -34,159 +31,152 @@
       },
       "explained": "the median (q0.50) model of the quoted band",
       "method": "shap",
-      "engine": "xgboost-native-treeshap",
+      "engine": "catboost-native-shap",
       "units": "output",
       "fallback_reason": null,
       "rows": 4000,
       "top": [
         {
-          "feature": "competitor_rate",
-          "label": "Competitor pricing",
-          "mean_abs": 0.773658,
-          "share_pct": 62.34,
+          "feature": "segment",
+          "label": "Customer segment",
+          "mean_abs": 0.60289,
+          "share_pct": 34.84,
           "rank": 1
         },
         {
-          "feature": "segment",
-          "label": "Customer segment",
-          "mean_abs": 0.169091,
-          "share_pct": 13.63,
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "mean_abs": 0.348675,
+          "share_pct": 20.15,
           "rank": 2
         },
         {
           "feature": "estimated_ltv",
           "label": "Indicative LTV",
-          "mean_abs": 0.06804,
-          "share_pct": 5.48,
+          "mean_abs": 0.295885,
+          "share_pct": 17.1,
           "rank": 3
-        },
-        {
-          "feature": "bureau_score",
-          "label": "Bureau score",
-          "mean_abs": 0.063454,
-          "share_pct": 5.11,
-          "rank": 4
         },
         {
           "feature": "new_to_credit",
           "label": "Credit history",
-          "mean_abs": 0.052693,
-          "share_pct": 4.25,
+          "mean_abs": 0.243887,
+          "share_pct": 14.09,
+          "rank": 4
+        },
+        {
+          "feature": "property_type",
+          "label": "Property type",
+          "mean_abs": 0.162083,
+          "share_pct": 9.37,
           "rank": 5
         }
       ],
       "features": [
         {
-          "feature": "competitor_rate",
-          "label": "Competitor pricing",
-          "mean_abs": 0.773658,
-          "share_pct": 62.34,
+          "feature": "segment",
+          "label": "Customer segment",
+          "mean_abs": 0.60289,
+          "share_pct": 34.84,
           "rank": 1
         },
         {
-          "feature": "segment",
-          "label": "Customer segment",
-          "mean_abs": 0.169091,
-          "share_pct": 13.63,
+          "feature": "bureau_score",
+          "label": "Bureau score",
+          "mean_abs": 0.348675,
+          "share_pct": 20.15,
           "rank": 2
         },
         {
           "feature": "estimated_ltv",
           "label": "Indicative LTV",
-          "mean_abs": 0.06804,
-          "share_pct": 5.48,
+          "mean_abs": 0.295885,
+          "share_pct": 17.1,
           "rank": 3
-        },
-        {
-          "feature": "bureau_score",
-          "label": "Bureau score",
-          "mean_abs": 0.063454,
-          "share_pct": 5.11,
-          "rank": 4
         },
         {
           "feature": "new_to_credit",
           "label": "Credit history",
-          "mean_abs": 0.052693,
-          "share_pct": 4.25,
-          "rank": 5
+          "mean_abs": 0.243887,
+          "share_pct": 14.09,
+          "rank": 4
         },
         {
           "feature": "property_type",
           "label": "Property type",
-          "mean_abs": 0.046282,
-          "share_pct": 3.73,
-          "rank": 6
+          "mean_abs": 0.162083,
+          "share_pct": 9.37,
+          "rank": 5
         },
         {
           "feature": "city",
           "label": "Location",
-          "mean_abs": 0.024579,
-          "share_pct": 1.98,
-          "rank": 7
+          "mean_abs": 0.020233,
+          "share_pct": 1.17,
+          "rank": 6
         },
         {
           "feature": "sales_target_pct",
           "label": "Sales target achievement",
-          "mean_abs": 0.008669,
-          "share_pct": 0.7,
+          "mean_abs": 0.01328,
+          "share_pct": 0.77,
+          "rank": 7
+        },
+        {
+          "feature": "declared_obligations",
+          "label": "Existing obligations",
+          "mean_abs": 0.01231,
+          "share_pct": 0.71,
           "rank": 8
         },
         {
           "feature": "estimated_property_value",
           "label": "Indicative property value",
-          "mean_abs": 0.007789,
-          "share_pct": 0.63,
+          "mean_abs": 0.009192,
+          "share_pct": 0.53,
           "rank": 9
         },
         {
           "feature": "declared_monthly_income",
           "label": "Declared income",
-          "mean_abs": 0.005507,
-          "share_pct": 0.44,
+          "mean_abs": 0.006395,
+          "share_pct": 0.37,
           "rank": 10
         },
         {
           "feature": "requested_tenure_years",
           "label": "Requested tenure",
-          "mean_abs": 0.005312,
-          "share_pct": 0.43,
+          "mean_abs": 0.005518,
+          "share_pct": 0.32,
           "rank": 11
-        },
-        {
-          "feature": "declared_obligations",
-          "label": "Existing obligations",
-          "mean_abs": 0.004337,
-          "share_pct": 0.35,
-          "rank": 12
-        },
-        {
-          "feature": "branch_target_pct",
-          "label": "Branch target achievement",
-          "mean_abs": 0.003851,
-          "share_pct": 0.31,
-          "rank": 13
-        },
-        {
-          "feature": "applicant_age",
-          "label": "Applicant age",
-          "mean_abs": 0.003553,
-          "share_pct": 0.29,
-          "rank": 14
         },
         {
           "feature": "requested_loan_amount",
           "label": "Requested amount",
-          "mean_abs": 0.00264,
-          "share_pct": 0.21,
-          "rank": 15
+          "mean_abs": 0.004747,
+          "share_pct": 0.27,
+          "rank": 12
+        },
+        {
+          "feature": "applicant_age",
+          "label": "Applicant age",
+          "mean_abs": 0.002353,
+          "share_pct": 0.14,
+          "rank": 13
+        },
+        {
+          "feature": "branch_target_pct",
+          "label": "Branch target achievement",
+          "mean_abs": 0.001911,
+          "share_pct": 0.11,
+          "rank": 14
         },
         {
           "feature": "channel",
           "label": "Sourcing channel",
-          "mean_abs": 0.001527,
-          "share_pct": 0.12,
-          "rank": 16
+          "mean_abs": 0.000966,
+          "share_pct": 0.06,
+          "rank": 15
         }
       ],
       "seconds": 0.1
@@ -962,7 +952,7 @@
           "rank": 8
         }
       ],
-      "seconds": 0.5
+      "seconds": 0.7
     },
     "uplift": {
       "model": "uplift",
@@ -1189,7 +1179,7 @@
           "rank": 21
         }
       ],
-      "seconds": 0.3
+      "seconds": 0.4
     }
   },
   "skipped": {},

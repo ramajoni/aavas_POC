@@ -1,8 +1,8 @@
 # Business-owned pricing policy. Credit/Product edit this file; no code change required.
 # Every rate in this file is an annual percentage (9.75 == 9.75% p.a.), spreads are in bps.
-policy_version: "HL-POLICY-2026.10"
+policy_version: "HL-POLICY-2026.13"
 product: home_loan
-effective_from: "2026-09-01"
+effective_from: "2026-10-28"
 
 # ---------------------------------------------------------------- reference rate
 reference:
@@ -63,15 +63,17 @@ constraints:
   new_to_credit_min_spread_bps: 75   # NTC files cannot be priced at the thin end
   max_loan_amount: 7500000
   # A file may never be priced below its own risk-based floor, even by a human.
-  absolute_discount_floor_bps: 60     # max total discount from the policy card rate
+  # Wide enough that a file graded worse on verification still has room below its
+  # recommendation for the RM to ask and the area manager to approve.
+  absolute_discount_floor_bps: 150    # max total discount from the policy card rate
 
 # --------------------------------------------------- who may discount, and how much
 # The recommendation engine never approves; it routes to the right human authority.
 approval_authority:
-  - {level: "sales_officer",     max_discount_bps: 10, max_premium_bps: 100}
-  - {level: "branch_manager",    max_discount_bps: 25, max_premium_bps: 100}
-  - {level: "regional_manager",  max_discount_bps: 40, max_premium_bps: 100}
-  - {level: "credit_head",       max_discount_bps: 60, max_premium_bps: 100}
+  - {level: "sales_officer",     max_discount_bps: 25, max_premium_bps: 100}
+  - {level: "branch_manager",    max_discount_bps: 50, max_premium_bps: 100}
+  - {level: "regional_manager",  max_discount_bps: 100, max_premium_bps: 100}
+  - {level: "credit_head",       max_discount_bps: 150, max_premium_bps: 100}
   - {level: "pricing_committee", max_discount_bps: 999, max_premium_bps: 999}
 
 # ------------------------------------------------------------------ override rules
@@ -94,7 +96,17 @@ override:
   evidence_required_reasons:
     - competitor_lower_rate
     - customer_threatening_bt
-  max_unevidenced_discount_bps: 15
+  max_unevidenced_discount_bps: 50
+  # The area manager may decline a discount and price ABOVE the
+  # recommendation (a price uplift) where customers like this still accept - never
+  # above the range quoted at Stage 1 or the policy ceiling. Recorded as a premium
+  # override with one of these reasons. The suggestion proposes an uplift only when
+  # acceptance falls by no more than max_acceptance_drop_pts and the loan's
+  # expected value rises by at least min_value_gain_pct.
+  uplift:
+    reasons: [customer_accepts_higher_rate, risk_not_fully_priced, relationship_upsell]
+    max_acceptance_drop_pts: 3
+    min_value_gain_pct: 0.5
 
 # --------------------------------------------------- Stage-1 customer-facing rules
 stage1:
@@ -130,14 +142,19 @@ optimizer:
   #   stage2_interval   - restrict to the Stage-2 model's own uncertainty interval.
   #                       Safer and more conservative, but it can only reproduce
   #                       historical pricing behaviour, never improve on it.
-  search_space: permissible_band
+  # In use: stage2_interval. Searching the whole band walked 87% of files to the
+  # top of the range quoted at Stage 1 (a sample of 150 booked files): the yield
+  # optimizer uplifts wherever demand looks flat. Kept to +/-3 sigma of the Stage-2
+  # model's market-practice rate (about +/-0.30%), the final price lands near the
+  # indicative rate and moves with what verification found (median +0.23%).
+  search_space: stage2_interval
   # The final recommendation stays inside the indicative range the customer was
   # quoted at Stage 1 (the latest pre-assessment on the same loan id). Verified
   # details may move the price within that range, never out of it; and an offer
   # may not be sent above its top. Policy still wins: where the quoted range lies
   # outside the permissible band, the band applies and the file says why.
   honour_indicative_band: true
-  stage2_interval_sigmas: 3.0
+  stage2_interval_sigmas: 3.0   # the commercial window around market practice
   # The optimizer may not trade away conversion without limit: a recommendation
   # whose conversion probability is below this is rejected even if EV is highest.
   min_conversion_probability: 0.25

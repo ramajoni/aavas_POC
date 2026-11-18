@@ -1,19 +1,16 @@
 {
   "stage1": {
-    "family": "xgboost_quantile",
+    "family": "catboost_quantile",
     "task": "quantile",
     "params": {
-      "n_estimators": 369,
-      "max_depth": 3,
-      "learning_rate": 0.06832,
-      "subsample": 0.9185,
-      "colsample_bytree": 0.6804,
-      "reg_lambda": 0.1811,
-      "min_child_weight": 8.855
+      "iterations": 366,
+      "depth": 4,
+      "learning_rate": 0.03941,
+      "l2_leaf_reg": 3.334
     },
     "metric": "pinball_bps",
-    "value": 7.382225,
-    "selected_at": "2026-10-20T16:05:13+00:00",
+    "value": 13.309608,
+    "selected_at": "2026-10-27T09:37:38+00:00",
     "report": "reports/automl/portfolio/stage1.json"
   },
   "uplift": {

@@ -23,6 +23,7 @@ from typing import Any
 
 from ..config import env
 from ..features.feature_pipeline import display_value
+from ..llm_usage import tally
 from ..logging_utils import get_logger
 from ..paths import ROOT
 
@@ -137,7 +138,9 @@ class LoanNarrator:
             response = client.beta.messages.create(
                 model=self.model,
                 max_tokens=16000,
-                system=SYSTEM,
+                # Prompt caching: the instructions are the same for every loan and the
+                # facts differ, so the marker sits on the instructions, not the facts.
+                system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content":
                            "<facts>\n" + json.dumps(material, ensure_ascii=False, indent=1)
                            + "\n</facts>\n\nExplain this loan's recommended rate."}],
@@ -154,6 +157,7 @@ class LoanNarrator:
             log.warning("narrative request failed for %s: %s", key, exc)
             raise NarrativeFailed(f"The explanation service could not be reached: {exc}") from exc
 
+        log.info("narrative for %s: tokens %s", key, tally(response))
         if response.stop_reason == "refusal":
             raise NarrativeFailed("The model declined to write this explanation.")
         if response.stop_reason == "max_tokens":

@@ -8,7 +8,10 @@
 # model to the conversion (acceptance) model. What a competitor quotes does not
 # change what this customer's loan costs us to make; it changes whether the
 # customer takes our offer. Stage-2 and conversion must be retrained.
-feature_config_version: "FEAT-2026.11"
+# FEAT-2026.12: the same for the Stage-1 (indicative pricing) model. The range a
+# customer is quoted reflects them and their loan, not a rival's quote they
+# mention; that quote still moves the acceptance model. Stage-1 must be retrained.
+feature_config_version: "FEAT-2026.12"
 
 # Values that are a code, not a measurement. The bureau feed writes -1 for an
 # applicant with no bureau file: a new-to-credit customer has no score at all,
@@ -37,7 +40,6 @@ stage1:
     - applicant_age
     - declared_obligations
     - estimated_ltv
-    - competitor_rate
     - sales_target_pct
     - branch_target_pct
   categorical:

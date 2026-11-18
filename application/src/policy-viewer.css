@@ -1,0 +1,23 @@
+/* A pricing-policy version, readable: its sections as tables and what changed. */
+.pv{display:flex;flex-direction:column;gap:14px}
+.pv-head{display:flex;flex-direction:column;gap:8px}
+.pv-versions{display:flex;flex-wrap:wrap;gap:8px}
+.pv-versions button{border:1px solid var(--border);background:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-size:13.5px;color:#334155;cursor:pointer}
+.pv-versions button.active{background:#1A3E9E;border-color:#1A3E9E;color:#fff;font-weight:500}
+.pv-changes{background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:12px 16px}
+.pv-changes h3{margin:0 0 6px;font-size:14px;color:var(--ink)}
+.pv-changes ul{margin:0;padding-left:18px;font-size:13.5px;line-height:1.6;color:#334155}
+.pv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.pv-section{border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:0}
+.pv-section h3{margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#1A3E9E}
+.pv-nested h4{margin:10px 0 4px;font-size:13px;color:var(--ink)}
+.pv-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.pv-table th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:5px 6px;border-bottom:1px solid var(--border)}
+.pv-table td{padding:6px;border-bottom:1px solid #EEF1F5;color:var(--ink);vertical-align:top}
+.pv-table td:last-child{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+.pv-table thead+tbody td:last-child{text-align:left}
+.pv-raw summary{cursor:pointer;font-size:13px;color:#1A3E9E}
+.pv-raw pre{max-height:360px;overflow:auto;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap}
+.pv-link{font-weight:500;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:900px){.pv-grid{grid-template-columns:1fr}}
+.footer .pv-link{color:#fff;font-weight:600}

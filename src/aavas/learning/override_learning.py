@@ -68,7 +68,9 @@ def capture(loan_id: str, ai_rate: float, human_rate: float, reason: str,
 
 
 def validate_reason(reason: str) -> bool:
-    return reason in policy()["override"]["allowed_reasons"]
+    """A reason for a lower rate, or for the area manager's uplift above the recommendation."""
+    ovr = policy()["override"]
+    return reason in ovr["allowed_reasons"] or reason in ((ovr.get("uplift") or {}).get("reasons") or [])
 
 
 # ------------------------------------------------------------------ analysis

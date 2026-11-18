@@ -75,6 +75,11 @@ export function NewApplication({ user, notify, navigate }) {
     setBusy(true); setError('');
     const applicant = toApplicant(f, loanId);
     try {
+      // Figures that cannot be right (a loan many times the property's value) are
+      // caught before a range is quoted on them.
+      const check = await api('/applications/readiness', { applicant });
+      const first = check.steps.find(st => st.key === 'indicative');
+      if (first?.problems.length) { setError(first.problems.join(' ')); return; }
       const [pre, notes] = await Promise.all([
         api('/pricing/pre-assessment', payload(applicant)),
         f.notes.trim() ? api('/notes/extract', { loan_id: loanId, notes: f.notes.split(/\n+/).filter(Boolean), sales_context: { competitor_rate: applicant.sales_context.competitor_rate, competitor_evidence_verified: applicant.sales_context.competitor_evidence_verified } }).catch(() => null) : Promise.resolve(null),

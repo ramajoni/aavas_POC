@@ -1,0 +1,59 @@
+/* Application status: one file's steps, and the board of every file. */
+.st-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;gap:12px;margin:10px 0 4px}
+.st-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.st-head h2{margin:0;font-size:17px}
+.st-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.st-steps li{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-top:3px solid #E2E8F0;font-size:13px;color:#64748B;min-width:0}
+.st-steps li b{font-weight:500;color:#334155}
+.st-steps li small{font-size:12px;line-height:1.4;color:#64748B;overflow-wrap:anywhere}
+.st-steps li em{font-style:normal;font-size:11px;color:#94A3B8}
+.st-mark{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#F1F5F9;font-size:11px;font-weight:600;color:#475569}
+.st-steps li.done{border-top-color:#159a59}
+.st-steps li.done .st-mark{background:none;color:#159a59}
+.st-steps li.current{border-top-color:#1A3E9E;background:#EEF4FF;border-radius:0 0 8px 8px}
+.st-steps li.current .st-mark{background:#1A3E9E;color:#fff}
+.st-steps li.current b{font-weight:600;color:var(--ink)}
+.st-steps li.warn{border-top-color:#D97706}
+.st-steps li.warn .st-mark{background:none;color:#D97706}
+.st-steps li.skipped{opacity:.7}
+.st-steps li.skipped .st-mark{background:none;color:#94A3B8}
+@media (max-width:1100px){.st-steps{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:640px){.st-steps{grid-template-columns:1fr 1fr}}
+
+.st-board{display:flex;flex-direction:column;gap:14px}
+.st-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.st-chips{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+.st-chips button{border:1px solid var(--border);background:#fff;border-radius:16px;padding:6px 12px;font-size:12px;color:#334155}
+.st-chips button small{margin-left:4px;color:var(--muted)}
+.st-chips button.active{background:#0B2A5B;border-color:#0B2A5B;color:#fff}
+.st-chips button.active small{color:#cbd5e1}
+.st-search{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:8px;padding:0 10px;background:#fff}
+.st-search input{border:0;min-height:34px;width:220px;padding:0}
+.st-search input:focus{outline:none}
+.st-table tr.open td{background:#F7FAFF}
+.st-table tr.st-detail td{background:#FBFCFE;padding:6px 10px 14px}
+.st-toggle{display:inline-flex;align-items:center;gap:4px}
+.st-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+/* The next possible action and whose move it is. */
+.st-next{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;color:#1e293b;line-height:1.45;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+.st-next b{font-weight:600}
+.st-next.compact{background:none;border:0;padding:0;font-size:12.5px;flex-direction:column;gap:4px}
+.st-owner{flex-shrink:0;font-size:11px;font-weight:600;border-radius:12px;padding:2px 8px;white-space:nowrap}
+.st-owner.blue{background:#E5EFFF;color:#0045bf}
+.st-owner.amber{background:#FFF3DB;color:#8b5905}
+.st-owner.green{background:#E3F7EC;color:#146746}
+.st-next-cell{min-width:210px;max-width:300px}
+.st-actions{white-space:nowrap}
+.st-actions .st-go{min-height:30px;padding:5px 12px;font-size:12px;margin-right:8px}
+.st-table td small{display:block;margin-top:4px}
+/* Worklist cells: status with the next action, aging, the upsell view. */
+.st-cell{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:200px;max-width:280px}
+.st-aging{display:flex;flex-direction:column;gap:1px;white-space:nowrap}
+.st-aging b{font-weight:600;color:var(--ink)}
+.st-aging.late b{color:#B42318}
+.st-aging small{font-size:11.5px;color:#64748B}
+.st-upsell{display:flex;flex-direction:column;gap:2px;min-width:150px;max-width:230px}
+.st-upsell b{font-weight:600}
+.st-upsell.up b{color:#146746}
+.st-upsell.flat b{color:#64748B}
+.st-upsell small{font-size:11.5px;color:#64748B;line-height:1.4}

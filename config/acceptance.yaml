@@ -54,7 +54,6 @@ extraction:
   llm_enabled: false
   model: claude-opus-5
   max_tokens: 1500
-  temperature: 0.0
   timeout_seconds: 20
   max_input_chars: 12000
   # Every extracted signal must quote the span it came from, and that span must

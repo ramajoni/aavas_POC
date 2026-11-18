@@ -20,6 +20,9 @@ from aavas.api.main import app
 from aavas.governance import store
 
 ADMIN, ARJUN, ROHIT = ("admin", "Admin@2026"), ("arjun", "Arjun@2026"), ("rohit", "Rohit@2026")
+# The cap as the live policy has it, so these tests follow a policy change.
+LIVE_CAP = config.policy()["override"]["max_unevidenced_discount_bps"]
+LIVE_CAP_LINE = f"max_unevidenced_discount_bps: {LIVE_CAP}"
 
 
 @pytest.fixture
@@ -53,8 +56,8 @@ def policy_text(copy) -> str:
 
 
 def raise_unevidenced_cap(raw: str, to: int = 20) -> str:
-    assert "max_unevidenced_discount_bps: 15" in raw
-    return raw.replace("max_unevidenced_discount_bps: 15", f"max_unevidenced_discount_bps: {to}")
+    assert LIVE_CAP_LINE in raw
+    return raw.replace(LIVE_CAP_LINE, f"max_unevidenced_discount_bps: {to}")
 
 
 # ------------------------------------------------------------------- who
@@ -65,7 +68,7 @@ def test_only_the_administrator_may_edit(client, config_copy) -> None:
         assert client.put("/config/policy", json=edit, headers=sign_in(client, who)).status_code == 403
     assert client.get("/config", headers=sign_in(client, ARJUN)).json()["editable"] is False
     assert client.get("/config", headers=sign_in(client, ADMIN)).json()["editable"] is True
-    assert "max_unevidenced_discount_bps: 15" in policy_text(config_copy)
+    assert LIVE_CAP_LINE in policy_text(config_copy)
 
 
 def test_nobody_edits_with_authentication_disabled(config_copy, monkeypatch) -> None:
@@ -85,7 +88,7 @@ def test_an_edit_applies_to_the_next_decision_and_is_recorded(client, config_cop
     preview = client.post("/config/policy/preview", json=edit, headers=admin).json()
     assert {c["path"] for c in preview["changes"]} == {
         "override.max_unevidenced_discount_bps", "policy_version"}
-    assert "max_unevidenced_discount_bps: 15" in policy_text(config_copy), "preview wrote the file"
+    assert LIVE_CAP_LINE in policy_text(config_copy), "preview wrote the file"
 
     applied = client.put("/config/policy", json=edit, headers=admin)
     assert applied.status_code == 200, applied.text
@@ -108,13 +111,14 @@ def test_a_change_must_carry_a_new_version(client, config_copy) -> None:
 
 def test_a_version_cannot_name_two_different_contents(client, config_copy) -> None:
     admin = sign_in(client, ADMIN)
+    original = yaml.safe_load(policy_text(config_copy))["policy_version"]
     first = client.put("/config/policy", headers=admin, json={
         "raw": raise_unevidenced_cap(policy_text(config_copy), 20), "version": "HL-POLICY-TEST-3"})
     assert first.status_code == 200
     second = client.put("/config/policy", headers=admin, json={
         "raw": policy_text(config_copy).replace("max_unevidenced_discount_bps: 20",
                                                 "max_unevidenced_discount_bps: 25"),
-        "version": "HL-POLICY-2026.10"})
+        "version": original})
     assert second.status_code == 422 and "already named different content" in second.json()["detail"]
 
 
@@ -141,7 +145,7 @@ def test_a_change_that_breaks_pricing_is_rolled_back(client, config_copy) -> Non
         "raw": yaml.safe_dump(broken, sort_keys=False), "version": "HL-POLICY-TEST-5"})
     assert response.status_code == 422 and "rolled back" in response.json()["detail"], response.text
     assert policy_text(config_copy) == before
-    assert config.policy()["policy_version"] == "HL-POLICY-2026.10"
+    assert config.policy()["policy_version"] == yaml.safe_load(before)["policy_version"]
 
 
 @pytest.mark.parametrize("name", ["features", "governance"])
@@ -166,4 +170,4 @@ def test_any_change_can_be_undone(client, config_copy) -> None:
     assert undone.status_code == 200, undone.text
     assert undone.json()["kind"] == "restore"
     assert policy_text(config_copy) == before
-    assert config.policy()["override"]["max_unevidenced_discount_bps"] == 15
+    assert config.policy()["override"]["max_unevidenced_discount_bps"] == LIVE_CAP

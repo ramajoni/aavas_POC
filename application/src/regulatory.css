@@ -1,0 +1,53 @@
+/* RBI home loan artefacts (model validation). */
+.rg .badge.grey{background:#eef1f6;color:#4b5873;border:1px solid #dbe1ea}
+.rg-meta{color:var(--muted);font-size:11px;margin-top:6px}
+.rg .model-metrics{justify-content:flex-start;gap:28px}
+.rg .model-metrics b{font-size:18px}
+.rg-tile.green b{color:#146746}.rg-tile.amber b{color:#8b5905}.rg-tile.red b{color:#b83232}.rg-tile.grey b{color:#4b5873}
+
+.rg-attention ul{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.rg-attention li{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid #f3dcae;background:#fffaf0;border-radius:6px}
+.rg-attention li>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.rg-attention li b{font-size:12px}
+.rg-attention li span{font-size:12px;color:#152344}
+.rg-attention li p{font-size:12px;color:var(--muted);line-height:1.5}
+
+.rg-bar{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-top:18px}
+.rg-bar .tabs{margin:0;flex:1}
+.rg-bar .tabs small{margin-left:4px;color:var(--muted)}
+
+.rg-art{margin-top:14px}
+.rg-art-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.rg-instrument{font-size:12px;color:#152344;margin-top:4px}
+.rg-ref{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;color:var(--muted);margin-top:2px}
+.rg-ref a{display:inline-flex;align-items:center;gap:3px}
+.rg-art-badges{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.rg-count{font-size:10px;color:var(--muted)}
+.rg-count.red{color:#b83232;font-weight:500}
+.rg-note{font-size:11px;color:var(--muted);margin-top:8px}
+.rg-why{font-size:12px;margin-top:6px}
+
+.rg-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
+.rg-table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--border)}
+.rg-table td{vertical-align:top;padding:10px;border-bottom:1px solid #eef3fa;line-height:1.5}
+.rg-table td:first-child{width:34%}
+.rg-table td:last-child{width:120px}
+.rg-table td p+p{margin-top:6px}
+.rg-table tr.attention td{background:#fffaf0}
+.rg-evidence{color:#36435f}
+.rg-evidence b{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#0a5c3c;margin-right:4px}
+.rg-links{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px}
+.rg-links:empty{display:none}
+.rg-foot{font-size:11px;color:var(--muted);margin:18px 0 6px}
+
+@media (max-width:760px){
+  .rg-attention li{flex-direction:column;gap:6px}
+  .rg .model-metrics{flex-wrap:wrap;gap:14px 22px}
+  .rg-art-head{flex-direction:column}
+  .rg-art-badges{flex-direction:row;flex-wrap:wrap;align-items:center}
+  .rg-bar{flex-direction:column;align-items:stretch}
+  .rg-table thead{display:none}
+  .rg-table tr{display:block;border-bottom:1px solid #eef3fa;padding:6px 0}
+  .rg-table td{display:block;border:0;padding:4px 0;width:auto!important}
+}
+.rg-attention li>.badge{min-width:100px;justify-content:center;align-self:flex-start}

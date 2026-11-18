@@ -82,3 +82,58 @@
 .po-stages li.current span{background:#1A3E9E;color:#fff}
 .po-stages li.current b{font-weight:600}
 @media(max-width:900px){.po-stages{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.mgr-request .mgr-dive{align-self:flex-start;display:inline-flex;align-items:center;gap:6px}
+/* The request from the upsell side: ask against the model, and what holding earns. */
+.mgr-tiles>div.upsell{background:#ECFDF3}.mgr-tiles>div.upsell b{color:#15803D}
+.mgr-tiles>div.earn{background:#ECFDF3}.mgr-tiles>div.earn b{color:#15803D}
+.mgr-tiles>div.upsell-table{background:#fff;border:1px solid var(--border);padding:8px 10px}
+.upsell-table table{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+.upsell-table th{font-weight:500;color:#556274;font-size:12px;text-align:right;padding:3px 6px}
+.upsell-table th:first-child{text-align:left}
+.upsell-table td{padding:4px 6px;text-align:right;color:var(--ink)}
+.upsell-table td:first-child{text-align:left;color:#334155}
+.upsell-table tr.reco td{background:#C6EFCE;font-weight:600}
+.upsell-table tr.diff td{border-top:1px solid #CBD5E1;font-weight:600}
+/* The three steps a file is filled in before it is priced and sent. */
+.po-steps{gap:14px;flex:none}
+.po-step-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.po-step-list li{border:1px solid var(--border);border-top:3px solid #E2E8F0;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.po-step-list li.done{border-top-color:#159a59}
+.po-step-list li.current{border-top-color:#1A3E9E;background:#F7FAFF}
+.po-step-list li.locked{color:#64748B;background:#FAFBFC}
+.po-step-head{display:flex;gap:10px;align-items:flex-start}
+.po-step-head b{display:block;font-size:14px}
+.po-step-head small{font-size:12px;color:#64748B}
+.po-step-mark{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#F1F5F9;font-size:12px;font-weight:600;color:#475569;flex-shrink:0}
+.po-step-list li.done .po-step-mark{background:none;color:#159a59}
+.po-step-list li.current .po-step-mark{background:#1A3E9E;color:#fff}
+.po-step-note{font-size:13px;color:#334155;margin:0}
+.po-step-due{font-size:13px;color:#334155;margin:0;line-height:1.55}
+.po-step-due b{font-weight:600;color:var(--ink)}
+.po-step-problem{display:flex;gap:6px;align-items:flex-start;font-size:13px;color:#b42318;margin:0;line-height:1.5}
+.po-step-problem svg{margin-top:2px}
+.po-step-warning{font-size:13px;color:#B45309;margin:0;line-height:1.5}
+@media (max-width:900px){.po-step-list{grid-template-columns:1fr}}
+/* Edit details: the step each section belongs to, and the live check of the file. */
+.form-section small{font-size:12px;font-weight:400;color:#64748B;margin-left:6px}
+.form-check{margin-top:14px;padding:12px 14px;border:1px solid #F3DCAE;background:#FFFAF0;border-radius:8px;display:flex;flex-direction:column;gap:8px}
+.form-check>div{display:flex;flex-direction:column;gap:3px}
+.form-check b{font-size:13px}
+.form-check span{font-size:12.5px;color:#334155;line-height:1.5}
+.form-check span.problem{color:#b42318}
+.form-check span.warning{color:#B45309}
+.form-check small{font-size:12px;color:#64748B}
+.form-check.done{border-color:#ACD9C4;background:#F0FAF5;color:#146746;font-size:13px}
+.form-notes{margin-top:14px}
+.po-form.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:800px){.po-form.two{grid-template-columns:1fr}}
+/* The final acceptance rate beside the offer rate. */
+.po-final-accept{display:flex;flex-direction:column;gap:2px;padding:8px 12px;border:1px solid #ACD9C4;background:#F0FAF5;border-radius:8px;min-width:0}
+.po-final-accept span{font-size:13px;color:#556274}
+.po-final-accept b{font-size:20px;color:#146746;line-height:1.2}
+.po-final-accept small{font-size:12px;color:#475569}
+/* The area manager's price uplift above the recommendation. */
+.mgr-uplift{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:13px;color:#134E4A;background:#F0FDFA;border:1px solid #99F6E4;border-radius:8px;padding:8px 12px}
+.mgr-uplift.on{background:#CCFBF1}
+.mgr-accept{font-size:12px;color:#0F766E}
+.mgr-uplift{margin-bottom:8px}

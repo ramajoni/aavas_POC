@@ -11,10 +11,12 @@ count accepted offers against each RM's target.
 
 from __future__ import annotations
 
+import pytest
+
 from aavas.governance import store
 from aavas.intake import worklist
 
-from test_applications import client, quote_and_apply, sign_in, upload  # noqa: F401
+from test_applications import COMPLETE, client, quote_and_apply, sign_in, upload  # noqa: F401
 
 REQUIRED = ("income_proof", "bank_statement", "identity_address")
 
@@ -29,9 +31,18 @@ def priced_count(loan_id: str) -> int:
                            "AND stage = 'post_assessment'", (loan_id,))["n"]
 
 
-def verify(client, headers, loan_id) -> None:
+def complete(client, loan_id) -> None:
+    response = client.put(f"/applications/{loan_id}", headers=sign_in(client, "rohit"),
+                          json={"applicant": COMPLETE})
+    assert response.status_code == 200, response.text
+
+
+def verify(client, headers, loan_id, *, fill=True) -> None:
+    """The documents arrive; the RM then enters what they show (``fill``)."""
     for kind in REQUIRED:
         assert upload(client, headers, loan_id, kind=kind).status_code == 200
+    if fill:
+        complete(client, loan_id)
 
 
 # ------------------------------------------------------------------- stages
@@ -46,18 +57,23 @@ def test_a_file_moves_through_the_worklist_one_stage_at_a_time(client) -> None:
     upload(client, rahul, "WL-STAGE-1", kind="income_proof")
     assert listed(client, rohit, "WL-STAGE-1")["missing_documents"] == ["bank_statement", "identity_address"]
 
-    verify(client, rahul, "WL-STAGE-1")
+    verify(client, rahul, "WL-STAGE-1", fill=False)
     row = listed(client, rohit, "WL-STAGE-1")
     assert row["stage"] == "ready" and row["verified_at"]
+    # Documents in, figures not yet entered: no risk-adjusted rate to suggest.
+    assert row["suggested"] is None and row["readiness"]["next"] == "risk"
+    complete(client, "WL-STAGE-1")
+    row = listed(client, rohit, "WL-STAGE-1")
+    assert row["readiness"]["complete"]
     suggested = row["suggested"]
     assert 6 < suggested["rate"] < 18 and 0 < suggested["acceptance"] <= 1
-    assert suggested["sanctioned_amount"] == 2000000 and suggested["amount_verified"] is False
+    assert suggested["sanctioned_amount"] == 2000000 and suggested["amount_verified"] is True
     # Priced once on verification; looking again reuses that decision.
     before = priced_count("WL-STAGE-1")
     assert listed(client, rohit, "WL-STAGE-1")["suggested"]["decision_id"] == suggested["decision_id"]
     assert priced_count("WL-STAGE-1") == before
 
-    asked = round(suggested["rate"] - 0.25, 2)
+    asked = round(suggested["rate"] - 0.40, 2)
     made = client.post("/pricing/rate-requests", headers=rohit, json={
         "loan_id": "WL-STAGE-1", "rate": asked, "reason": "strong_negotiation", "note": "will walk"})
     assert made.status_code == 200, made.text
@@ -120,14 +136,38 @@ def test_the_final_assessment_row_falls_back_to_declared_figures() -> None:
 
 # ---------------------------------------------------------------- in progress
 
-def test_in_progress_lists_what_is_due_and_sample_leads(client) -> None:
+LEADS = [{"ref": "LEAD-T01", "name": "Priya Deshmukh", "city": "Pune", "segment": "salaried_formal",
+          "loan_amount": 3200000, "stage": "quote_not_applied", "quoted": {"min_rate": 9.65, "max_rate": 10.40},
+          "days_since_activity": 6},
+         {"ref": "LEAD-T02", "name": "Kavita Joshi", "city": "Pune", "segment": "self_employed_professional",
+          "loan_amount": 4500000, "stage": "dropped_off", "stopped_at": "Loan and property details",
+          "days_since_activity": 9}]
+
+
+@pytest.fixture()
+def sample_leads(monkeypatch):
+    """The demo lists no sample leads; these stand in to keep that path tested."""
+    from aavas.intake import applications
+    real = applications.settings
+    monkeypatch.setattr(applications, "settings", lambda: {**real(), "sample_in_progress": LEADS})
+
+
+def test_in_progress_lists_only_real_files_by_default(client) -> None:
+    rahul, rohit = sign_in(client, "rahul"), sign_in(client, "rohit")
+    quote_and_apply(client, rahul, "WL-REAL-1")
+    body = client.get("/applications/in-progress", headers=rohit).json()
+    assert not any(i["sample"] for i in body["items"])
+    assert any(i["ref"] == "WL-REAL-1" for i in body["items"])
+
+
+def test_in_progress_lists_what_is_due_and_sample_leads(client, sample_leads) -> None:
     rahul, rohit = sign_in(client, "rahul"), sign_in(client, "rohit")
     quote_and_apply(client, rahul, "WL-PROG-1")
     body = client.get("/applications/in-progress", headers=rohit).json()
     mine = next(i for i in body["items"] if i["ref"] == "WL-PROG-1")
     assert mine["sample"] is False and mine["detail"].startswith("Waiting for salary slips")
     samples = [i for i in body["items"] if i["sample"]]
-    assert {s["stage"] for s in samples} >= {"quote_not_applied", "documents_pending", "dropped_off"}
+    assert {s["stage"] for s in samples} == {"quote_not_applied", "dropped_off"}
     assert client.get("/applications/in-progress", headers=rahul).status_code == 403
 
     verify(client, rahul, "WL-PROG-1")
@@ -135,7 +175,7 @@ def test_in_progress_lists_what_is_due_and_sample_leads(client) -> None:
     assert not any(i["ref"] == "WL-PROG-1" for i in body["items"])
 
 
-def test_the_rm_nudges_a_stalled_customer(client) -> None:
+def test_the_rm_nudges_a_stalled_customer(client, sample_leads) -> None:
     rahul, rohit = sign_in(client, "rahul"), sign_in(client, "rohit")
     quote_and_apply(client, rahul, "WL-NUDGE-1")
     sent = client.post("/applications/nudges", headers=rohit, json={"ref": "WL-NUDGE-1", "channel": "whatsapp"})
@@ -143,7 +183,7 @@ def test_the_rm_nudges_a_stalled_customer(client) -> None:
     message = sent.json()["message"]
     assert message.startswith("Hi Rahul") and "salary slips" in message and "Rohit" in message
 
-    lead = client.post("/applications/nudges", headers=rohit, json={"ref": "LEAD-S01", "channel": "sms"})
+    lead = client.post("/applications/nudges", headers=rohit, json={"ref": "LEAD-T01", "channel": "sms"})
     assert lead.status_code == 200 and "9.65%–10.40%" in lead.json()["message"]
 
     item = next(i for i in client.get("/applications/in-progress", headers=rohit).json()["items"]
@@ -163,7 +203,7 @@ def test_the_deep_dive_frames_the_decision(client) -> None:
     verify(client, rahul, "WL-DIVE-1")
     rate = listed(client, rohit, "WL-DIVE-1")["suggested"]["rate"]
     request_id = client.post("/pricing/rate-requests", headers=rohit, json={
-        "loan_id": "WL-DIVE-1", "rate": round(rate - 0.25, 2), "reason": "strong_negotiation"}).json()["request_id"]
+        "loan_id": "WL-DIVE-1", "rate": round(rate - 0.40, 2), "reason": "strong_negotiation"}).json()["request_id"]
 
     assert client.get(f"/pricing/rate-requests/{request_id}/deep-dive", headers=rohit).status_code == 403
     dive = client.get(f"/pricing/rate-requests/{request_id}/deep-dive", headers=meera)
@@ -177,6 +217,10 @@ def test_the_deep_dive_frames_the_decision(client) -> None:
     assert rates == sorted(rates) and rates[0] <= d["breakeven_rate"] and len(rates) > 20
     accept = [p["acceptance"] for p in d["curve"]]
     assert accept[0] >= accept[-1]
+    # This branch beside every branch: the same curve, moved by the branch's own record.
+    assert all("acceptance_branch" in p for p in d["curve"]) and "shift" in d["branch"]
+    if d["branch"]["files"] is None:
+        assert all(p["acceptance_branch"] == pytest.approx(p["acceptance"], abs=1e-3) for p in d["curve"])
     parts = {c["label"] for c in d["build_up"]["components"]}
     assert {"Cost of funds", "Expected credit loss"} <= parts
     assert abs(sum(c["pct"] for c in d["build_up"]["components"]) - d["build_up"]["breakeven_rate"]) < 0.01
@@ -223,3 +267,175 @@ def test_the_model_cards_speak_in_business_terms(bundle) -> None:
     assert all(r["measured_low_pts"] <= r["measured_pts"] <= r["measured_high_pts"] for r in effect["rows"])
     floor = segment_view.floor_components()
     assert floor["cost_of_funds_pct"] > 0 and floor["operating_cost_pct"] > 0
+
+
+def test_scenarios_set_the_branch_beside_the_general_model(client) -> None:
+    from aavas.analytics import branch_scenarios
+
+    rahul, rohit, meera = sign_in(client, "rahul"), sign_in(client, "rohit"), sign_in(client, "meera")
+    quote_and_apply(client, rahul, "WL-SCN-1")
+    verify(client, rahul, "WL-SCN-1")
+    rate = listed(client, rohit, "WL-SCN-1")["suggested"]["rate"]
+    request_id = client.post("/pricing/rate-requests", headers=rohit, json={
+        "loan_id": "WL-SCN-1", "rate": round(rate - 0.40, 2), "reason": "strong_negotiation"}).json()["request_id"]
+
+    assert client.get(f"/pricing/rate-requests/{request_id}/scenarios", headers=rohit).status_code == 403
+    body = client.get(f"/pricing/rate-requests/{request_id}/scenarios", headers=meera)
+    assert body.status_code == 200, body.text
+    d = body.json()
+    marks = {r["mark"]: r for r in d["table"] if r["mark"]}
+    assert set(marks) == {"requested", "recommended"}
+    assert marks["recommended"]["interest_given_up_inr"] == 0 and marks["requested"]["interest_given_up_inr"] > 0
+    assert len(d["curve"]) > 10 and d["calibration"]["all_branches"]["files"] > 0
+    # The branch curve is the model's, moved by the branch's own record and nothing else.
+    shift = d["branch_shift"]
+    for p in d["curve"]:
+        expected = branch_scenarios._sigmoid(branch_scenarios._logit(p["acceptance_model"]) + shift)
+        assert abs(p["acceptance_branch"] - expected) < 1e-3
+
+
+def test_the_branch_shift_matches_the_model_to_what_happened() -> None:
+    import numpy as np
+
+    from aavas.analytics import branch_scenarios
+
+    predicted = np.array([0.2, 0.5, 0.7, 0.9])
+    shift = branch_scenarios.shift_for(predicted, 0.70)
+    moved = branch_scenarios._sigmoid(branch_scenarios._logit(predicted) + shift)
+    assert abs(moved.mean() - 0.70) < 1e-3 and shift > 0
+    assert abs(branch_scenarios.shift_for(predicted, predicted.mean())) < 1e-3
+
+
+def test_history_shows_upselling_competitors_and_notes(client) -> None:
+    from aavas.analytics import branch_history, portfolio
+
+    rahul, rohit, meera = sign_in(client, "rahul"), sign_in(client, "rohit"), sign_in(client, "meera")
+    quote_and_apply(client, rahul, "WL-HIST-1")
+    verify(client, rahul, "WL-HIST-1")
+    rate = listed(client, rohit, "WL-HIST-1")["suggested"]["rate"]
+    request_id = client.post("/pricing/rate-requests", headers=rohit, json={
+        "loan_id": "WL-HIST-1", "rate": round(rate - 0.40, 2), "reason": "strong_negotiation",
+        "note": "customer pushing hard"}).json()["request_id"]
+
+    assert client.get(f"/pricing/rate-requests/{request_id}/history", headers=rohit).status_code == 403
+    body = client.get(f"/pricing/rate-requests/{request_id}/history", headers=meera)
+    assert body.status_code == 200, body.text
+    h = body.json()
+    assert h["where"]["city"] == "Pune" or h["where"]["level"] in ("branch", "all")
+    assert h["file_notes"]["rm_request"] == "customer pushing hard"
+    up = h["upselling"]["all_branches"]
+    book = portfolio.frame()
+    assert up["upsold"] == int((book["override_direction"] == "premium").sum()) and up["files"] == len(book)
+
+    # A branch with history: competitor strength is ordered strongest first, notes lender-first.
+    branch = branch_history.history({"request_id": "R"}, {"city": "Jaipur", "segment": "salaried_formal",
+                                                          "sales_context": {"competitor_name": "HDFC"}}, risk_grade="A")
+    lost = [r["they_won"] for r in branch["competitors"]["lenders"] if r["they_won"] is not None]
+    assert lost == sorted(lost, reverse=True)
+    assert branch["competitors"]["this_lender"]["lender"] == "HDFC"
+    flags = [n["names_lender"] for n in branch["notes"]["notes"]]
+    assert flags == sorted(flags, reverse=True) and branch["notes"]["total"] > 0
+
+
+def _scen(values: dict[float, tuple[float, float]], rec: float) -> dict:
+    """rate -> (acceptance in this branch, expected value)"""
+    return {"recommended_rate": rec, "city": "Jaipur", "branch_history": None,
+            "table": [{"rate": r, "acceptance_branch": a, "acceptance_model": a, "value_branch_inr": v}
+                      for r, (a, v) in sorted(values.items())]}
+
+
+def test_the_suggestion_is_the_rate_worth_most_to_the_bank() -> None:
+    from aavas.analytics import decision_support
+
+    request = {"requested_rate": 10.0, "reason": "strong_negotiation"}
+    flat = _scen({10.0: (0.83, 130_000), 10.5: (0.83, 140_000), 11.0: (0.83, 150_000)}, 11.0)
+    held = decision_support.suggest(request, flat, floor_rate=9.0, similar=None, evidence_verified=True)
+    assert held["action"] == "hold" and held["rate"] == 11.0 and "almost no extra customers" in held["reasons"][0]["text"]
+
+    steep = _scen({10.0: (0.90, 160_000), 10.5: (0.70, 140_000), 11.0: (0.40, 90_000)}, 11.0)
+    assert decision_support.suggest(request, steep, floor_rate=9.0, similar=None, evidence_verified=True)["action"] == "approve"
+
+    middle = _scen({10.0: (0.90, 120_000), 10.5: (0.85, 150_000), 11.0: (0.50, 100_000)}, 11.0)
+    counter = decision_support.suggest(request, middle, floor_rate=9.0, similar=None, evidence_verified=True)
+    assert counter["action"] == "counter" and counter["rate"] == 10.5
+
+    # Never below the lowest rate the manager may approve.
+    floored = decision_support.suggest(request, steep, floor_rate=10.5, similar=None, evidence_verified=True)
+    assert floored["rate"] >= 10.5
+
+    competitor = {"requested_rate": 10.0, "reason": "competitor_lower_rate"}
+    unevidenced = decision_support.suggest(competitor, steep, floor_rate=9.0, similar=None, evidence_verified=False)
+    assert "sanction letter" in unevidenced["note"]
+    assert decision_support._inr(2953488) == "₹29,53,488"
+
+
+def test_the_suggestion_endpoint_is_the_managers(client) -> None:
+    rahul, rohit, meera = sign_in(client, "rahul"), sign_in(client, "rohit"), sign_in(client, "meera")
+    quote_and_apply(client, rahul, "WL-SUG-1")
+    verify(client, rahul, "WL-SUG-1")
+    rate = listed(client, rohit, "WL-SUG-1")["suggested"]["rate"]
+    request_id = client.post("/pricing/rate-requests", headers=rohit, json={
+        "loan_id": "WL-SUG-1", "rate": round(rate - 0.40, 2), "reason": "strong_negotiation"}).json()["request_id"]
+    assert client.get(f"/pricing/rate-requests/{request_id}/suggestion", headers=rohit).status_code == 403
+    d = client.get(f"/pricing/rate-requests/{request_id}/suggestion", headers=meera).json()
+    assert d["action"] in ("hold", "approve", "counter", "uplift") and d["reasons"] and d["note"]
+    if d["action"] == "uplift":
+        assert d["rate"] > rate and d["reason"] in ("customer_accepts_higher_rate", "risk_not_fully_priced",
+                                                    "relationship_upsell")
+    else:
+        assert round(rate - 0.40, 2) <= d["rate"] <= rate
+
+
+def test_the_area_manager_can_uplift_the_price(client) -> None:
+    """Decline the discount and price above the recommendation, within the quoted range."""
+    rahul, rohit, meera = sign_in(client, "rahul"), sign_in(client, "rohit"), sign_in(client, "meera")
+    quote_and_apply(client, rahul, "WL-UP-1")
+    verify(client, rahul, "WL-UP-1")
+    rate = listed(client, rohit, "WL-UP-1")["suggested"]["rate"]
+    request_id = client.post("/pricing/rate-requests", headers=rohit, json={
+        "loan_id": "WL-UP-1", "rate": round(rate - 0.40, 2), "reason": "strong_negotiation"}).json()["request_id"]
+    item = next(r for r in client.get("/pricing/rate-requests?status=pending", headers=meera).json()["requests"]
+                if r["request_id"] == request_id)
+    rec, top = item["recommended_rate"], item["analysis"]["indicative_band"]["max_rate"]
+    decide = lambda **body: client.post(f"/pricing/rate-requests/{request_id}/decide", headers=meera,
+                                        json={"approve": True, "uplift": True, "note": "customer accepts", **body})
+    assert decide(rate=rec, reason="customer_accepts_higher_rate").status_code == 422, "an uplift is above the recommendation"
+    assert decide(rate=round(max(rec, top) + 0.5, 2), reason="customer_accepts_higher_rate").status_code == 422
+    if top > rec + 0.005:
+        up = round(min(rec + 0.10, top), 2)
+        assert decide(rate=up, reason="strong_negotiation").status_code == 422, "an uplift has its own reasons"
+        done = decide(rate=up, reason="customer_accepts_higher_rate")
+        assert done.status_code == 200, done.text
+        assert done.json()["status"] == "uplifted" and done.json()["approved_rate"] == up
+        assert done.json()["offer"]["route"] == "manager_uplifted" and done.json()["offer"]["rate"] == up
+        manager = next(s for s in client.get("/applications/WL-UP-1/status", headers=meera).json()["steps"]
+                       if s["key"] == "manager")
+        assert manager["state"] == "done" and "uplifted to" in manager["detail"]
+
+
+def test_the_managers_checklist(client) -> None:
+    from aavas.analytics import manager_checks
+
+    rahul, rohit, meera = sign_in(client, "rahul"), sign_in(client, "rohit"), sign_in(client, "meera")
+    quote_and_apply(client, rahul, "WL-CHK-1")
+    verify(client, rahul, "WL-CHK-1")
+    rate = listed(client, rohit, "WL-CHK-1")["suggested"]["rate"]
+    request_id = client.post("/pricing/rate-requests", headers=rohit, json={
+        "loan_id": "WL-CHK-1", "rate": round(rate - 0.40, 2), "reason": "strong_negotiation",
+        "note": "customer says the EMI is too high"}).json()["request_id"]
+    assert client.get(f"/pricing/rate-requests/{request_id}/checklist", headers=rohit).status_code == 403
+    c = client.get(f"/pricing/rate-requests/{request_id}/checklist", headers=meera).json()
+    keys = [o["key"] for o in c["alternatives"]["options"]]
+    assert keys[0] == "ask" and "fee" in keys
+    ask = c["alternatives"]["options"][0]
+    assert ask["bank_change_inr"] < 0 and ask["emi_vs_ask"] == 0
+    assert "emi" in c["reason_hints"]["found"]
+    assert c["this_month"]["rm"]["asked"] >= 1 and c["this_month"]["rm"]["pending"] >= 1
+
+    # Holding the rate over a longer tenure brings the EMI to the ask without a cut.
+    alt = manager_checks.alternatives(loan=2_000_000, years=20, age=35, ask=10.65, rec=10.95, counter=None)
+    longer = next(o for o in alt["options"] if o["key"] == "tenure")
+    assert longer["emi_vs_ask"] <= 1 and longer["bank_change_inr"] > 0 and longer["age_at_end"] == 35 + longer["tenure_years"]
+    assert manager_checks.reason_hints(None, "")["found"] == []
+    prec = manager_checks.precedent("Jaipur", "salaried_formal", "A", 6.0)
+    assert prec["files"] > 0 and prec["share_at_or_below"] == 0

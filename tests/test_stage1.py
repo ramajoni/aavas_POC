@@ -84,3 +84,12 @@ def test_quote_survives_a_minimal_enquiry(orchestrator):
     assert result["eligible_amount"]["max"] > 0
     assert result["caveats"], "a thin file must carry caveats"
     assert "indicative" in result["disclaimer"].lower()
+
+
+def test_the_indicative_range_does_not_use_a_competitors_quote():
+    """FEAT-2026.12: the range a customer is quoted reflects them and their loan, not a
+    rival's quote they mention. The quote still moves the acceptance model."""
+    from aavas.features.feature_pipeline import spec
+
+    assert "competitor_rate" not in spec("stage1").columns
+    assert "competitor_rate" in spec("conversion").columns

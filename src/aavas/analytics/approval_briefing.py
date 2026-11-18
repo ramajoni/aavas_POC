@@ -281,42 +281,82 @@ def _pct(rate: float | None) -> str:
     return "—" if rate is None else f"{rate * 100:.0f}%"
 
 
-VERDICTS = {"value creating": "paid for themselves", "value destroying": "lost value",
-            "no measurable effect": "made no measurable difference"}
+def _bps_as_rate(bps: float | None) -> str:
+    """Basis points as a business reader says them: 12 -> 0.12%."""
+    return "—" if bps is None else f"{bps / 100:.2f}%"
+
+
+def _in_ten(rate: float) -> str:
+    """A share of loans, as a percentage."""
+    n = round(rate * 100)
+    return "under 1% of" if n == 0 else "all" if n == 100 else f"{n}% of"
+
+
+def _per_hundred(pts: float) -> str:
+    n = abs(pts)
+    if n < 0.5:
+        return "made no difference to how many customers took the loan"
+    return f"made customers about {n:.0f} points {'more' if pts > 0 else 'less'} likely to take the loan"
 
 
 def _rupees(value: float) -> str:
-    return f"{'−' if value < 0 else '+'}₹{abs(value):,.0f}"
+    return f"₹{abs(value):,.0f}"
 
 
-def signals(b: dict[str, Any]) -> list[str]:
-    """The few lines worth reading first."""
-    out = []
+def _reason(reason: str | None) -> str:
+    return {"competitor_lower_rate": "a lower competitor rate"}.get(reason or "", str(reason or "any reason").replace("_", " "))
+
+
+def signals(b: dict[str, Any]) -> list[dict[str, str]]:
+    """The few points worth reading first, each with a one-line verdict.
+    Rates are in per cent, not basis points; outcomes in customers out of 100."""
+    out: list[dict[str, str]] = []
     where = b["where"]
     name = where["city"] if where["level"] == "branch" else "All branches"
     ob, oa = b["overrides"]["branch"], b["overrides"]["all_branches"]
-    if where["level"] == "branch":
-        out.append(f"{name} discounts {_pct(ob['discount_rate']['rate'])} of files below the recommendation "
-                   f"(all branches {_pct(oa['discount_rate']['rate'])}), median {ob['median_discount_bps'] or 0:.0f} bps.")
+    reason = _reason(b.get("reason"))
+
+    mine, everyone = ob["discount_rate"]["rate"], oa["discount_rate"]["rate"]
+    if where["level"] == "branch" and mine is not None and everyone is not None:
+        more = mine - everyone
+        out.append({"topic": "how_often", "tone": "warn" if more > 0.05 else "flat",
+                    "verdict": ("Discounts more than most branches" if more > 0.05 else
+                                "Discounts less than most branches" if more < -0.05 else
+                                "Discounts as often as other branches"),
+                    "text": f"{name} prices {_in_ten(mine)} loans below the recommendation "
+                            f"(all branches: {_pct(everyone)}), usually by {_bps_as_rate(ob['median_discount_bps'])}."})
+
     effect = b["overrides"]["effect_this_reason"] or b["overrides"]["effect_all_discounts"]
     if effect and effect.get("verdict") != "insufficient evidence":
-        label = (f"{str(b['reason']).replace('_', ' ')} discounts" if b["overrides"]["effect_this_reason"]
-                 else "Discounts")
-        out.append(f"{label[:1].upper()}{label[1:]} here {VERDICTS.get(effect['verdict'], effect['verdict'])}: "
-                   f"{effect['s2d_lift_pts']:+.1f} pts conversion and {_rupees(effect['value_lift_inr'])} a file "
-                   f"against comparable files that were not discounted ({effect['n_override']} discounted files).")
+        what = f"Past cuts for {reason}" if b["overrides"]["effect_this_reason"] else "Past cuts"
+        value = effect["value_lift_inr"]
+        out.append({"topic": "did_it_pay",
+                    "tone": {"value creating": "good", "value destroying": "bad"}.get(effect["verdict"], "warn"),
+                    "verdict": {"value creating": "They worked",
+                                "value destroying": "They lost money"}.get(effect["verdict"], "They did not help"),
+                    "text": f"{what} here {_per_hundred(effect['s2d_lift_pts'])}, and each loan earned "
+                            f"{_rupees(value)} {'more' if value > 0 else 'less'} than similar loans kept at the system "
+                            f"recommendation ({effect['n_override']} loans)."})
+
     similar = b["overrides"]["similar_here"]
+    asked = b["requested_discount_bps"]
     if similar["files"] and similar["conversion"] is not None:
-        out.append(f"{similar['files']} past {str(similar['reason'] or '').replace('_', ' ')} discounts of "
-                   f"{similar['window_bps'][0]:.0f}–{similar['window_bps'][1]:.0f} bps here: "
-                   f"{_pct(similar['conversion'])} converted"
-                   + (f", {_pct(similar['bt_out_24m'])} moved the loan away within 2 years." if similar["bt_out_24m"] is not None else "."))
-    elif similar["deepest_bps"] is not None and b["requested_discount_bps"] > similar["deepest_bps"]:
-        out.append(f"No past {str(similar['reason'] or '').replace('_', ' ')} discount here went this deep: "
-                   f"{b['requested_discount_bps']:.0f} bps asked, the deepest was {similar['deepest_bps']:.0f} bps.")
+        low, high = similar["window_bps"]
+        out.append({"topic": "depth", "tone": "flat", "verdict": "Done before here",
+                    "text": f"{similar['files']} past discounts for {reason} of {_bps_as_rate(low)}–{_bps_as_rate(high)} "
+                            f"here: {_pct(similar['conversion'])} of customers took the loan"
+                            + (f", {_pct(similar['bt_out_24m'])} moved it to another lender within 2 years."
+                               if similar["bt_out_24m"] is not None else ".")})
+    elif similar["deepest_bps"] is not None and asked > similar["deepest_bps"]:
+        out.append({"topic": "depth", "tone": "bad", "verdict": "Deeper than any discount before",
+                    "text": f"This asks for {_bps_as_rate(asked)} below the recommendation. The deepest discount "
+                            f"for {reason} ever given here was {_bps_as_rate(similar['deepest_bps'])}."})
+
     comp = (b.get("competitors") or {}).get("this_file")
     if comp and comp["benchmark"].get("median") is not None:
-        out.append(f"{comp['competitor']} usually quotes {comp['benchmark']['median']:.2f}% "
-                   f"({comp['benchmark']['level']}, {comp['benchmark']['n']} quotes); this quote is {comp['quote']:.2f}%"
-                   + (", under its usual 5th percentile." if comp["unusually_low"] else "."))
+        out.append({"topic": "quote", "tone": "bad" if comp["unusually_low"] else "flat",
+                    "verdict": "Unusually low quote" if comp["unusually_low"] else "Quote in line with this lender",
+                    "text": f"{comp['competitor']} usually quotes {comp['benchmark']['median']:.2f}% here; "
+                            f"this customer's quote is {comp['quote']:.2f}%"
+                            + (", lower than almost all its past quotes." if comp["unusually_low"] else ".")})
     return out

@@ -8,6 +8,10 @@
     GET  /pricing/rate-requests/{request_id}             one request
     GET  /pricing/rate-requests/{request_id}/briefing    what the area manager reads first
     GET  /pricing/rate-requests/{request_id}/deep-dive   acceptance curve: floor, recommendation, ceiling
+    GET  /pricing/rate-requests/{request_id}/scenarios   each rate: the model's prediction and this branch's
+    GET  /pricing/rate-requests/{request_id}/history     the branch's upselling, competitors and sales notes
+    GET  /pricing/rate-requests/{request_id}/suggestion  a suggested decision and the facts behind it
+    GET  /pricing/rate-requests/{request_id}/checklist   the manager's checks: alternatives, precedent, this month
     GET  /pricing/area/disbursements                     month to date against target, by RM
     GET  /pricing/my/disbursements                       the same, for the signed-in RM
     POST /pricing/rate-requests/{request_id}/decide      area manager approves or declines
@@ -18,14 +22,17 @@ them may do what is decided here, from the role's limits in that file.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from ..analytics import approval_briefing, area_performance, portfolio
+from ..analytics import (approval_briefing, area_performance, branch_history, branch_scenarios,
+                         decision_support, manager_checks, portfolio)
 from ..governance import decision_logger, model_registry
 from ..intake import applications as intake
 from ..intake import offers
@@ -63,6 +70,17 @@ def _named(row: dict[str, Any]) -> dict[str, Any]:
     return {**row, "requested_by_name": found.name if found else row.get("requested_by")}
 
 
+def _where(row: dict[str, Any]) -> dict[str, Any]:
+    """The file's branch city and segment, so a manager can filter the queue by them:
+    from the stored application, or the snapshot the request was priced on."""
+    found = intake.get(row["loan_id"]) if row.get("loan_id") else None
+    applicant = (found or {}).get("applicant") or {}
+    if not applicant.get("city") and row.get("decision_id"):
+        decision = decision_logger.get_decision(row["decision_id"]) or {}
+        applicant = (decision.get("payload") or {}).get("application_snapshot") or {}
+    return {"city": applicant.get("city"), "segment": applicant.get("segment")}
+
+
 def _own_only(principal: Principal) -> bool:
     return principal.has(RM) and not (principal.has(AM) or principal.has(ADMIN))
 
@@ -92,6 +110,8 @@ class RateRequestIn(BaseModel):
 class DecisionIn(BaseModel):
     approve: bool
     rate: float | None = Field(None, gt=0, lt=30)
+    # Decline the discount and price above the recommendation instead.
+    uplift: bool = False
     reason: str | None = Field(None, max_length=64)
     note: str = Field(..., min_length=1, max_length=500)
 
@@ -114,6 +134,31 @@ def list_offers(loan_id: str | None = Query(None),
                 principal: Principal = Depends(current_principal)) -> dict[str, Any]:
     return {"offers": offers.offers(loan_id=loan_id,
                                     sent_by=principal.name if _own_only(principal) else None)}
+
+
+@router.get("/offers/acceptance", summary="How likely the customer is to accept at the rates given")
+def offer_acceptance(loan_id: str = Query(..., min_length=1, max_length=64),
+                     rates: str = Query(..., description="Comma-separated rates in per cent, up to 10"),
+                     principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    """The final acceptance rate the RM offers at: one number per rate, scored on the
+    file as last priced, the same way every other screen scores it."""
+    _require(principal, RM, AM, ADMIN)
+    try:
+        values = [round(float(r), 2) for r in rates.split(",") if r.strip()][:10]
+    except ValueError as exc:
+        raise HTTPException(422, "rates must be numbers, separated by commas") from exc
+    if not values or any(not 0 < r < 30 for r in values):
+        raise HTTPException(422, "give one or more rates between 0 and 30")
+    try:
+        payload = offers.priced(loan_id)
+    except offers.OfferError as exc:
+        raise _fail(exc) from exc
+    scored = offers.acceptance_at(payload, values)
+    if scored is None:
+        raise HTTPException(503, "acceptance could not be scored for this file")
+    return {"loan_id": loan_id, "decision_id": payload["decision_id"],
+            "recommended_rate": payload["recommendation"]["recommended_rate"],
+            "acceptance": [{"rate": r, "acceptance": a} for r, a in zip(values, scored)]}
 
 
 @router.post("/offers/{offer_id}/customer-decision", summary="Record what the customer decided")
@@ -155,6 +200,7 @@ def list_requests(status: str | None = Query(None), loan_id: str | None = Query(
         for row in rows:
             if row.get("status") == "pending":
                 _refresh_headroom(row)
+            row.update(_where(row))
     return {"requests": [_named(r) for r in rows],
             "limits": {"relationship_manager_bps": _limit(RM, "offer_below_recommendation_bps"),
                        "area_manager_bps": _limit(AM, "approve_below_recommendation_bps")}}
@@ -167,12 +213,29 @@ def get_request(request_id: str, principal: Principal = Depends(current_principa
         raise HTTPException(404, "no such request")
     if _own_only(principal):
         row.pop("analysis", None)
+    elif row.get("status") == "pending":
+        # The same view as the list: a review reopened after a refresh reads it from here.
+        _refresh_headroom(row)
+        row.update(_where(row))
     return _named(row)
 
 
+def _indicative(payload: dict[str, Any], loan_id: str) -> dict[str, Any] | None:
+    """The range quoted at application: recorded on the decision, or for files priced
+    before it was, the file's latest Stage 1 quote."""
+    band = payload.get("indicative_band") or {}
+    if band.get("min_rate") is None:
+        pre = decision_logger.latest_for_loan(loan_id, stage="pre_assessment")
+        if not pre:
+            return None
+        band = {"min_rate": pre.get("min_rate"), "max_rate": pre.get("max_rate"),
+                "decision_id": pre["decision_id"], "quoted_at": pre.get("created_at")}
+    return {k: band.get(k) for k in ("min_rate", "max_rate", "decision_id", "quoted_at")}
+
+
 def _refresh_headroom(row: dict[str, Any]) -> None:
-    """Requests raised before the quoted range capped the headroom: recompute it, and
-    the break-even, from the decision they were priced on."""
+    """Requests raised before the quoted range capped the headroom: recompute it, the
+    break-even and the full-term cost, from the decision they were priced on."""
     decision = decision_logger.get_decision(row["decision_id"]) if row.get("decision_id") else None
     if not decision:
         return
@@ -180,7 +243,15 @@ def _refresh_headroom(row: dict[str, Any]) -> None:
     room = offers.headroom(payload, row["loan_id"])
     row["analysis"] = {**(row.get("analysis") or {}), "headroom_rate": room["rate"],
                        "headroom_capped_by": room["capped_by"],
-                       "breakeven_rate": (payload.get("risk") or {}).get("breakeven_rate")}
+                       "breakeven_rate": (payload.get("risk") or {}).get("breakeven_rate"),
+                       # The whole value given up, for requests raised before it was recorded.
+                       **offers.full_term(payload, float(row["requested_rate"]), row.get("loan_amount"))}
+    row["analysis"]["indicative_band"] = _indicative(payload, row["loan_id"])
+    row["analysis"].update(offers.floors(payload, float(row["requested_rate"]),
+                                         _limit(AM, "approve_below_recommendation_bps")))
+    exact = offers.acceptance_at(payload, [float(row["recommended_rate"]), float(row["requested_rate"])])
+    if exact:
+        row["analysis"].update(acceptance_at_recommended=exact[0], acceptance_at_requested=exact[1])
 
 
 @router.get("/rate-requests/{request_id}/deep-dive",
@@ -194,7 +265,119 @@ def deep_dive(request_id: str, principal: Principal = Depends(current_principal)
     if not decision:
         raise HTTPException(404, "the decision this request was priced on is not on file")
     payload = decision.get("payload") or {}
-    return competitor_api.clean(area_performance.deep_dive(row, payload, offers.headroom(payload, row["loan_id"])))
+    out = area_performance.deep_dive(row, payload, offers.headroom(payload, row["loan_id"]))
+    # The same curve for this branch: the model moved by how far the branch's recent
+    # files beat or fell short of it, beyond what every branch shows.
+    check = branch_scenarios.calibration((payload.get("application_snapshot") or {}).get("city"))
+    br = check["branch"]
+    shift = (br["shift"] - check["all_branches"]["shift"]) if br else 0.0
+    for point in out["curve"]:
+        if point.get("acceptance") is not None:
+            point["acceptance_branch"] = round(float(branch_scenarios._sigmoid(
+                branch_scenarios._logit(point["acceptance"]) + shift)), 4)
+    out["branch"] = {"city": check["city"], "files": br["files"] if br else None,
+                     "gap_pts": round(br["gap_pts"] - check["all_branches"]["gap_pts"], 1) if br else None,
+                     "shift": round(shift, 4), "note": check["note"]}
+    return competitor_api.clean(out)
+
+
+def _scenario_inputs(request_id: str) -> tuple[dict[str, Any], dict[str, Any], pd.DataFrame, dict[str, Any] | None]:
+    """The request, the decision it was priced on, the branch's files and its matched discount effect."""
+    row = offers.request(request_id)
+    if row is None:
+        raise HTTPException(404, "no such request")
+    decision = decision_logger.get_decision(row["decision_id"]) if row.get("decision_id") else None
+    if not decision:
+        raise HTTPException(404, "the decision this request was priced on is not on file")
+    payload = decision.get("payload") or {}
+    history = portfolio.frame()
+    branch, _ = approval_briefing.scope(history, (payload.get("application_snapshot") or {}).get("city"))
+    propensity = _propensity(len(history))
+    effect = None
+    if propensity is not None:
+        at_branch = propensity[history.index.get_indexer(branch.index)]
+        effect = (approval_briefing.adjusted_effect(branch, at_branch, row.get("reason"), str(row.get("reason")))
+                  if row.get("reason") else None) or approval_briefing.adjusted_effect(branch, at_branch, None, "all discounts")
+    return row, payload, branch, effect
+
+
+@router.get("/rate-requests/{request_id}/scenarios",
+            summary="Each rate: what the model predicts, and how this branch differs")
+def request_scenarios(request_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    _require(principal, AM, ADMIN)
+    row, payload, _, effect = _scenario_inputs(request_id)
+    room = offers.headroom(payload, row["loan_id"])
+    return competitor_api.clean(branch_scenarios.scenarios(row, payload, ceiling=room["rate"], branch_effect=effect))
+
+
+@router.get("/rate-requests/{request_id}/suggestion",
+            summary="A suggested decision and the facts behind it")
+def request_suggestion(request_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    _require(principal, AM, ADMIN)
+    row, payload, branch, effect = _scenario_inputs(request_id)
+    room = offers.headroom(payload, row["loan_id"])
+    scen = branch_scenarios.scenarios(row, payload, ceiling=room["rate"], branch_effect=effect)
+    lim = offers.limits({**payload, "recommendation": {**(payload.get("recommendation") or {}),
+                                                        "recommended_rate": scen["recommended_rate"]}},
+                        0, _limit(AM, "approve_below_recommendation_bps"))
+    depth = (scen["recommended_rate"] - float(row["requested_rate"])) * 100
+    similar = approval_briefing.similar_decisions(branch, row.get("reason"), depth)
+    return competitor_api.clean(decision_support.suggest(
+        row, scen, floor_rate=lim["manager_floor"], similar=similar,
+        evidence_verified=bool(row.get("evidence_verified")),
+        uplift_ceiling=min(room["rate"], lim["ceiling"]) if room["rate"] is not None else None))
+
+
+@router.get("/rate-requests/{request_id}/checklist",
+            summary="The manager's checks: alternatives to a rate cut, precedent, this month, relationship")
+def request_checklist(request_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    _require(principal, AM, ADMIN)
+    row, payload, branch, effect = _scenario_inputs(request_id)
+    snap = payload.get("application_snapshot") or {}
+    stored = intake.get(row["loan_id"])
+    applicant = {**snap, **((stored or {}).get("applicant") or {})}
+    rec = float((payload.get("recommendation") or {}).get("recommended_rate") or row["recommended_rate"])
+    ask = float(row["requested_rate"])
+    loan = float(row.get("loan_amount") or snap.get("sanctioned_loan_amount") or snap.get("requested_loan_amount") or 0)
+    years = float(snap.get("tenure_years") or snap.get("requested_tenure_years") or 20)
+    try:
+        suggested = request_suggestion(request_id, principal)
+    except HTTPException:
+        suggested = None
+    rm = row["requested_by"]
+    month = datetime.now(timezone.utc).strftime("%Y-%m")
+    mine = area_performance.area(_rms(rm), offers.offers(sent_by=rm), offers.requests(requested_by=rm))["rms"]
+    risk = payload.get("risk") or {}
+    options = manager_checks.alternatives(
+        loan=loan, years=years, age=applicant.get("applicant_age"), ask=ask, rec=rec,
+        counter=(suggested or {}).get("rate") if (suggested or {}).get("action") == "counter" else None)
+    return competitor_api.clean({
+        "request_id": request_id, "city": snap.get("city"), "loan_amount": loan, "tenure_years": years,
+        "alternatives": options,
+        "precedent": manager_checks.precedent(snap.get("city"), snap.get("segment"), risk.get("risk_grade"), ask),
+        "this_month": {**manager_checks.month_to_date(offers.requests(), snap.get("city"), rm, month, _where),
+                       "rm_disbursed": mine[0] if mine else None},
+        "relationship": manager_checks.relationship(applicant),
+        "reason_hints": manager_checks.reason_hints(applicant.get("conversation_notes"), row.get("note")),
+        "suggestion": suggested and {k: suggested[k] for k in ("action", "rate", "headline")},
+        "fees": {"our_processing_fee_pct": options["processing_fee_pct"]},
+    })
+
+
+@router.get("/rate-requests/{request_id}/history",
+            summary="The branch's upselling, competitor strength and sales notes, and the file's own notes")
+def request_history(request_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    _require(principal, AM, ADMIN)
+    row = offers.request(request_id)
+    if row is None:
+        raise HTTPException(404, "no such request")
+    decision = decision_logger.get_decision(row["decision_id"]) if row.get("decision_id") else None
+    payload = (decision or {}).get("payload") or {}
+    stored = intake.get(row["loan_id"])
+    # The stored file for its notes and sales context; the priced snapshot fills what it lacks.
+    applicant = {**(payload.get("application_snapshot") or {}), **((stored or {}).get("applicant") or {})}
+    return competitor_api.clean(branch_history.history(
+        row, applicant, risk_grade=(payload.get("risk") or {}).get("risk_grade")))
 
 
 def _rms(only: str | None = None) -> list[dict[str, Any]]:
@@ -256,7 +439,7 @@ def briefing(request_id: str, principal: Principal = Depends(current_principal))
     return competitor_api.clean(out)
 
 
-@router.post("/rate-requests/{request_id}/decide", summary="Approve or decline a lower rate")
+@router.post("/rate-requests/{request_id}/decide", summary="Approve, decline or uplift a requested rate")
 def decide(request_id: str, body: DecisionIn, principal: Principal = Depends(current_principal),
            orchestrator=Depends(get_orchestrator)) -> dict[str, Any]:
     _require(principal, AM, ADMIN)
@@ -265,6 +448,6 @@ def decide(request_id: str, body: DecisionIn, principal: Principal = Depends(cur
                              note=body.note, decided_by=principal.name,
                              rate_authority=principal.rate_authority or "regional_manager",
                              am_bps=_limit(AM, "approve_below_recommendation_bps"),
-                             capture_override=orchestrator.capture_override)
+                             capture_override=orchestrator.capture_override, uplift=body.uplift)
     except offers.OfferError as exc:
         raise _fail(exc) from exc

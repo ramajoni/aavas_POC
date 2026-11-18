@@ -114,7 +114,8 @@ def run_fairness(actor: str = "scheduler") -> dict[str, Any]:
                 failing.append({"model": label,
                                 "reasons": fairness.get("reasons"),
                                 "gaps": fairness.get("gaps", {}).get("calibration_gap")})
-        result["status"] = "alert" if failing else "warn" if unmeasured else "ok"
+        # Nothing registered is not a pass: a monitor that checked no model says so.
+        result["status"] = "alert" if failing else "warn" if unmeasured or not passing else "ok"
         result["triggered"] = bool(failing)
         result["findings"] = {"failing": failing, "unmeasured": unmeasured, "passing": passing}
     return result

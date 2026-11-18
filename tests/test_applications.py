@@ -188,6 +188,18 @@ def test_the_source_cannot_be_claimed_by_the_request(client) -> None:
 VERIFIED = {"verified_monthly_income": 52000, "appraised_property_value": 2900000,
             "sanctioned_loan_amount": 2000000, "tenure_years": 20}
 
+# What the RM enters once the documents are in: every verified figure and the
+# customer's behaviour, so the file can be priced, scored and sent.
+COMPLETE = {
+    "verified_monthly_income": 53000, "appraised_property_value": 2900000, "sanctioned_loan_amount": 2000000,
+    "tenure_years": 20, "bureau_vintage_months": 96, "delinquency_count_24m": 0, "banking_behaviour_score": 75,
+    "deviation_count": 0, "legal_flag": 0, "technical_flag": 0,
+    "sales_context": {"competitor_rate": 11.5, "competitor_name": "HDFC Bank", "competitor_evidence_verified": False,
+                      "competitor_quote": True, "customer_negotiating": True, "prior_negotiation_rounds": 1,
+                      "existing_relationship": False},
+    "conversation_notes": "Has a quote from another lender and asked for a lower rate.",
+}
+
 
 def test_staff_edits_are_saved_and_who_entered_it_never_changes(client) -> None:
     rohit = sign_in(client, "rohit")
@@ -223,6 +235,10 @@ def test_the_borrower_sees_the_offer_sent_to_them(client) -> None:
                          json={k: v for k, v in {**applicant("APP-OFFER-1"), **VERIFIED}.items() if k != "name"})
     assert priced.status_code == 200, priced.text
     rate = priced.json()["recommendation"]["recommended_rate"]
+    # Not until the file is complete.
+    refused = client.post("/pricing/offers", headers=rohit, json={"loan_id": "APP-OFFER-1", "rate": rate})
+    assert refused.status_code == 422 and "Complete the file" in refused.json()["detail"]
+    assert client.put("/applications/APP-OFFER-1", headers=rohit, json={"applicant": COMPLETE}).status_code == 200
     assert client.post("/pricing/offers", headers=rohit, json={"loan_id": "APP-OFFER-1", "rate": rate}).status_code == 200
     offer = client.get("/applications/APP-OFFER-1", headers=rahul).json()["offer"]
     assert offer["rate"] == rate and offer["status"] == "sent"

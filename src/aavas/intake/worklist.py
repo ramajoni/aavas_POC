@@ -26,7 +26,7 @@ from typing import Any, Callable
 
 from ..governance import decision_logger, store
 from ..ingestion.schemas import Stage
-from . import applications, offers
+from . import applications, offers, readiness
 
 # The same split as the browser's payload(): what a quote needs, and what the
 # final assessment adds. Until a figure is verified the customer's declared one
@@ -138,10 +138,16 @@ def annotate(summaries: list[dict[str, Any]], rows: dict[str, dict[str, Any]],
         mine_offers = [o for o in all_offers if o["loan_id"] == loan_id]
         mine_requests = [r for r in all_requests if r["loan_id"] == loan_id]
         where = stage(loan_id, check["verified"], mine_offers, mine_requests)
+        applicant = (rows.get(loan_id) or {}).get("applicant") or summary.get("applicant")
+        steps = readiness.summary(applicant)
         extra = {"stage": where, "verified_at": check["verified_at"],
-                 "missing_documents": check["missing"], "suggested": None}
-        if where == "ready" and loan_id in rows:
+                 "missing_documents": check["missing"], "suggested": None, "readiness": steps}
+        # No risk-adjusted rate before the verified figures are in, and no acceptance
+        # rate before the customer interaction is recorded.
+        if where == "ready" and loan_id in rows and steps["done"].get("risk"):
             extra["suggested"] = suggested_offer(rows[loan_id], check["verified_at"], price)
+            if extra["suggested"] and not steps["done"].get("behaviour"):
+                extra["suggested"]["acceptance"] = None
         approved = next((r for r in mine_requests if r.get("status") == "approved"), None)
         declined = next((r for r in mine_requests if r.get("status") == "declined"), None)
         if where == "ready" and declined:

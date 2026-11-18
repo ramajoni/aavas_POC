@@ -97,14 +97,14 @@ def test_override_is_captured_with_authority(client, stage2_payload):
     card_rate = recommendation["policy"]["card_rate"]
 
     body = client.post("/pricing/override", json={
-        "loan_id": stage2_payload["loan_id"], "human_rate": round(card_rate - 0.30, 2),
+        "loan_id": stage2_payload["loan_id"], "human_rate": round(card_rate - 0.75, 2),
         "reason": "competitor_lower_rate", "approved_by": "s.verma:sales_officer",
         "evidence_verified": True}).json()
 
     assert body["ai_rate"] == recommendation["recommendation"]["recommended_rate"], \
         "the AI recommendation must be preserved alongside the human decision"
     assert body["required_approval"] in {"regional_manager", "credit_head", "pricing_committee"}
-    # 30 bps from card is beyond a sales officer's authority.
+    # 75 bps from card is beyond a sales officer's authority (25 bps).
     assert body["within_authority"] is False
     assert "warning" in body
 

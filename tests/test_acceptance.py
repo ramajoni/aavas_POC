@@ -7,6 +7,8 @@ with no LLM and no conversion model.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pandas as pd
 import pytest
 
@@ -98,6 +100,24 @@ def test_unknown_field_from_the_llm_is_discarded():
 
 def test_unparseable_llm_output_does_not_raise():
     assert ClaudeExtractor({})._parse("I could not find anything.", doc()) == []
+
+
+def test_extraction_caches_the_instructions_and_sends_no_sampling_settings():
+    calls = []
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text='{"signals": []}')],
+                               usage=SimpleNamespace(input_tokens=40, cache_read_input_tokens=560,
+                                                     output_tokens=12))
+
+    extractor = ClaudeExtractor({})
+    extractor._client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    extractor.extract(doc())
+    system = calls[0]["system"]
+    assert system[-1]["cache_control"] == {"type": "ephemeral"}, "the shared instructions are cached"
+    assert "temperature" not in calls[0], "current models reject sampling settings"
+    assert "<sales_note>" not in system[-1]["text"], "the note itself stays after the cached prefix"
 
 
 # ------------------------------------------------------------------ evidence

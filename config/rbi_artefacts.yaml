@@ -1,0 +1,227 @@
+# RBI artefacts for home-loan pricing and the models behind it.
+#
+# The RBI directions, circulars and drafts that bear on how a housing finance
+# company prices a home loan and governs its pricing models, what each asks for,
+# and where this platform holds the evidence. Served by GET /governance/regulatory
+# (src/aavas/governance/regulatory.py) to the risk and model validation role.
+#
+# Each requirement names an `evidence` key. The number behind it is worked out
+# from the store, the model cards and the policy on every read, and some keys
+# decide the coverage themselves (an LTV cap either holds or it does not). A row
+# with no key carries the coverage written here.
+#
+# References and statuses were checked on `checked_on` against rbi.org.in and the
+# secondary summaries listed under `source`. Directions are amended; read the
+# current text before relying on a row.
+version: RBI-ARTEFACTS-2026.10
+checked_on: "2026-10-27"
+entity: "Housing finance company registered under section 29A of the NHB Act, 1987"
+
+coverage:
+  in_place: "In place"
+  partial: "Partly in place"
+  gap: "Gap"
+  outside: "Outside the platform"
+
+status:
+  in_force: "In force"
+  draft: "Draft"
+  report: "Committee report"
+
+artefacts:
+  - id: fpc-rate-model
+    title: "Fair Practices Code: how the rate is set and explained"
+    instrument: "Reserve Bank of India (Housing Finance Companies) Directions, 2025 — Fair Practices Code"
+    reference: "RBI/DoR/2025-26/365"
+    issued: "2025-11-28"
+    status: in_force
+    status_note: "Consolidates the 2021 HFC Master Direction as it stood; amended on 10 Mar, 15 Apr and 6 Aug 2026."
+    source: "https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12939"
+    why: "The rate a customer is quoted has to come from a board-adopted interest-rate model, and the customer has to be told why their rate differs from another's."
+    requirements:
+      - ask: "Adopt an interest-rate model that takes into account the cost of funds, margin and risk premium."
+        platform: "Every recommended rate is built up from the cost of funds, servicing cost, capital charge, expected credit loss and margin, and the build-up is stored with the decision."
+        evidence: value_decomposition
+        coverage: in_place
+        page: record
+      - ask: "Disclose the rate, the approach to gradation of risk and the rationale for charging different rates to different borrowers, in the application form and the sanction letter."
+        platform: "Each decision carries reason codes that say what priced the file up or down, and the policy describes each risk grade in plain words. The application form and sanction letter are produced outside the platform."
+        evidence: reason_codes
+        coverage: partial
+        page: xai
+      - ask: "Publish the interest-rate model and the range of rates on the company website."
+        platform: "The pricing policy behind the published rates is versioned here, with every earlier version readable. Publishing it is a website task."
+        evidence: policy_versions
+        coverage: outside
+        policy: true
+
+  - id: ltv-ceilings
+    title: "Loan-to-value ceilings on housing loans to individuals"
+    instrument: "Reserve Bank of India (Housing Finance Companies) Directions, 2025 — prudential limits"
+    reference: "RBI/DoR/2025-26/365"
+    issued: "2025-11-28"
+    status: in_force
+    status_note: "Tiers carried over from the 2021 HFC Master Direction: 90% up to ₹30 lakh, 80% above ₹30 lakh up to ₹75 lakh, 75% above ₹75 lakh."
+    source: "https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12939"
+    why: "The pricing engine reads the LTV cap from the policy when it sizes and prices a loan, so the cap has to follow the RBI tiers."
+    requirements:
+      - ask: "Loans up to ₹30 lakh: LTV no more than 90%."
+        evidence: ltv_up_to_30l
+        page: config
+      - ask: "Loans above ₹30 lakh and up to ₹75 lakh: LTV no more than 80%."
+        evidence: ltv_30l_to_75l
+        page: config
+      - ask: "Loans above ₹75 lakh: LTV no more than 75%."
+        evidence: ltv_above_75l
+        page: config
+
+  - id: kfs
+    title: "Key Facts Statement"
+    instrument: "Key Facts Statement (KFS) for Loans & Advances"
+    reference: "RBI/2024-25/18"
+    issued: "2024-04-15"
+    status: in_force
+    status_note: "In force from 1 Oct 2024 for retail and MSME term loans; for NBFCs now carried in the Responsible Business Conduct Directions, 2025."
+    source: "https://website.rbi.org.in/web/rbi/-/notifications/key-facts-statement-kfs-for-loans-advances"
+    why: "The customer must see the all-in cost of the loan, as an annual percentage rate, before signing."
+    requirements:
+      - ask: "Give the borrower a KFS with the annual percentage rate (APR), every fee and the repayment schedule before the loan agreement is signed."
+        platform: "The offer shows the rate, EMI, processing fee and interest over the full term, and the like-for-like calculator folds fees into one effective rate. No KFS document, APR or repayment schedule is produced."
+        evidence: all_in_cost
+        coverage: partial
+      - ask: "Charge nothing that is not in the KFS without the borrower's explicit consent."
+        platform: "The processing fee is the only charge the pricing uses. Charging is done in loan servicing."
+        coverage: outside
+
+  - id: penal-charges
+    title: "Penal charges, not penal interest"
+    instrument: "Fair Lending Practice — Penal Charges in Loan Accounts"
+    reference: "RBI/2023-24/53"
+    issued: "2023-08-18"
+    status: in_force
+    status_note: "Applied to fresh loans from 1 Apr 2024; covers all NBFCs, HFCs included."
+    source: "https://taxguru.in/rbi/fair-lending-practice-penal-charges-loan-accounts.html"
+    why: "A penalty for a breach may not be built into the rate of interest."
+    requirements:
+      - ask: "Levy any penalty as a penal charge, never as penal interest added to the rate, and never capitalise it."
+        platform: "The rate build-up has no penal element: it is the cost of funds, servicing, capital, expected credit loss and margin."
+        evidence: rate_components
+        coverage: in_place
+        page: record
+      - ask: "Keep a board-approved penal charges policy and show the charges in the KFS and on the website."
+        coverage: outside
+
+  - id: prepayment
+    title: "No pre-payment charges on floating-rate home loans"
+    instrument: "Reserve Bank of India (Pre-payment Charges on Loans) Directions, 2025"
+    reference: "RBI/2025-26/64"
+    issued: "2025-07-02"
+    status: in_force
+    status_note: "For loans sanctioned or renewed on or after 1 Jan 2026."
+    source: "https://www.scconline.com/blog/post/2025/07/10/rbi-prepayment-charges-on-loans-directions-2025/"
+    why: "A loan's value cannot count on income from a foreclosure fee, so early exit has to be priced as risk, not recovered as a charge."
+    requirements:
+      - ask: "Charge no pre-payment fee on floating-rate loans to individuals for purposes other than business."
+        platform: "The value of a loan assumes no pre-payment charge. Early exit enters the price as a shorter expected life, from the prepayment model."
+        evidence: prepayment
+        coverage: in_place
+        page: models
+      - ask: "State the pre-payment terms in the sanction letter, loan agreement and KFS."
+        coverage: outside
+
+  - id: interest-rate-directions
+    title: "Interest rates on loans and advances"
+    instrument: "Reserve Bank of India (Interest Rates on Loans and Advances) Directions, 2026"
+    reference: "Draft for comment"
+    issued: "2026-08-12"
+    status: draft
+    status_note: "Comments closed 11 Sep 2026. Proposed to apply from 1 Apr 2027, with existing loans moving across by 1 Apr 2029. No final text yet."
+    source: "https://vinodkothari.com/2026/08/rbi-proposes-regulation-of-nbfc-interest-rates-and-pricing-methodology/"
+    why: "Would put banks and NBFCs, HFCs included, on one rulebook for how a loan rate is built and when it may change."
+    requirements:
+      - ask: "A board-approved pricing policy naming the benchmark, the components of the spread, the loan categories and who decides pricing, reviewed at least once a year."
+        platform: "The pricing policy is versioned, names the reference rates, the spread and loadings and the approval authority at each level, and every decision records the version it was priced under. Board approval is outside the platform."
+        evidence: policy_versions
+        coverage: partial
+        policy: true
+      - ask: "Rate = benchmark + risk-based spread, the spread made of credit risk premium, operating cost, term premium and business strategy premium."
+        platform: "The build-up shows the cost of funds, operating cost, capital charge, expected credit loss and margin. It is not yet labelled in the draft's four components and carries no term premium."
+        evidence: value_decomposition
+        coverage: partial
+        page: record
+      - ask: "For middle- and upper-layer lenders, change an existing borrower's spread only when their credit profile changes."
+        platform: "The platform prices new files; repricing the book is done in loan servicing."
+        coverage: outside
+
+  - id: model-risk
+    title: "Model risk management"
+    instrument: "Draft Guidance on Regulatory Principles for Model Risk Management, 2026"
+    reference: "Draft for comment"
+    issued: "2026-06-24"
+    status: draft
+    status_note: "Comments closed 24 Jul 2026. Covers every model, AI and ML included, and takes over from the Aug 2024 draft on credit models. No final text yet."
+    source: "https://rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63006"
+    why: "Every model that prices a loan would need an owner, an inventory entry, independent validation and monitoring, under a board-approved framework."
+    requirements:
+      - ask: "A board-approved model risk management framework covering every model, built in-house or bought."
+        platform: "Changes to models, policy and configuration go through change requests with named sign-off roles and gates. The board framework itself sits outside the platform."
+        evidence: change_control
+        coverage: partial
+        page: governance
+      - ask: "A model inventory with each model tiered by risk."
+        platform: "Every model in use has a model card. A risk tier is not recorded yet."
+        evidence: model_inventory
+        coverage: partial
+        page: models
+      - ask: "Independent validation before a model is used, and again periodically."
+        evidence: model_validation
+        page: models
+      - ask: "Ongoing monitoring of performance and drift."
+        evidence: monitors
+        page: runtime
+      - ask: "AI and ML models: explainable outcomes."
+        platform: "Each decision names the factors that moved the rate, in basis points."
+        evidence: reason_codes
+        coverage: in_place
+        page: xai
+      - ask: "AI and ML models: testing for bias."
+        evidence: model_fairness
+        page: models
+      - ask: "Human oversight of decisions the models drive."
+        platform: "A rate below the recommendation needs a named approver within their authority and a reason, and is recorded."
+        evidence: overrides
+        coverage: in_place
+        page: audit
+      - ask: "Document each model, its assumptions and known limitations."
+        evidence: model_limitations
+        page: models
+
+  - id: free-ai
+    title: "FREE-AI: responsible and ethical AI"
+    instrument: "Framework for Responsible and Ethical Enablement of Artificial Intelligence (FREE-AI)"
+    reference: "Committee report"
+    issued: "2025-08-13"
+    status: report
+    status_note: "Seven sutras and 26 recommendations. A committee report, not a direction."
+    source: "https://www.rbi.org.in/scripts/BS_PressReleaseDisplay.aspx?prid=61018"
+    why: "Sets out how RBI expects regulated entities to use AI; the directions above are where it is likely to become binding."
+    requirements:
+      - ask: "Fairness: outcomes do not discriminate."
+        evidence: model_fairness
+        page: models
+      - ask: "Understandable by design: decisions can be explained."
+        platform: "Reason codes on every decision, and model-level explanations."
+        evidence: reason_codes
+        coverage: in_place
+        page: xai
+      - ask: "Accountability: a record of who decided what."
+        evidence: audit
+        coverage: in_place
+        page: audit
+      - ask: "People first: a human can review and override."
+        evidence: overrides
+        coverage: in_place
+        page: audit
+      - ask: "Safety, resilience and sustainability: models are watched once live."
+        evidence: monitors
+        page: runtime

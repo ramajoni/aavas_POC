@@ -73,6 +73,8 @@ def reasons() -> dict:
         "allowed_reasons": ovr["allowed_reasons"],
         "evidence_required_reasons": ovr["evidence_required_reasons"],
         "max_unevidenced_discount_bps": ovr["max_unevidenced_discount_bps"],
+        # Reasons the area manager gives for pricing above the recommendation.
+        "uplift_reasons": list((ovr.get("uplift") or {}).get("reasons") or []),
         "approval_authority": policy()["approval_authority"],
     }
 

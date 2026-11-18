@@ -63,3 +63,17 @@
 .final-offer-decline{display:flex;flex-direction:column;gap:6px;margin-top:10px}
 .final-offer-decline label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#334155}
 .final-offer-decline select{max-width:360px}
+/* Approval requests: five filter tiles and a filter row. */
+.app-kpis.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+.app-kpi em{display:block;font-style:normal;font-size:12px;color:var(--muted);margin-top:2px}
+.app-kpi.tab.alert b{color:#B42318}
+.mgr-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:-4px 0 14px}
+.mgr-filters label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}
+.mgr-filters select,.mgr-filters input{height:36px;min-width:160px}
+.mgr-filters label.grow{flex:1;min-width:200px}
+.mgr-filters label.grow input{width:100%}
+.mgr-filters .link-button{height:36px}
+.app-table td small.warn{color:#B42318;font-weight:500}
+@media(max-width:1200px){.app-kpis.five{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.app-kpis.five{grid-template-columns:1fr 1fr}}
+.mgr-hold small.up{color:#146746}

@@ -25,6 +25,7 @@ from urllib.parse import urlsplit
 
 from ..config import env, load
 from ..intelligence import claim_score
+from ..llm_usage import tally
 from ..logging_utils import get_logger
 from ..paths import ROOT
 
@@ -155,11 +156,18 @@ class MarketResearchAgent:
 
         seen: set[str] = set()
         searches, nudged = 0, False
+        tokens = tally(None)
         for _ in range(MAX_TURNS):
             try:
                 response = client.beta.messages.create(
-                    model=self.model, max_tokens=16000, system=SYSTEM, messages=messages,
-                    tools=tools, output_config={"effort": "high"},
+                    model=self.model, max_tokens=16000,
+                    # Prompt caching. The tools and instructions are the same for every
+                    # lender, so they are cached on their own; the top-level marker then
+                    # caches the conversation so far, so each later turn reads the
+                    # earlier searches from the cache instead of paying for them again.
+                    system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
+                    cache_control={"type": "ephemeral"},
+                    messages=messages, tools=tools, output_config={"effort": "high"},
                     # A safety classifier can decline a request; "default" re-runs it
                     # on Anthropic's recommended fallback model instead of failing.
                     betas=["server-side-fallback-2026-07-01"], fallbacks="default")
@@ -169,13 +177,15 @@ class MarketResearchAgent:
             seen |= _source_urls(response.content)
             usage = getattr(getattr(response, "usage", None), "server_tool_use", None)
             searches += int(getattr(usage, "web_search_requests", 0) or 0)
+            tally(response, tokens)
 
             findings = next((b.input for b in response.content
                              if getattr(b, "type", None) == "tool_use"
                              and getattr(b, "name", None) == "record_findings"), None)
             if findings is not None:
-                return summarise(lender, findings, seen, searches,
-                                 getattr(response, "model", None) or self.model)
+                log.info("market research for %s: %d searches, tokens %s", lender, searches, tokens)
+                return {**summarise(lender, findings, seen, searches,
+                                    getattr(response, "model", None) or self.model), "tokens": tokens}
             if response.stop_reason == "refusal":
                 raise ResearchFailed("The fact check was declined.")
             if response.stop_reason == "max_tokens":

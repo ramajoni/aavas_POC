@@ -52,31 +52,43 @@ def generate(
     low, high = float(envelope["min_rate"]), float(envelope["max_rate"])
     card = float(envelope["card_rate"])
 
-    # The Stage-2 model describes what history priced. Restricting the search to
-    # that interval means the engine can only ever reproduce historical behaviour,
-    # so by default the whole permissible band is searched and the anchor is kept
-    # as a comparison point instead of a constraint.
+    # The Stage-2 model describes what history priced on the verified file: the
+    # market-practice, risk-adjusted rate. Searching only around it (``stage2_interval``)
+    # keeps the yield optimizer from walking every file to the top of whatever range
+    # it is allowed; searching the whole band (``permissible_band``) lets it.
+    window = None
     if stage2_band is not None and pol["optimizer"].get("search_space") == "stage2_interval":
         sigmas = float(pol["optimizer"].get("stage2_interval_sigmas", 1.0))
         centre = (stage2_band.min_rate + stage2_band.max_rate) / 2
         half = (stage2_band.max_rate - stage2_band.min_rate) / 2 * sigmas
-        narrowed_low = max(low, centre - half)
-        narrowed_high = min(high, centre + half)
+        narrowed_low, narrowed_high = max(low, centre - half), min(high, centre + half)
         if narrowed_low <= narrowed_high and (narrowed_high - narrowed_low) >= step:
-            low, high = narrowed_low, narrowed_high
-            notes.append(f"search restricted to the Stage-2 interval (+/-{sigmas:g} sigma)")
+            window = (narrowed_low, narrowed_high)
+            notes.append(f"search kept within the Stage-2 interval (+/-{sigmas:g} sigma) around the "
+                         f"market-practice rate {centre:.2f}%")
         else:
             notes.append("Stage-2 interval fell outside policy; searching the full permissible band")
     else:
         notes.append("searching the full policy-permissible band")
 
     # The range the customer was quoted at Stage 1 is a promise: the final price
-    # moves inside it as the file is verified, never out of it.
+    # moves inside it as the file is verified, never out of it unless policy forces it.
     held = False
     if quoted_band is not None and pol["optimizer"].get("honour_indicative_band", True):
         held_low, held_high = max(low, quoted_band.min_rate), min(high, quoted_band.max_rate)
         if held_low <= held_high:
-            low, high, held = held_low, held_high, True
+            held = True
+            if window and window[0] <= held_high + 1e-9 and window[1] >= held_low - 1e-9:
+                low, high = max(held_low, window[0]), min(held_high, window[1])
+            elif window:
+                # Market practice on the verified file sits outside the promise: the
+                # promise wins, at the edge of it nearest to practice.
+                edge = held_high if window[0] > held_high else held_low
+                low = high = edge
+                notes.append(f"the market-practice rate lies {'above' if edge == held_high else 'below'} the "
+                             f"quoted range; priced at its {'top' if edge == held_high else 'bottom'}, {edge:.2f}%")
+            else:
+                low, high = held_low, held_high
             notes.append(f"held to the indicative range quoted at Stage 1 "
                          f"({quoted_band.min_rate:.2f}-{quoted_band.max_rate:.2f}%)")
         else:
@@ -91,6 +103,8 @@ def generate(
                          "and the customer must be told why")
             low = high = edge
             held = True
+    elif window:
+        low, high = window
 
     # Never search where the conversion model has no data to stand on - except
     # that a held range is never trimmed away entirely: an extrapolated price

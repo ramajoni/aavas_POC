@@ -107,3 +107,46 @@ def test_a_file_never_quoted_is_priced_as_before(client) -> None:
     body = client.post("/pricing/final-assessment", json={"loan_id": "IND-BAND-NONE", **FILE, **VERIFIED},
                        headers=who(client, "rohit")).json()
     assert body["indicative_band"] is None, "nothing was quoted, so nothing holds the search"
+
+
+# ------------------------------------------- near market practice
+
+def test_the_search_stays_near_market_practice_inside_the_quote(training_data) -> None:
+    """The optimizer may move about +/-3 sigma from the Stage-2 market-practice rate,
+    never to the top of the quote just because demand looks flat."""
+    application = training_data.head(1)
+    low = float(constraints.permissible_band(application).iloc[0]["min_rate"])
+    quoted = RateBand(round(low + 0.2, 2), round(low + 1.4, 2))
+    practice = RateBand(round(low + 0.5, 2), round(low + 0.7, 2))       # centre low+0.6, sigma 0.1
+    priced = scenario_generator.generate(application, stage2_band=practice, quoted_band=quoted)
+    assert priced.rates.min() >= low + 0.3 - 1e-9 and priced.rates.max() <= low + 0.9 + 1e-9
+    assert priced.rates.max() < quoted.max_rate - 0.4, "not walked to the top of the quote"
+
+
+def test_practice_above_the_quote_is_priced_at_the_top_of_the_quote(training_data) -> None:
+    application = training_data.head(1)
+    low = float(constraints.permissible_band(application).iloc[0]["min_rate"])
+    quoted = RateBand(round(low + 0.2, 2), round(low + 0.8, 2))
+    practice = RateBand(round(low + 1.2, 2), round(low + 1.4, 2))     # window low+1.0 to low+1.6
+    priced = scenario_generator.generate(application, stage2_band=practice, quoted_band=quoted)
+    assert priced.rates.min() == pytest.approx(quoted.max_rate) and priced.rates.max() == pytest.approx(quoted.max_rate)
+    assert any("market-practice rate lies above the quoted range" in n for n in priced.notes)
+
+
+def test_no_upsell_room_once_policy_has_priced_above_the_quote() -> None:
+    from aavas.intake import offers
+    payload = {"recommendation": {"recommended_rate": 11.85}, "envelope": {"max_rate": 16.5},
+               "indicative_band": {"min_rate": 9.8, "max_rate": 11.05},
+               "price_sensitivity": {"rate_for_70pct_conversion": 14.69}}
+    room = offers.headroom(payload)
+    assert room["rate"] == 11.85 and room["capped_by"] == "above_quote"
+
+
+def test_no_upsell_room_when_no_rate_reaches_seven_in_ten() -> None:
+    # The quoted top must not stand in for a rate customers accept: at 9.80% only 1 in 100 would.
+    from aavas.intake import offers
+    payload = {"recommendation": {"recommended_rate": 9.12}, "envelope": {"max_rate": 16.5},
+               "indicative_band": {"min_rate": 8.6, "max_rate": 9.8},
+               "price_sensitivity": {"available": True, "rate_for_70pct_conversion": None}}
+    room = offers.headroom(payload)
+    assert room["rate"] is None and room["capped_by"] is None and room["quoted_max"] == 9.8

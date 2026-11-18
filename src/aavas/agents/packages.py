@@ -24,8 +24,8 @@ from __future__ import annotations
 from typing import Any
 
 # What every package is allowed to depend on. Anything here is infrastructure:
-# config, logging, schemas and the pure primitives in the kernel.
-SHARED_KERNEL = {"kernel", "config", "logging_utils", "paths", "ingestion"}
+# config, logging, LLM token counting, schemas and the pure primitives in the kernel.
+SHARED_KERNEL = {"kernel", "config", "logging_utils", "llm_usage", "paths", "ingestion"}
 
 PACKAGES: list[dict[str, Any]] = [
     {

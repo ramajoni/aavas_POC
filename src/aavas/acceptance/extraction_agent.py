@@ -24,6 +24,7 @@ import re
 from typing import Any
 
 from ..config import env, env_bool, load
+from ..llm_usage import tally
 from ..logging_utils import get_logger
 from .signals import SIGNAL_SPEC, AcceptanceSignals, Signal, coerce
 from .sources import Collected, SourceDocument
@@ -182,13 +183,16 @@ class ClaudeExtractor:
             return []
         text = doc.text[: int(self.settings.get("max_input_chars", 12000))]
         try:
+            # No temperature: current Claude models reject sampling settings with a 400.
+            # The closed schema and the verbatim-quote check below keep the output honest.
             response = self._client.messages.create(
                 model=self.model,
                 max_tokens=int(self.settings.get("max_tokens", 1500)),
-                temperature=float(self.settings.get("temperature", 0.0)),
-                system=SYSTEM_PROMPT,
+                # Prompt caching: the instructions are shared by every note, the note is not.
+                system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content": f"<sales_note>\n{text}\n</sales_note>"}],
             )
+            log.info("acceptance: extraction tokens %s", tally(response))
             payload = "".join(block.text for block in response.content
                               if getattr(block, "type", None) == "text")
         except Exception as exc:  # noqa: BLE001 - never take a pricing screen down

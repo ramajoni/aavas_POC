@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field
 
 from ..governance import audit
 from ..intake import applications as intake
-from ..intake import offers, worklist
+from ..intake import offers, readiness, status, worklist
 from . import access
 from .contracts import Stage2Request
 from .deps import get_orchestrator
@@ -155,6 +155,37 @@ def _pricer(orchestrator):
     return lambda row: orchestrator.process(Stage2Request(**row).to_row())
 
 
+def _person(username: str | None) -> str | None:
+    found = access.user(username or "")
+    return found.name if found else username
+
+
+@router.get("/status-board", summary="Every application and where it stands")
+def status_board(principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    """One row per file for the RM and the area manager: the status, the prices so
+    far (indicative, risk-adjusted, acceptance) and the full timeline."""
+    if _is_borrower(principal):
+        raise HTTPException(403, "staff only")
+    rows = []
+    for row in intake.stored():
+        a = row["applicant"] or {}
+        t = status.timeline(row["loan_id"], name=_person)
+        rows.append({"loan_id": row["loan_id"], "applicant_name": row["applicant_name"], "city": a.get("city"),
+                     "loan_amount": a.get("sanctioned_loan_amount") or a.get("requested_loan_amount"),
+                     "entered_by": _person(a.get("created_by")) if a.get("source") == "assisted" else None,
+                     "source": a.get("source", "online"), "updated_at": row["updated_at"],
+                     "created_at": row["created_at"], **{k: t[k] for k in ("status", "next", "aging", "upsell", "steps", "indicative",
+                                                                          "risk_adjusted", "acceptance")}})
+    return {"applications": rows}
+
+
+@router.get("/{loan_id}/status", summary="Where one application stands, step by step")
+def file_status(loan_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    if _is_borrower(principal):
+        raise HTTPException(403, "staff only")
+    return status.timeline(loan_id, name=_person)
+
+
 @router.get("/in-progress", summary="Files short of verification, and leads that stalled")
 def in_progress(principal: Principal = Depends(current_principal)) -> dict[str, Any]:
     if _is_borrower(principal):
@@ -202,6 +233,17 @@ def document_types() -> dict[str, Any]:
     return {"document_types": intake.document_types(),
             "allowed_formats": settings.get("allowed_formats"),
             "max_file_mb": settings.get("max_file_mb")}
+
+
+class ReadinessIn(BaseModel):
+    applicant: dict[str, Any]
+
+
+@router.post("/readiness", summary="What a file still needs, step by step, before it is priced and sent")
+def file_readiness(body: ReadinessIn, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    if _is_borrower(principal):
+        raise HTTPException(403, "the file's steps are the bank's")
+    return readiness.check(body.applicant)
 
 
 @router.get("/{loan_id}", summary="One application, with its documents")

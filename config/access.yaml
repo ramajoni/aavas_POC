@@ -39,24 +39,25 @@ roles:
   relationship_manager:
     label: "Relationship manager"
     landing: applications
-    pages: [applications, new-application, application, policy]
+    pages: [applications, status, new-application, application, policy]
     rate_authority: sales_officer
-    # Matches pricing_policy.yaml override.max_unevidenced_discount_bps.
-    offer_below_recommendation_bps: 15
+    # Matches the sales_officer level in pricing_policy.yaml approval_authority.
+    offer_below_recommendation_bps: 25
     # Disbursement target a month, per RM (a user may set monthly_target_inr).
     monthly_disbursement_target_inr: 20000000
   area_manager:
     label: "Area manager"
     landing: approvals
-    pages: [approvals, disbursements, application, dashboard, learning, audit, policy, competitors]
+    pages: [approvals, status, disbursements, application, dashboard, learning, audit, policy, competitors]
     rate_authority: regional_manager
-    approve_below_recommendation_bps: 40
+    # Matches the regional_manager level in pricing_policy.yaml approval_authority.
+    approve_below_recommendation_bps: 100
   model_validation:
     label: "Risk and model validation"
     landing: models
     console: true
     pages: [models, xai, credit-score, xai-dash, mlflow, features, runtime, record,
-            governance, control-tower, agents, learning, learning-proof, audit, policy, config]
+            governance, control-tower, agents, learning, learning-proof, audit, regulatory, policy, config]
   administrator:
     label: "Platform administrator"
     landing: dashboard
@@ -136,6 +137,8 @@ routes:
   - {path: /pricing/decision, methods: [GET], roles: [area_manager, model_validation]}
   - {path: /pricing/audit, methods: [GET], roles: [area_manager, model_validation]}
   - {path: /pricing/policy/explain, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
+  # Any policy version a decision was priced under, readable by everyone who sees that version.
+  - {path: /pricing/policy/versions, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
   # The analysis behind a price - model drivers, the written explanation, uplift,
   # customer behaviour - is the area manager's and risk's, not the relationship manager's.
   - {path: /pricing/explain, roles: [area_manager, model_validation]}

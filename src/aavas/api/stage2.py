@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..governance import audit, decision_logger
+from ..governance import policy_versions as policy_store
 from ..logging_utils import get_logger
 from . import views
 from .contracts import Stage2Request
@@ -43,6 +44,19 @@ def get_decision(decision_id: str) -> dict:
 @router.get("/policy/explain", summary="Cite the policy clause behind a limit")
 def explain_policy(question: str = Query(..., min_length=3, examples=["branch manager discount limit"]), retriever=Depends(get_policy_retriever)) -> dict:
     return {"question": question, "clauses": retriever.cite(question, k=3)}
+
+
+@router.get("/policy/versions", summary="Every pricing-policy version on record")
+def policy_versions() -> dict:
+    return {"versions": policy_store.versions()}
+
+
+@router.get("/policy/versions/{version}", summary="One pricing-policy version, and what changed from the one before")
+def policy_version(version: str) -> dict:
+    found = policy_store.get(version)
+    if found is None:
+        raise HTTPException(status_code=404, detail=f"no policy version {version}")
+    return found
 
 
 @router.get("/audit/{loan_id}", summary="Full decision history for one file", tags=["governance"])

@@ -29,19 +29,65 @@ max_documents_per_application: 20
 # sits in the RM's "In progress" list with what is still due.
 required_for_verification: [income_proof, bank_statement, identity_address]
 
-# The RM's "In progress" list: files that have not reached verification. Real
-# files awaiting documents are listed from the store; these sample leads stand in
-# for the rest of a real RM's pipeline (quotes never applied for, customers who
-# stopped part-way) and are marked as samples on screen.
-sample_in_progress:
-  - {ref: LEAD-S01, name: "Priya Deshmukh", mobile: "98XXXXX214", city: Pune, segment: salaried_formal,
-     loan_amount: 3200000, stage: quote_not_applied, quoted: {min_rate: 9.65, max_rate: 10.40}, days_since_activity: 6}
-  - {ref: LEAD-S02, name: "Imran Shaikh", mobile: "97XXXXX508", city: Pune, segment: self_employed_non_professional,
-     loan_amount: 1800000, stage: documents_pending, missing: [bank_statement, identity_address], days_since_activity: 3}
-  - {ref: LEAD-S03, name: "Kavita Joshi", mobile: "99XXXXX731", city: Pune, segment: self_employed_professional,
-     loan_amount: 4500000, stage: dropped_off, stopped_at: "Loan and property details", days_since_activity: 9}
-  - {ref: LEAD-S04, name: "Sandeep More", mobile: "90XXXXX126", city: Pune, segment: salaried_informal,
-     loan_amount: 2200000, stage: documents_pending, missing: [income_proof], days_since_activity: 1}
+# What the relationship manager fills in, in order, before a file is priced and
+# sent, named in the words an RM uses. Each step unlocks the next: the indicative
+# range needs the customer's own figures; computing the loan risk (and so the
+# risk-adjusted rate) needs every verified figure and both checks; the acceptance
+# rate needs the customer interaction and negotiation. `action` is the button. Nothing goes to the
+# customer or the area manager until all three are complete. Read by
+# src/aavas/intake/readiness.py, which adds the sense checks (loan to value,
+# limits, flagged checks) from the pricing policy. A competitor's quote is
+# optional: recorded when the customer has one, never required.
+readiness:
+  - key: indicative
+    label: "Indicative pricing"
+    unlocks: "the indicative range"
+    action: "Fill in the customer's details"
+    fields:
+      name: "Name"
+      mobile: "Mobile"
+      segment: "Employment"
+      city: "City"
+      channel: "Source"
+      property_type: "Property type"
+      applicant_age: "Age"
+      declared_monthly_income: "Declared monthly income"
+      declared_obligations: "Monthly obligations (0 if none)"
+      requested_loan_amount: "Requested loan"
+      requested_tenure_years: "Requested tenure"
+      estimated_property_value: "Estimated property value"
+      bureau_score: "Credit score (or new to credit)"
+  - key: risk
+    label: "Compute loan risk"
+    unlocks: "the risk-adjusted rate"
+    action: "Enter the verified figures"
+    fields:
+      verified_monthly_income: "Verified monthly income"
+      appraised_property_value: "Appraised property value"
+      sanctioned_loan_amount: "Assessed loan amount"
+      tenure_years: "Assessed tenure"
+      bureau_vintage_months: "Credit history (months)"
+      banking_behaviour_score: "Banking behaviour"
+      delinquency_count_24m: "Delinquencies, last 24 months"
+      deviation_count: "Credit deviations"
+      legal_flag: "Legal check"
+      technical_flag: "Technical check"
+  - key: behaviour
+    label: "Customer interaction and negotiation"
+    unlocks: "the acceptance rate and sending"
+    action: "Record the customer interaction"
+    fields:
+      customer_negotiating: "Is the customer negotiating?"
+      prior_negotiation_rounds: "Negotiation rounds so far"
+      existing_relationship: "Existing Aavas customer?"
+      conversation_notes: "Notes from the conversation"
+
+# The RM's "In progress" list: files that have not reached verification, listed
+# from the store. Sample leads (quotes never applied for, customers who stopped
+# part-way) may be listed here to stand in for the rest of a real pipeline; they
+# are marked as samples on screen. None by the user's choice (2026-10-28): the RM
+# sees only real files.
+sample_in_progress: []
 
 # What a nudge says, by where the customer stopped. Recorded against the file;
 # delivery needs an SMS or WhatsApp gateway, which this service does not have.

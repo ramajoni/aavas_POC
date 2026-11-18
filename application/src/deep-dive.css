@@ -39,3 +39,5 @@
 .dd-reasons b.down{color:#334155}.dd-reasons b.up{color:#334155}
 @media(max-width:800px){.dd-points{grid-template-columns:repeat(2,minmax(0,1fr))}.dd-grid2{grid-template-columns:1fr}}
 .floor-build{padding:4px 2px}
+.dd-panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:22px 26px}
+.dd-panel .dd-chart{max-width:980px}

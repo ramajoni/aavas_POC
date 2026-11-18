@@ -19,7 +19,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException
 
 from ..governance import (agent_registry, approvals, knowledge_registry, model_registry,
-                          monitors, prompt_registry)
+                          monitors, prompt_registry, regulatory)
 from ..logging_utils import get_logger
 from . import security
 from .security import Principal, current_principal
@@ -35,6 +35,11 @@ def _envelope(payload: dict[str, Any], principal: Principal) -> dict[str, Any]:
 @router.get("", summary="Who may approve what, and what is outstanding")
 def index(principal: Principal = Depends(current_principal)) -> dict[str, Any]:
     return _envelope({"summary": approvals.summary()}, principal)
+
+
+@router.get("/regulatory", summary="RBI home-loan artefacts, each with the platform's live evidence")
+def regulatory_register() -> dict[str, Any]:
+    return regulatory.register()
 
 
 @router.get("/approvals", summary="Change requests, newest first")

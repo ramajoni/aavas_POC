@@ -33,3 +33,16 @@
 .bf-caveats ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:#475569;display:flex;flex-direction:column;gap:4px}
 @media(max-width:1100px){.bf-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.bf-tiles.six{grid-template-columns:repeat(2,minmax(0,1fr))}.bf-grid{grid-template-columns:1fr}}
 @media(max-width:700px){.bf{padding:16px}.bf-tiles,.bf-tiles.six,.bf-mini{grid-template-columns:1fr}}
+/* The points to read first: a verdict, then one plain sentence. */
+.bf-head{display:flex;flex-direction:column;gap:2px}
+.bf-points{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.bf-points li{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:12px;background:#F8FAFC;border-left:4px solid #94A3B8;font-size:14px;line-height:1.5;color:#1E293B}
+.bf-points li b{font-size:14.5px;color:var(--ink)}
+.bf-points li.good{border-left-color:#16A34A;background:#F0FDF4}
+.bf-points li.warn{border-left-color:#D97706;background:#FFFBEB}
+.bf-points li.bad{border-left-color:#DC2626;background:#FEF2F2}
+.bf-more{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:0;font:inherit;font-size:13.5px;font-weight:600;color:#1A3E9E;cursor:pointer}
+.bf-more svg{transition:transform .15s}.bf-more svg.up{transform:rotate(180deg)}
+@media(max-width:800px){.bf-points{grid-template-columns:1fr}}
+.bf-section{display:flex;flex-direction:column;gap:12px;padding-top:16px;border-top:1px solid var(--border)}
+.bf-section-title{margin:0;display:flex;align-items:center;gap:8px;font-size:16px;color:var(--ink)}

@@ -108,7 +108,7 @@ def test_a_little_below_needs_a_reason_and_is_an_override(client) -> None:
 def test_below_the_rm_limit_goes_to_the_area_manager(client) -> None:
     rohit = who(client, "rohit")
     rec = price(client, rohit, "OFR-MGR-1")["recommendation"]["recommended_rate"]
-    asked = round(rec - 0.25, 2)
+    asked = round(rec - 0.40, 2)            # beyond the RM's 0.25%, inside the manager's 1.00%
     refused = client.post("/pricing/offers", headers=rohit,
                           json={"loan_id": "OFR-MGR-1", "rate": asked, "reason": "strong_negotiation"})
     assert refused.status_code == 409 and "area manager" in refused.json()["detail"]
@@ -126,7 +126,7 @@ def test_below_the_rm_limit_goes_to_the_area_manager(client) -> None:
     meera = who(client, "meera")
     queue = client.get("/pricing/rate-requests?status=pending", headers=meera).json()["requests"]
     item = next(r for r in queue if r["request_id"] == request_id)
-    assert item["analysis"]["cost_per_year"] == round(0.25 / 100 * FILE["sanctioned_loan_amount"])
+    assert item["analysis"]["cost_per_year"] == round(0.40 / 100 * FILE["sanctioned_loan_amount"])
     assert item["analysis"]["acceptance_at_requested"] >= item["analysis"]["acceptance_at_recommended"]
 
     assert client.post(f"/pricing/rate-requests/{request_id}/decide", headers=rohit,
@@ -141,12 +141,17 @@ def test_below_the_rm_limit_goes_to_the_area_manager(client) -> None:
 
 def test_the_area_manager_cannot_go_below_her_own_limit(client) -> None:
     rohit, meera = who(client, "rohit"), who(client, "meera")
-    rec = price(client, rohit, "OFR-MGR-2")["recommendation"]["recommended_rate"]
+    body = price(client, rohit, "OFR-MGR-2")
+    rec, floor = body["recommendation"]["recommended_rate"], body["envelope"]["min_rate"]
     request_id = client.post("/pricing/rate-requests", headers=rohit, json={
         "loan_id": "OFR-MGR-2", "rate": round(rec - 0.30, 2), "reason": "strong_negotiation"}).json()["request_id"]
+    deeper = round(rec - 1.05, 2)           # beyond the manager's 1.00%
     too_low = client.post(f"/pricing/rate-requests/{request_id}/decide", headers=meera, json={
-        "approve": True, "rate": round(rec - 0.50, 2), "reason": "strong_negotiation", "note": "x"})
-    assert too_low.status_code == 403 and "credit head" in too_low.json()["detail"]
+        "approve": True, "rate": deeper, "reason": "strong_negotiation", "note": "x"})
+    if deeper >= floor:
+        assert too_low.status_code == 403 and "credit head" in too_low.json()["detail"]
+    else:
+        assert too_low.status_code == 422 and "lowest rate policy allows" in too_low.json()["detail"]
     declined = client.post(f"/pricing/rate-requests/{request_id}/decide", headers=meera,
                            json={"approve": False, "note": "hold the recommended rate"})
     assert declined.json()["status"] == "declined" and declined.json()["offer"] is None
@@ -165,3 +170,81 @@ def test_the_customer_decision_closes_the_offer(client) -> None:
     assert client.post(f"/pricing/offers/{offer_id}/customer-decision", headers=rohit,
                        json={"accepted": True}).status_code == 409
     assert store.fetch_one("SELECT * FROM outcomes WHERE loan_id = 'OFR-DONE-1'")["lost_to"] == "Other HFC"
+
+
+def test_the_cost_of_a_lower_rate_is_counted_over_the_whole_loan() -> None:
+    """Rs 40 lakh over 20 years at 10.00% instead of 14.40%: the EMI falls by about
+    Rs 12,300, so the bank gives up about Rs 29.5 lakh of interest over 240 EMIs -
+    not the Rs 1.76 lakh that one year of the rate gap suggests."""
+    from aavas.intake import offers as intake_offers
+
+    payload = {"recommendation": {"recommended_rate": 14.40},
+               "application_snapshot": {"tenure_years": 20, "sanctioned_loan_amount": 4000000}}
+    full = intake_offers.full_term(payload, 10.00, 4000000)
+    assert full["tenure_years"] == 20
+    assert full["emi_recommended"] - full["emi_requested"] == pytest.approx(12_306, abs=5)
+    assert full["cost_full_term"] == pytest.approx(2_953_500, abs=500)
+    assert intake_offers.full_term({"recommendation": {"recommended_rate": 11}, "application_snapshot": {}},
+                                   10.5, 1000000)["cost_full_term"] is None
+
+
+def test_a_rate_below_the_policy_floor_still_goes_to_the_area_manager(client) -> None:
+    """The RM may ask for anything below their authority; the manager decides, and
+    can approve only down to their own limit and never below the policy floor."""
+    rohit, meera = who(client, "rohit"), who(client, "meera")
+    body = price(client, rohit, "OFR-FLOOR-1")
+    rec, floor = body["recommendation"]["recommended_rate"], body["envelope"]["min_rate"]
+    asked = round(floor - 0.30, 2)
+    made = client.post("/pricing/rate-requests", headers=rohit, json={
+        "loan_id": "OFR-FLOOR-1", "rate": asked, "reason": "strong_negotiation"})
+    assert made.status_code == 200, made.text
+    request_id = made.json()["request_id"]
+    item = next(r for r in client.get("/pricing/rate-requests?status=pending", headers=meera).json()["requests"]
+                if r["request_id"] == request_id)
+    a = item["analysis"]
+    assert a["below_policy_floor"] and a["policy_floor"] == floor and floor <= a["manager_floor"] < rec
+    refused = client.post(f"/pricing/rate-requests/{request_id}/decide", headers=meera,
+                          json={"approve": True, "rate": asked, "reason": "strong_negotiation", "note": "try"})
+    assert refused.status_code in (403, 422)
+    approved = client.post(f"/pricing/rate-requests/{request_id}/decide", headers=meera,
+                           json={"approve": True, "rate": a["manager_floor"], "reason": "strong_negotiation",
+                                 "note": "the most I can give"})
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["approved_rate"] == a["manager_floor"]
+
+
+def test_a_recommendation_at_the_floor_leaves_nothing_to_approve() -> None:
+    from aavas.intake import offers
+    from aavas.config import policy
+    room = policy()["constraints"]["absolute_discount_floor_bps"] / 100
+    at_floor = round(12.45 - room, 2)
+    payload = {"recommendation": {"recommended_rate": at_floor},
+               "envelope": {"min_rate": at_floor, "max_rate": 16.5, "card_rate": 12.45}}
+    f = offers.floors(payload, at_floor - 0.5, 100)
+    assert f["below_policy_floor"] and f["nothing_approvable"] and f["manager_floor"] == at_floor
+    above = {**payload, "recommendation": {"recommended_rate": 12.45}}
+    assert not offers.floors(above, 12.0, 100)["nothing_approvable"]
+
+
+def test_a_request_is_decided_under_the_policy_in_force() -> None:
+    """A file priced when the floor was card less 0.60% is decided under today's floor."""
+    from aavas.config import policy
+    from aavas.intake import offers
+    old = {"recommendation": {"recommended_rate": 13.15},
+           "envelope": {"min_rate": 13.15, "max_rate": 16.5, "card_rate": 13.75}}
+    lim = offers.limits(old, 25, 100)
+    expected = round(max(13.75 - policy()["constraints"]["absolute_discount_floor_bps"] / 100,
+                         policy()["reference"]["card_rate_floor"]), 2)
+    assert lim["floor"] == expected and lim["manager_floor"] == round(max(13.15 - 1.0, expected), 2) < 13.15
+
+
+def test_the_rm_sees_the_final_acceptance_at_the_rate_they_offer(client) -> None:
+    rohit = who(client, "rohit")
+    rec = price(client, rohit, "OFR-ACC-1")["recommendation"]["recommended_rate"]
+    body = client.get(f"/pricing/offers/acceptance?loan_id=OFR-ACC-1&rates={rec},{rec - 0.5:.2f}", headers=rohit)
+    assert body.status_code == 200, body.text
+    at_rec, lower = (x["acceptance"] for x in body.json()["acceptance"])
+    assert 0 < at_rec <= lower <= 1, "a lower rate is never less likely to be accepted"
+    assert client.get("/pricing/offers/acceptance?loan_id=OFR-ACC-1&rates=abc", headers=rohit).status_code == 422
+    assert client.get("/pricing/offers/acceptance?loan_id=NOPE&rates=10", headers=rohit).status_code == 409
+    assert client.get("/pricing/offers/acceptance?loan_id=OFR-ACC-1&rates=10", headers=who(client, "rahul")).status_code == 403

@@ -48,6 +48,13 @@ def limits(payload: dict[str, Any], rm_bps: float, am_bps: float) -> dict[str, f
     rec = float(payload["recommendation"]["recommended_rate"])
     envelope = payload.get("envelope") or {}
     floor, ceiling = float(envelope.get("min_rate", 0)), float(envelope.get("max_rate", 100))
+    # The lowest rate is the policy in force today, from the card rate the file was
+    # priced at: a request raised before a policy change is decided under the new one.
+    card = envelope.get("card_rate")
+    if card is not None:
+        pol = policy()
+        floor = round(max(float(card) - float(pol["constraints"]["absolute_discount_floor_bps"]) / 100,
+                          float(pol["reference"]["card_rate_floor"])), 2)
     # No offer above the top of the range the customer was quoted at Stage 1.
     quoted = (payload.get("indicative_band") or {}).get("max_rate")
     quoted_cap = quoted is not None and float(quoted) < ceiling and float(quoted) >= rec - 1e-9
@@ -74,18 +81,56 @@ def headroom(payload: dict[str, Any], loan_id: str | None = None) -> dict[str, A
         # Decisions priced before the quoted range was recorded on them.
         pre = decision_logger.latest_for_loan(loan_id, stage=Stage.PRE_ASSESSMENT.value)
         quoted = (((pre or {}).get("payload") or {}).get("band") or {}).get("max_rate")
+    if rate is None:
+        # No rate reaches 7 in 10 even at the floor (or the price response is unknown):
+        # there is no room, and the caps below must not stand in for one.
+        return {"rate": None, "capped_by": None, "quoted_max": float(quoted) if quoted is not None else None}
     ceiling = (payload.get("envelope") or {}).get("max_rate")
     rec = (payload.get("recommendation") or {}).get("recommended_rate")
     capped_by = None
     for limit, label in ((quoted, "quoted_range"), (ceiling, "policy")):
         # A quote that policy already overrode (the recommendation sits above it)
-        # no longer caps anything: the offer may still go at the recommendation.
+        # leaves no room to sell higher: the customer was promised less than the
+        # rate to hold already is, so the room ends at the recommendation.
         if label == "quoted_range" and limit is not None and rec is not None and float(limit) < float(rec) - 1e-9:
-            continue
-        if limit is not None and (rate is None or float(limit) < float(rate)):
+            limit, label = float(rec), "above_quote"
+        if limit is not None and float(limit) < float(rate):
             rate, capped_by = float(limit), label
-    return {"rate": round(float(rate), 2) if rate is not None else None, "capped_by": capped_by,
+    return {"rate": round(float(rate), 2), "capped_by": capped_by,
             "quoted_max": float(quoted) if quoted is not None else None}
+
+
+def _emi(amount: float, rate: float, years: float) -> float:
+    r, n = rate / 1200, years * 12
+    return amount * r * (1 + r) ** n / ((1 + r) ** n - 1) if r else amount / n
+
+
+def full_term(payload: dict[str, Any], rate: float, loan_amount: float | None) -> dict[str, Any]:
+    """The whole value given up by pricing at ``rate`` instead of the recommendation:
+    the interest over every EMI of the loan's tenure, and the EMI at each rate."""
+    snap = payload.get("application_snapshot") or {}
+    years = snap.get("tenure_years") or snap.get("requested_tenure_years")
+    rec = float(payload["recommendation"]["recommended_rate"])
+    if not loan_amount or not years:
+        return {"cost_full_term": None, "tenure_years": years, "emi_recommended": None, "emi_requested": None}
+    at_rec, at_rate = _emi(loan_amount, rec, years), _emi(loan_amount, rate, years)
+    return {"cost_full_term": round((at_rec - at_rate) * years * 12), "tenure_years": years,
+            "emi_recommended": round(at_rec), "emi_requested": round(at_rate)}
+
+
+def acceptance_at(payload: dict[str, Any], rates: list[float]) -> list[float] | None:
+    """How likely the customer is to accept at exactly these rates. The decision's own
+    scenario table only spans the range it searched, so a nearest row can sit far
+    from a deep ask; scoring the rates themselves keeps every screen on one number."""
+    try:
+        import numpy as np
+
+        from ..analytics.branch_scenarios import _score
+
+        scored = _score(payload, np.asarray(rates, dtype=float))
+        return [round(float(p), 4) for p in scored["conversion_probability"]]
+    except Exception:                                              # noqa: BLE001 - the table still serves
+        return None
 
 
 def analysis(payload: dict[str, Any], rate: float, loan_amount: float | None,
@@ -101,11 +146,19 @@ def analysis(payload: dict[str, Any], rate: float, loan_amount: float | None,
         "cost_per_year": per_year,
         "cost_over_life": round(per_year * life) if per_year is not None and life else None,
         "expected_life_years": round(life, 1) if life else None,
-        "acceptance_at_recommended": (at_rec or {}).get("conversion_probability"),
-        "acceptance_at_requested": (at_rate or {}).get("conversion_probability"),
+        **_acceptance(payload, rec, rate, at_rec, at_rate),
         "headroom_rate": room["rate"], "headroom_capped_by": room["capped_by"],
         "breakeven_rate": (payload.get("risk") or {}).get("breakeven_rate"),
+        **full_term(payload, rate, loan_amount),
     }
+
+
+def _acceptance(payload: dict[str, Any], rec: float, rate: float, at_rec, at_rate) -> dict[str, Any]:
+    exact = acceptance_at(payload, [rec, rate])
+    if exact:
+        return {"acceptance_at_recommended": exact[0], "acceptance_at_requested": exact[1]}
+    return {"acceptance_at_recommended": (at_rec or {}).get("conversion_probability"),
+            "acceptance_at_requested": (at_rate or {}).get("conversion_probability")}
 
 
 def _loan_amount(payload: dict[str, Any]) -> float | None:
@@ -125,6 +178,28 @@ def _check_reason(reason: str | None) -> str:
     return reason
 
 
+def _require_complete(loan_id: str, action: str) -> None:
+    """A stored file goes nowhere until every step is filled in. A file priced
+    through the API without being submitted has no stored record to check."""
+    from . import applications, readiness
+    stored = applications.get(loan_id)
+    if stored is not None:
+        refused = readiness.refusal(stored.get("applicant"), action)
+        if refused:
+            raise OfferError(422, refused)
+
+
+def floors(payload: dict[str, Any], rate: float, am_bps: float) -> dict[str, Any]:
+    """Where an asked rate sits against what may be approved: the lowest rate policy
+    allows for the file, and the lowest the area manager may approve."""
+    lim = limits(payload, 0, am_bps)
+    return {"policy_floor": lim["floor"], "manager_floor": lim["manager_floor"],
+            "card_rate": (payload.get("envelope") or {}).get("card_rate"),
+            "below_policy_floor": rate < lim["floor"] - 1e-9,
+            # Nothing below the recommendation is within policy and the manager's limit.
+            "nothing_approvable": lim["manager_floor"] >= lim["recommended"] - 1e-9}
+
+
 def _policy_refused(record: dict[str, Any]) -> str | None:
     check = record.get("policy_check") or {}
     if check and check.get("allowed") is False:
@@ -137,6 +212,7 @@ def _policy_refused(record: dict[str, Any]) -> str | None:
 def send_offer(loan_id: str, rate: float, *, reason: str | None, note: str | None, sent_by: str,
                rate_authority: str | None, rm_bps: float,
                capture_override: Callable[..., dict[str, Any]]) -> dict[str, Any]:
+    _require_complete(loan_id, "sending an offer")
     payload = priced(loan_id)
     lim = limits(payload, rm_bps, 0)
     rate = round(float(rate), 2)
@@ -215,6 +291,7 @@ def customer_decision(offer_id: str, *, accepted: bool, final_rate: float | None
 
 def request_lower_rate(loan_id: str, rate: float, *, reason: str, note: str | None,
                        requested_by: str, rm_bps: float, am_bps: float) -> dict[str, Any]:
+    _require_complete(loan_id, "sending it to the area manager")
     payload = priced(loan_id)
     lim = limits(payload, rm_bps, am_bps)
     rate = round(float(rate), 2)
@@ -222,8 +299,8 @@ def request_lower_rate(loan_id: str, rate: float, *, reason: str, note: str | No
         raise OfferError(422, "no approval is needed at or above the recommendation: send it")
     if rate >= lim["reason_floor"]:
         raise OfferError(422, f"{rate:.2f}% is within your authority: send it yourself with a reason")
-    if rate < lim["floor"]:
-        raise OfferError(422, f"{rate:.2f}% is below the policy floor of {lim['floor']:.2f}%")
+    # Below the policy floor still goes to the area manager: the RM asks, the manager
+    # decides, and the manager can approve only down to their own limit and the floor.
     used_reason = _check_reason(reason)
     if store.fetch_one("SELECT request_id FROM rate_requests WHERE loan_id = ? AND status = 'pending'",
                        (loan_id,)):
@@ -237,7 +314,8 @@ def request_lower_rate(loan_id: str, rate: float, *, reason: str, note: str | No
            "decision_id": payload["decision_id"], "applicant_name": name, "loan_amount": amount,
            "requested_rate": rate, "recommended_rate": lim["recommended"], "reason": used_reason,
            "note": note, "evidence_verified": int(_evidenced(payload, used_reason)),
-           "analysis": json.dumps(analysis(payload, rate, amount)), "requested_by": requested_by,
+           "analysis": json.dumps({**analysis(payload, rate, amount), **floors(payload, rate, am_bps)}),
+           "requested_by": requested_by,
            "requested_at": store.now(), "status": "pending", "decided_by": None, "decided_at": None,
            "approved_rate": None, "decision_reason": None, "decision_note": None}
     store.insert("rate_requests", row)
@@ -269,9 +347,15 @@ def request(request_id: str) -> dict[str, Any] | None:
     return _shape(row) if row else None
 
 
+def uplift_reasons() -> list[str]:
+    return list(((policy().get("override") or {}).get("uplift") or {}).get("reasons") or [])
+
+
 def decide(request_id: str, *, approve: bool, rate: float | None, reason: str | None,
            note: str | None, decided_by: str, rate_authority: str | None, am_bps: float,
-           capture_override: Callable[..., dict[str, Any]]) -> dict[str, Any]:
+           capture_override: Callable[..., dict[str, Any]], uplift: bool = False) -> dict[str, Any]:
+    """Approve a lower rate, decline it (the recommendation stands), or - ``uplift`` -
+    decline the discount and price above the recommendation, within the quoted range."""
     row = request(request_id)
     if row is None:
         raise OfferError(404, "no such request")
@@ -280,7 +364,34 @@ def decide(request_id: str, *, approve: bool, rate: float | None, reason: str | 
     if not (note or "").strip():
         raise OfferError(422, "add a note to your decision")
     offer = None
-    if approve:
+    if approve and uplift:
+        decision = decision_logger.get_decision(row["decision_id"])
+        payload = dict(decision["payload"]) if decision else priced(row["loan_id"])
+        payload.setdefault("decision_id", row["decision_id"])
+        lim = limits(payload, 0, am_bps)
+        if rate is None:
+            raise OfferError(422, "give the rate to uplift to")
+        approved = round(float(rate), 2)
+        if approved <= lim["recommended"] + 1e-9:
+            raise OfferError(422, f"an uplift is above the recommendation ({lim['recommended']:.2f}%); "
+                                  f"to keep the recommendation, decline")
+        if approved > lim["ceiling"] + 1e-9:
+            raise OfferError(422, f"{approved:.2f}% is above the top of the range quoted to the customer "
+                                  f"({lim['ceiling']:.2f}%)" if lim["quoted_cap"] else
+                                  f"{approved:.2f}% is above the policy ceiling of {lim['ceiling']:.2f}%")
+        allowed = uplift_reasons()
+        if reason not in allowed:
+            raise OfferError(422, f"give a reason for the uplift: one of {allowed}")
+        record = capture_override(loan_id=row["loan_id"], human_rate=approved, reason=reason,
+                                  approved_by=f"{decided_by}:{rate_authority}" if rate_authority else decided_by,
+                                  reason_detail=note, evidence_verified=False)
+        refused = _policy_refused(record)
+        if refused:
+            raise OfferError(422, f"cannot uplift: {refused}")
+        offer = _record_offer(payload, row["loan_id"], approved, "manager_uplifted", reason,
+                              note, row["requested_by"], request_id=request_id)
+        status, final_reason = "uplifted", reason
+    elif approve:
         decision = decision_logger.get_decision(row["decision_id"])
         payload = dict(decision["payload"]) if decision else priced(row["loan_id"])
         payload.setdefault("decision_id", row["decision_id"])
@@ -288,6 +399,12 @@ def decide(request_id: str, *, approve: bool, rate: float | None, reason: str | 
         approved = round(float(rate if rate is not None else row["requested_rate"]), 2)
         if approved >= lim["recommended"]:
             raise OfferError(422, "that is not below the recommendation: decline and keep the recommended rate")
+        if lim["manager_floor"] >= lim["recommended"] - 1e-9:
+            raise OfferError(422, f"{lim['recommended']:.2f}% is already the lowest rate policy allows for this "
+                                  f"file: nothing below it can be approved. Decline to keep it.")
+        if approved < lim["floor"] - 1e-9 and lim["manager_floor"] <= lim["floor"] + 1e-9:
+            raise OfferError(422, f"{approved:.2f}% is below {lim['floor']:.2f}%, the lowest rate policy allows for "
+                                  f"this file: approve at {lim['floor']:.2f}% or above, or decline")
         if approved < lim["manager_floor"]:
             raise OfferError(403, f"{approved:.2f}% is below your limit (down to {lim['manager_floor']:.2f}%): "
                                   f"it needs the credit head")

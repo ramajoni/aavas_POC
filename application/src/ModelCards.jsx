@@ -102,7 +102,7 @@ export function DiscountEffect({ effect }) {
   return <div className="mc-discount">
     <h4>A {effect.discount_bps / 100}% discount, by segment</h4>
     <table className="mc-table">
-      <thead><tr><th>Segment</th><th>Likely to accept at typical rate</th><th>More customers won (of 100)</th><th>Curve alone</th></tr></thead>
+      <thead><tr><th>Segment</th><th>Likely to accept at typical rate</th><th>Acceptance gained (points)</th><th>Curve alone</th></tr></thead>
       <tbody>{rows.map(r => <tr key={r.segment}>
         <td><b>{r.label}</b><small>typical {pct(r.typical_rate)}</small></td>
         <td>{share(r.acceptance_at_typical)}</td>

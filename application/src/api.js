@@ -90,3 +90,10 @@ export const payload = (a, final = false) => {
 };
 // Whether a file has been opened or entered at all.
 export const hasFile = a => Boolean(a && String(a.name || '').trim() && given(a.requested_loan_amount));
+// Read-only analysis of one request (briefing, scenarios, history, deep dive) is
+// fetched once per page load and shared by every tab that shows it.
+const shared = new Map();
+export const apiOnce = path => {
+  if (!shared.has(path)) shared.set(path, api(path).catch(e => { shared.delete(path); throw e; }));
+  return shared.get(path);
+};
