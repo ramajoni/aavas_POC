@@ -24,14 +24,30 @@ from ..ingestion.schemas import RateBand
 
 
 def card_rate(df: pd.DataFrame) -> np.ndarray:
-    """Policy card rate: floor + segment + risk grade + LTV + property + deviations."""
+    """Policy card rate: floor + segment + risk grade + LTV + property + tenure + deviations.
+
+    NaN where the policy makes no standard offer (``no_offer``): a grade loaded as
+    null, or a grid rate above the product ceiling (rate outside 13-17% is
+    ``no_standard_offer``, never capped at the ceiling). Pricing such a file on
+    another grade's loading, or at the ceiling, would quote a loan the policy
+    declines. A grade the table does not name at all is priced as C, the neutral
+    grade used before the risk agent has graded the file.
+    """
+    grid = grid_rate(df)
+    return np.where(no_offer(df, grid), np.nan, grid)
+
+
+def grid_rate(df: pd.DataFrame) -> np.ndarray:
+    """The rate the grid builds, before asking whether the policy offers it at all."""
     pol = policy()
     n = len(df)
     floor = pol["reference"]["card_rate_floor"]
+    grades = pol["risk_grade_loading_bps"]
 
     bps = _map(df, "segment", pol["base_spread_bps"], default=np.mean(list(pol["base_spread_bps"].values())))
-    bps = bps + _map(df, "risk_grade", pol["risk_grade_loading_bps"], default=pol["risk_grade_loading_bps"]["C"])
+    bps = bps + _map(df, "risk_grade", {g: v for g, v in grades.items() if v is not None}, default=grades["C"])
     bps = bps + _map(df, "property_type", pol["property_type_loading_bps"], default=0.0)
+    bps = bps + _tenure_bps(df, pol.get("tenure_loading_bps") or [])
 
     ltv = _numeric(df, "ltv", np.nan)
     if np.isnan(ltv).any():
@@ -51,6 +67,77 @@ def card_rate(df: pd.DataFrame) -> np.ndarray:
     return np.round(floor + bps / 100.0, 2)
 
 
+def declined_grade(df: pd.DataFrame) -> np.ndarray:
+    """True where the file's grade has no offer under standard policy (a null loading)."""
+    if "risk_grade" not in df.columns:
+        return np.zeros(len(df), dtype=bool)
+    declined = [g for g, v in policy()["risk_grade_loading_bps"].items() if v is None]
+    return df["risk_grade"].astype(str).isin(declined).to_numpy()
+
+
+def bureau_below_minimum(df: pd.DataFrame) -> np.ndarray:
+    """True where a scored applicant's bureau score is under constraints.min_credit_score.
+
+    A new-to-credit file (no bureau file: score below 0 or flagged) is not "below the
+    minimum" - it has no score, and goes to manual review instead (see ``check``).
+    """
+    minimum = policy()["constraints"].get("min_credit_score")
+    if minimum is None or "bureau_score" not in df.columns:
+        return np.zeros(len(df), dtype=bool)
+    score = _numeric(df, "bureau_score", np.nan)
+    scored = (score >= 0) & ~_boolean(df, "new_to_credit")
+    return scored & (score < float(minimum))
+
+
+def no_offer(df: pd.DataFrame, grid: np.ndarray | None = None) -> np.ndarray:
+    """True where there is no standard offer: a declined grade, a bureau score under the
+    policy minimum, or a grid rate above the ceiling."""
+    grid = grid_rate(df) if grid is None else np.asarray(grid, dtype=float)
+    return (declined_grade(df) | bureau_below_minimum(df)
+            | (grid > policy()["reference"]["card_rate_ceiling"] + 1e-9))
+
+
+def no_offer_reason(df: pd.DataFrame) -> str | None:
+    """Why the first row has no standard offer, in words, or None when it has one."""
+    row = df.iloc[[0]]
+    pol = policy()
+    if bureau_below_minimum(row)[0]:
+        return (f"bureau score {int(_numeric(row, 'bureau_score', 0)[0])} is below the policy minimum of "
+                f"{pol['constraints']['min_credit_score']}: declined under standard policy")
+    if declined_grade(row)[0]:
+        return (f"risk grade {row['risk_grade'].iloc[0]} has no offer under standard policy "
+                f"({pol['policy_version']}); the file is declined, not priced")
+    grid = float(grid_rate(row)[0])
+    ceiling = pol["reference"]["card_rate_ceiling"]
+    if grid > ceiling + 1e-9:
+        return (f"the grid prices this file at {grid:.2f}%, above the {ceiling:.2f}% ceiling: no standard "
+                f"offer at this tenure - shorten the tenure or decline, never cap at the ceiling")
+    return None
+
+
+def _tenure_bps(df: pd.DataFrame, bands: list[dict]) -> np.ndarray:
+    """Tenure adjustment from ``tenure_loading_bps``: the pricing matrix's column.
+
+    Booked tenure when there is one, else the requested tenure. A file with
+    neither carries no adjustment (the shortest column) rather than a guess.
+    """
+    if not bands:
+        return np.zeros(len(df))
+    years = _numeric(df, "tenure_years", np.nan)
+    years = np.where(np.isnan(years), _numeric(df, "requested_tenure_years", np.nan), years)
+    months = years * 12
+    ordered = sorted(bands, key=lambda b: b["max_months"])
+    out = np.full(len(df), float(ordered[-1]["bps"]))
+    for band in reversed(ordered):
+        out = np.where(months <= band["max_months"], float(band["bps"]), out)
+    return np.where(np.isnan(months), 0.0, out)
+
+
+def _default_tenure_years() -> float:
+    """Assumed tenure for a file that states none: the product maximum."""
+    return float(policy()["constraints"]["max_tenure_years"])
+
+
 def _map(df: pd.DataFrame, column: str, table: dict, default: float) -> np.ndarray:
     if column not in df.columns:
         return np.full(len(df), float(default))
@@ -68,32 +155,60 @@ def _boolean(df: pd.DataFrame, column: str, default: bool = False) -> np.ndarray
 # ------------------------------------------------------------ affordability cap
 
 
-def max_affordable_rate(df: pd.DataFrame, foir_cap: float | None = None) -> np.ndarray:
-    """Highest rate at which the file still clears the FOIR cap.
+def grade_foir_cap(df: pd.DataFrame) -> np.ndarray:
+    """Each file's FOIR ceiling: its grade's ``eligibility_limits.foir_max``.
 
-    Raising the price raises the EMI, which can push a thin file past the
-    affordability limit. Bisection keeps this exact without inverting the EMI
-    formula analytically.
+    A file with no grade yet, or a grade the limits do not name, gets the
+    product-wide ``constraints.max_foir``.
     """
     pol = policy()
-    cap = pol["constraints"]["max_foir"] if foir_cap is None else foir_cap
+    default = float(pol["constraints"]["max_foir"])
+    caps = {g: float(v["foir_max"]) for g, v in (pol.get("eligibility_limits") or {}).items() if v}
+    if "risk_grade" not in df.columns:
+        return np.full(len(df), default)
+    return df["risk_grade"].astype(str).map(caps).astype(float).fillna(default).to_numpy()
+
+
+def stress_add_pct() -> float:
+    """Affordability is tested at the quoted rate plus this (``pricing.stress_test_add_pct``)."""
+    return float((policy().get("pricing") or {}).get("stress_test_add_pct", 0.0))
+
+
+def max_affordable_rate(df: pd.DataFrame, foir_cap: float | None = None) -> np.ndarray:
+    """Highest quoted rate at which the file still passes the affordability test.
+
+    The test is the policy's: the EMI at the quoted rate *plus the stress add-on*,
+    with existing obligations, must stay within the grade's FOIR ceiling. Raising the
+    price raises the EMI, which can push a thin file past it. Bisection keeps this
+    exact without inverting the EMI formula analytically.
+    """
+    pol = policy()
+    cap = grade_foir_cap(df) if foir_cap is None else np.full(len(df), float(foir_cap))
+    stress = stress_add_pct()
     principal = _numeric(df, "sanctioned_loan_amount", np.nan)
     principal = np.where(np.isnan(principal), _numeric(df, "requested_loan_amount", 0.0), principal)
     income = _numeric(df, "verified_monthly_income", np.nan)
     income = np.where(np.isnan(income), _numeric(df, "declared_monthly_income", 0.0), income)
     obligations = _numeric(df, "declared_obligations", 0.0)
     tenure = _numeric(df, "tenure_years", np.nan)
-    tenure = np.where(np.isnan(tenure), _numeric(df, "requested_tenure_years", 20.0), tenure)
+    tenure = np.where(np.isnan(tenure), _numeric(df, "requested_tenure_years", _default_tenure_years()), tenure)
 
     lo = np.full(len(df), pol["reference"]["card_rate_floor"])
     hi = np.full(len(df), pol["reference"]["card_rate_ceiling"])
     for _ in range(40):
         mid = (lo + hi) / 2
-        foir = (_emi(principal, mid, tenure) + obligations) / np.maximum(income, 1.0)
+        foir = (_emi(principal, mid + stress, tenure) + obligations) / np.maximum(income, 1.0)
         affordable = foir <= cap
         lo = np.where(affordable, mid, lo)
         hi = np.where(affordable, hi, mid)
-    return np.round(lo, 2)
+    # The search starts at the floor, so it ends on the floor both when the floor is the
+    # highest affordable rate and when no rate is affordable at all. Tell them apart: a
+    # file that fails even at the floor has no affordable rate (NaN) and must be resized.
+    # Without this, a grade priced at the floor (A+, 36-60 months) passed unaffordable.
+    floor = pol["reference"]["card_rate_floor"]
+    at_floor = (_emi(principal, np.full(len(df), floor + stress), tenure) + obligations) \
+        / np.maximum(income, 1.0) <= cap
+    return np.where(at_floor, np.round(lo, 2), np.nan)
 
 
 def _emi(principal: np.ndarray, annual_rate: np.ndarray, years: np.ndarray) -> np.ndarray:
@@ -117,6 +232,8 @@ def permissible_band(df: pd.DataFrame, card: np.ndarray | None = None) -> pd.Dat
     every rate in the band carries the condition that the ticket or tenure
     changes (see ``resize_terms``). ``infeasible`` is kept as the same flag for
     callers that predate the resize path.
+
+    A file whose grade has no offer (``no_offer``) has no band: every rate is NaN.
     """
     pol = policy()
     card = card_rate(df) if card is None else np.asarray(card, dtype=float)
@@ -126,7 +243,8 @@ def permissible_band(df: pd.DataFrame, card: np.ndarray | None = None) -> pd.Dat
     lower = np.maximum(card - max_discount / 100.0, pol["reference"]["card_rate_floor"])
     policy_upper = np.minimum(card + max_premium / 100.0, pol["reference"]["card_rate_ceiling"])
     affordable = max_affordable_rate(df)
-    resize_required = affordable < lower
+    unaffordable = np.isnan(affordable)                   # no rate in the envelope passes
+    resize_required = unaffordable | (affordable < lower)
     upper = np.where(resize_required, policy_upper, np.minimum(policy_upper, affordable))
 
     return pd.DataFrame({
@@ -134,23 +252,26 @@ def permissible_band(df: pd.DataFrame, card: np.ndarray | None = None) -> pd.Dat
         "min_rate": np.round(lower, 2),
         "max_rate": np.round(upper, 2),
         "max_affordable_rate": affordable,
-        "affordability_binding": affordable < policy_upper,
+        "affordability_binding": unaffordable | (affordable < policy_upper),
         "resize_required": resize_required,
         "infeasible": resize_required,
+        "no_offer": np.isnan(card),
     }, index=df.index)
 
 
 def resize_terms(application: pd.DataFrame, rate: float) -> dict:
-    """What has to change for this file to clear the FOIR cap at ``rate``.
+    """What has to change for this file to pass the affordability test at ``rate``.
 
     Two levers a credit officer actually has: a smaller ticket, or a longer tenure
-    within the product maximum. Both are computed at the rate being priced, since
-    the EMI - and so the answer - moves with it. Amounts round *down* to the
-    nearest Rs 1,000: rounding up would hand back a ticket that breaches again.
+    within the product maximum. Both are computed at the stressed rate (``rate``
+    plus the stress add-on) against the grade's FOIR ceiling, since that is the
+    test the file must pass. Amounts round *down* to the nearest Rs 1,000:
+    rounding up would hand back a ticket that breaches again.
     """
     pol = policy()
     row = application.iloc[[0]] if isinstance(application, pd.DataFrame) else pd.DataFrame([application])
-    cap = pol["constraints"]["max_foir"]
+    cap = float(grade_foir_cap(row)[0])
+    stressed = float(rate) + stress_add_pct()
     max_tenure = int(pol["constraints"]["max_tenure_years"])
     principal = float(_numeric(row, "sanctioned_loan_amount", np.nan)[0])
     if np.isnan(principal):
@@ -161,16 +282,17 @@ def resize_terms(application: pd.DataFrame, rate: float) -> dict:
     obligations = float(_numeric(row, "declared_obligations", 0.0)[0])
     tenure = float(_numeric(row, "tenure_years", np.nan)[0])
     if np.isnan(tenure):
-        tenure = float(_numeric(row, "requested_tenure_years", 20.0)[0])
+        tenure = float(_numeric(row, "requested_tenure_years", _default_tenure_years())[0])
 
     def emi(amount: float, years: float) -> float:
-        return float(_emi(np.array([amount]), np.array([rate]), np.array([years]))[0])
+        return float(_emi(np.array([amount]), np.array([stressed]), np.array([years]))[0])
 
     headroom = cap * income - obligations
     terms = {
         "rate": round(float(rate), 2),
+        "stressed_rate": round(stressed, 2),
         "foir_cap": cap,
-        "foir_at_rate": round((emi(principal, tenure) + obligations) / max(income, 1.0), 4),
+        "foir_at_rate": round((emi(principal, tenure) + obligations) / max(income, 1.0), 4),  # at the stressed rate
         "current_amount": round(principal, 0),
         "current_tenure_years": int(tenure),
     }
@@ -195,8 +317,9 @@ def resize_terms(application: pd.DataFrame, rate: float) -> dict:
 def _resize_condition(terms: dict) -> str:
     if not terms.get("possible"):
         return f"no loan amount clears the FOIR cap: {terms.get('reason')}"
-    text = (f"resize required: at {terms['rate']:.2f}% the FOIR is {terms['foir_at_rate']:.0%} against a "
-            f"{terms['foir_cap']:.0%} cap - reduce the loan to Rs {terms['max_affordable_amount']:,.0f}")
+    text = (f"resize required: at {terms['rate']:.2f}% (tested at {terms['stressed_rate']:.2f}%) the FOIR is "
+            f"{terms['foir_at_rate']:.0%} against the grade's {terms['foir_cap']:.0%} cap - reduce the loan "
+            f"to Rs {terms['max_affordable_amount']:,.0f}")
     if terms.get("tenure_needed_years"):
         text += f" or extend the tenure to {terms['tenure_needed_years']} years"
     return text
@@ -287,6 +410,8 @@ def check(application: pd.DataFrame, rate: float, override_reason: str | None = 
     violations: list[str] = []
     warnings: list[str] = []
 
+    if bool(band_row["no_offer"]):
+        violations.append(no_offer_reason(row) or "no standard offer under policy")
     if rate < pol["reference"]["card_rate_floor"]:
         violations.append(f"rate {rate:.2f}% is below the absolute floor {pol['reference']['card_rate_floor']:.2f}%")
     if rate > pol["reference"]["card_rate_ceiling"]:
@@ -296,7 +421,19 @@ def check(application: pd.DataFrame, rate: float, override_reason: str | None = 
             f"discount of {discount_bps:.0f} bps exceeds the maximum permissible "
             f"{pol['constraints']['absolute_discount_floor_bps']} bps from card rate"
         )
+    max_premium = max(level["max_premium_bps"] for level in pol["approval_authority"])
+    if -discount_bps > max_premium + 1e-9:
+        violations.append(
+            f"rate {rate:.2f}% is {-discount_bps:.0f} bps above the card rate {card:.2f}% for this grade and "
+            f"tenure; the most any authority may add is {max_premium} bps"
+            + (" - the matrix rate is the ceiling" if max_premium == 0 else "")
+        )
     conditions: list[str] = []
+    if _boolean(row, "new_to_credit")[0] and not pol["constraints"].get("new_to_credit_allowed", True):
+        # No thin-file model is approved: the file is not declined, it is reviewed by hand
+        # (mandatory_rules.bureau.no_score: separate_model_or_manual).
+        conditions.append("new to credit: no approved thin-file model, so a credit officer reviews the file "
+                          "by hand before the price is released")
     resize = None
     if bool(band_row["resize_required"]):
         # Price cannot restore affordability here, so a rate above the affordable
@@ -307,8 +444,8 @@ def check(application: pd.DataFrame, rate: float, override_reason: str | None = 
         # An affordable price exists inside the band, so choosing one that breaks
         # FOIR is a pricing decision, and it is blocked.
         violations.append(
-            f"rate {rate:.2f}% breaches the FOIR cap of {pol['constraints']['max_foir']:.0%} "
-            f"(maximum affordable rate {band_row['max_affordable_rate']:.2f}%)"
+            f"rate {rate:.2f}% breaches the grade's FOIR cap of {grade_foir_cap(row)[0]:.0%} when tested at "
+            f"{rate + stress_add_pct():.2f}% (maximum affordable rate {band_row['max_affordable_rate']:.2f}%)"
         )
 
     # Unverified competitive intelligence is captured as context, never priced in

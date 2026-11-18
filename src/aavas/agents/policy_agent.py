@@ -19,16 +19,27 @@ log = get_logger(__name__)
 class PolicyAgent:
     def envelope(self, twin: CustomerDigitalTwin) -> dict:
         band = constraints.permissible_band(twin.frame).iloc[0]
+
+        def rate(key: str) -> float | None:              # NaN is not JSON; no offer has no rates
+            value = float(band[key])
+            return None if value != value else value
+
         envelope = {
-            "card_rate": float(band["card_rate"]),
-            "min_rate": float(band["min_rate"]),
-            "max_rate": float(band["max_rate"]),
-            "max_affordable_rate": float(band["max_affordable_rate"]),
+            "card_rate": rate("card_rate"),
+            "min_rate": rate("min_rate"),
+            "max_rate": rate("max_rate"),
+            "max_affordable_rate": rate("max_affordable_rate"),
             "affordability_binding": bool(band["affordability_binding"]),
             "infeasible": bool(band["infeasible"]),
             "resize_required": bool(band["resize_required"]),
+            "no_offer": bool(band["no_offer"]),
             "policy_version": policy()["policy_version"],
         }
+        if envelope["no_offer"]:
+            envelope["no_offer_reason"] = constraints.no_offer_reason(twin.frame)
+            twin.note(envelope["no_offer_reason"])
+            twin.envelope = envelope
+            return envelope
         if envelope["resize_required"]:
             # Sized at the card rate so the twin carries the condition from the
             # start; the recommendation's own policy check re-sizes at its rate.

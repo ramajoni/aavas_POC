@@ -53,7 +53,7 @@ EXTRACT_EXAMPLE = {
 }
 CONTEXT_EXAMPLE = {
     "application": {"loan_id": "AAV0009223", "city": "Rajkot", "state": "Gujarat",
-                    "segment": "self_employed_non_professional", "risk_grade": "D", "our_rate": 13.23,
+                    "segment": "self_employed_non_professional", "risk_grade": "C", "our_rate": 13.23,
                     "sales_context": {"competitor_name": "Shubham HF", "competitor_rate": 12.47,
                                       "competitor_evidence_verified": True}},
     "notes": ["Walk-in enquiry for construction on own plot in Rajkot, small business owner.",

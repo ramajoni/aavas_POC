@@ -38,6 +38,18 @@ from .underwriting_agent import CustomerDigitalTwin, UnderwritingAgent
 log = get_logger(__name__)
 
 
+class NoStandardOffer(Exception):
+    """The policy makes no standard offer on this file, so there is nothing to price.
+
+    Raised after the decline is logged, with the factual reason and the decision id,
+    so a caller can say why instead of failing on a missing rate.
+    """
+
+    def __init__(self, loan_id: str, reason: str, decision_id: str | None = None):
+        super().__init__(reason)
+        self.loan_id, self.reason, self.decision_id = loan_id, reason, decision_id
+
+
 class PricingOrchestrator:
     def __init__(self, bundle=None, note_retriever=None):
         self.bundle = bundle or model_registry.load_bundle()
@@ -108,7 +120,24 @@ class PricingOrchestrator:
             step.summary = (f"card {envelope.get('card_rate')}%, band "
                             f"{envelope.get('min_rate')}-{envelope.get('max_rate')}%"
                             + (", affordability binding" if envelope.get("affordability_binding") else "")
-                            + (", RESIZE REQUIRED" if envelope.get("resize_required") else ""))
+                            + (", RESIZE REQUIRED" if envelope.get("resize_required") else "")
+                            if not envelope.get("no_offer") else f"NO STANDARD OFFER: {envelope['no_offer_reason']}")
+
+        # A file the policy declines is not priced: no search, no clamp to a rate it
+        # was never offered. The decline is recorded, then the caller is told why.
+        if envelope.get("no_offer"):
+            payload = {
+                "loan_id": twin.loan_id, "stage": Stage.POST_ASSESSMENT.value, "decision": "decline",
+                "twin": twin.summary(), "application_snapshot": twin.snapshot(), "risk": risk,
+                "envelope": envelope, "recommendation": None,
+                "policy": {"allowed": False, "verdict": "block", "violations": [envelope["no_offer_reason"]],
+                           "policy_version": envelope["policy_version"]},
+                "versions": versions(), "notes": twin.notes, "trace": trace.as_dict(),
+                "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
+            }
+            decision_id = (decision_logger.log_decision(twin.loan_id, Stage.POST_ASSESSMENT.value, payload)
+                           if persist else None)
+            raise NoStandardOffer(twin.loan_id, envelope["no_offer_reason"], decision_id)
 
         # 3. Commercial context, anchored on the card rate until we have a recommendation.
         with trace.step("sales_context", "read against the card rate") as step:

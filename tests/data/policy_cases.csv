@@ -1,0 +1,49 @@
+case_id,rule,description,risk_grade,tenure_months,bureau_score,new_to_credit,loan_amount,monthly_income,other_emis,ltv,rate,override_reason,evidence_verified,expected_card_rate,expected_verdict,expected_approval,expected_message
+M01,pricing.matrix,"A+, 36 months: first tenure column",A+,36,760,false,800000,100000,0,0.65,card,,false,13.00,pass,sales_officer,
+M02,pricing.matrix,"A+, 60 months: last month of the first column",A+,60,760,false,800000,100000,0,0.65,card,,false,13.00,pass,sales_officer,
+M03,pricing.matrix,"A+, 61 months: first month of the second column",A+,61,760,false,800000,100000,0,0.65,card,,false,13.50,pass,sales_officer,
+M04,pricing.matrix,"A+, 84 months",A+,84,760,false,800000,100000,0,0.65,card,,false,13.50,pass,sales_officer,
+M05,pricing.matrix,"A+, 85 months: first month of the third column",A+,85,760,false,800000,100000,0,0.65,card,,false,14.00,pass,sales_officer,
+M06,pricing.matrix,"A+, 120 months",A+,120,760,false,800000,100000,0,0.65,card,,false,14.00,pass,sales_officer,
+M07,pricing.matrix,"A, 48 months",A,48,760,false,800000,100000,0,0.65,card,,false,14.00,pass,sales_officer,
+M08,pricing.matrix,"A, 72 months",A,72,760,false,800000,100000,0,0.65,card,,false,14.50,pass,sales_officer,
+M09,pricing.matrix,"A, 120 months",A,120,760,false,800000,100000,0,0.65,card,,false,15.00,pass,sales_officer,
+M10,pricing.matrix,"B, 48 months",B,48,760,false,800000,100000,0,0.65,card,,false,15.00,pass,sales_officer,
+M11,pricing.matrix,"B, 72 months",B,72,760,false,800000,100000,0,0.65,card,,false,15.50,pass,sales_officer,
+M12,pricing.matrix,"B, 120 months",B,120,760,false,800000,100000,0,0.65,card,,false,16.00,pass,sales_officer,
+M13,pricing.matrix,"C, 48 months",C,48,760,false,800000,100000,0,0.65,card,,false,16.00,pass,sales_officer,
+M14,pricing.matrix,"C, 72 months",C,72,760,false,800000,100000,0,0.65,card,,false,16.50,pass,sales_officer,
+M15,pricing.matrix,"C, 120 months: the 17% ceiling",C,120,760,false,800000,100000,0,0.65,card,,false,17.00,pass,sales_officer,
+N01,risk_grade_loading_bps.D,Grade D has no offer,D,48,760,false,800000,100000,0,0.65,15.00,,false,none,block,,no offer
+N02,mandatory_rules.roi_tenure,"C, 120 months, new to credit: grid 17.75% is above the ceiling",C,120,-1,true,800000,100000,0,0.65,15.00,,false,none,block,,ceiling
+N03,mandatory_rules.roi_tenure,"C, 72 months, new to credit: grid 17.25% is above the ceiling",C,72,-1,true,800000,100000,0,0.65,15.00,,false,none,block,,ceiling
+N04,constraints.new_to_credit_min_spread_bps,"C, 48 months, new to credit: grid 16.75% is inside the band",C,48,-1,true,800000,100000,0,0.65,card,,false,16.75,refer,sales_officer,new to credit
+N05,constraints.min_credit_score,Bureau score 674 is one below the minimum,A+,48,674,false,800000,100000,0,0.65,15.00,,false,none,block,,bureau score
+N06,constraints.min_credit_score,Bureau score 675 meets the minimum,A+,48,675,false,800000,100000,0,0.65,card,,false,13.00,pass,sales_officer,
+T01,constraints.new_to_credit_allowed,"New to credit, no bureau file: priced, then manual review",A+,48,-1,true,800000,100000,0,0.65,card,,false,13.75,refer,sales_officer,new to credit
+D01,approval_authority,"A, 72 months, discount 5 bps",A,72,760,false,800000,100000,0,0.65,card-5,,false,14.50,pass,sales_officer,
+D02,approval_authority,"Discount 10 bps: sales officer limit",A,72,760,false,800000,100000,0,0.65,card-10,,false,14.50,pass,sales_officer,
+D03,approval_authority,"Discount 15 bps: branch manager",A,72,760,false,800000,100000,0,0.65,card-15,,false,14.50,refer,branch_manager,
+D04,approval_authority,"Discount 25 bps: branch manager limit",A,72,760,false,800000,100000,0,0.65,card-25,,false,14.50,refer,branch_manager,
+D05,approval_authority,"Discount 35 bps: regional manager",A,72,760,false,800000,100000,0,0.65,card-35,,false,14.50,refer,regional_manager,
+D06,approval_authority,"Discount 40 bps: regional manager limit",A,72,760,false,800000,100000,0,0.65,card-40,,false,14.50,refer,regional_manager,
+D07,approval_authority,"Discount 55 bps: credit head",A,72,760,false,800000,100000,0,0.65,card-55,,false,14.50,refer,credit_head,
+D08,constraints.absolute_discount_floor_bps,"Discount 60 bps: the largest allowed",A,72,760,false,800000,100000,0,0.65,card-60,,false,14.50,refer,credit_head,
+D09,constraints.absolute_discount_floor_bps,"Discount 65 bps: over the maximum",A,72,760,false,800000,100000,0,0.65,card-65,,false,14.50,block,,discount of
+D10,reference.card_rate_floor,"A+, 48 months at 12.90%: below the 13% floor",A+,48,760,false,800000,100000,0,0.65,12.90,,false,13.00,block,,below the absolute floor
+P01,approval_authority.max_premium_bps,"A, 72 months, card + 5 bps: no premium allowed",A,72,760,false,800000,100000,0,0.65,card+5,,false,14.50,block,,above the card rate
+P02,reference.card_rate_ceiling,"C, 120 months, card + 5 bps = 17.05%",C,120,760,false,800000,100000,0,0.65,card+5,,false,17.00,block,,above the product ceiling
+C01,override.max_unevidenced_discount_bps,"Competitor claim without evidence, 15 bps: allowed, warned",A,72,760,false,800000,100000,0,0.65,card-15,competitor_lower_rate,false,14.50,refer,branch_manager,unevidenced
+C02,override.max_unevidenced_discount_bps,"Competitor claim without evidence, 20 bps",A,72,760,false,800000,100000,0,0.65,card-20,competitor_lower_rate,false,14.50,block,,requires evidence
+C03,override.evidence_required_reasons,"Competitor claim with evidence, 20 bps",A,72,760,false,800000,100000,0,0.65,card-20,competitor_lower_rate,true,14.50,refer,branch_manager,
+C04,override.allowed_reasons,"Negotiation (no evidence needed), 20 bps",A,72,760,false,800000,100000,0,0.65,card-20,strong_negotiation,false,14.50,refer,branch_manager,
+F01,pricing.stress_test_add_pct,"A+, 48 months, Rs 12 lakh on Rs 60,000: 55.7% at 15% stressed, over 55% even at the floor",A+,48,760,false,1200000,60000,0,0.65,card,,false,13.00,refer,sales_officer,resize
+F02,eligibility_limits.foir_max,"B, 72 months, Rs 12 lakh on Rs 60,000 at card 15.50%: 45.1% at 17.50%, over B's 45%",B,72,760,false,1200000,60000,0,0.65,card,,false,15.50,block,,FOIR
+F03,eligibility_limits.foir_max,"Same file at 15.45%: 45.0% at 17.45%, inside B's 45%",B,72,760,false,1200000,60000,0,0.65,card-5,,false,15.50,pass,sales_officer,
+F04,eligibility_limits.foir_max,"C, 120 months, Rs 15 lakh on Rs 77,000 with Rs 3,000 EMIs at 17.00%: over C's 40% at 19%",C,120,760,false,1500000,77000,3000,0.85,card,,false,17.00,block,,FOIR
+F05,eligibility_limits.foir_max,"Same file at 16.75%: inside 40% at 18.75%",C,120,760,false,1500000,77000,3000,0.85,card-25,,false,17.00,refer,branch_manager,
+F06,affordability.recommended_amount,"Same file on Rs 30,000: no rate affordable, resize",C,120,760,false,1500000,30000,3000,0.85,card,,false,17.00,refer,sales_officer,resize
+F07,eligibility_limits.foir_max,"A+, 120 months, Rs 12 lakh on Rs 50,000: 40.2% at 16%, inside A+'s 55%",A+,120,760,false,1200000,50000,0,0.65,card,,false,14.00,pass,sales_officer,
+F08,eligibility_limits.foir_max,"Same file graded C: 44.8% at 19%, over C's 40% at every rate, resize",C,120,760,false,1200000,50000,0,0.65,card,,false,17.00,refer,sales_officer,resize
+L01,constraints.max_ltv,LTV 91% is over the 90% product maximum,A,72,760,false,800000,100000,0,0.91,card,,false,14.50,block,,LTV
+L02,constraints.max_ltv,LTV 90% is the product maximum,A,72,760,false,800000,100000,0,0.90,card,,false,14.50,pass,sales_officer,

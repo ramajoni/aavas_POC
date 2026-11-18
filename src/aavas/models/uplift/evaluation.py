@@ -22,6 +22,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+# np.trapz was renamed np.trapezoid in NumPy 2.0 and removed in 2.4.
+_trapezoid = getattr(np, "trapezoid", None) or np.trapz
+
 # The generator's response mechanics (synthetic/generator.py, "customer response"
 # and the credit clawback). Mirrored here for one reason only - to compute ground
 # truth on synthetic data. Nothing that predicts reads them.
@@ -29,8 +32,15 @@ _TRUTH_COLUMNS = ("true_conversion_probability", "price_elasticity", "override_b
                   "credit_clawback", "risk_grade")
 _CLAWBACK_RATE = 0.15            # % points credit adds back
 _CLAWBACK_PROBABILITY = 0.45
-_CLAWBACK_GRADES = ("D", "E")
 _CLAWBACK_ABOVE_BPS = 30.0
+
+
+def _clawback_grades() -> tuple[str, ...]:
+    """The two weakest grades on the risk scale, as the generator picks them."""
+    from ...config import model_config
+
+    order = sorted(model_config()["risk"]["grade_cutoffs"].items(), key=lambda kv: kv[1])
+    return tuple(grade for grade, _ in order[-2:])
 
 
 # ---------------------------------------------------------------- Qini / AUUC
@@ -73,7 +83,7 @@ def qini(y, treated, score, weights=None) -> float:
     line, as a fraction (x100 for acceptance points). Positive = better than
     random; zero = no better."""
     x, gain = qini_curve(y, treated, score, weights)
-    return float(np.trapz(gain, x) - gain[-1] / 2.0)
+    return float(_trapezoid(gain, x) - gain[-1] / 2.0)
 
 
 def auuc(y, treated, score, weights=None) -> float:
@@ -86,7 +96,7 @@ def auuc(y, treated, score, weights=None) -> float:
     rate_c = np.divide(yc, wc, out=np.zeros_like(yc), where=wc > 0)
     both = (wt > 0) & (wc > 0)
     curve = np.where(both, (rate_t - rate_c) * x, 0.0)
-    return float(np.trapz(curve, x) - curve[-1] / 2.0)
+    return float(_trapezoid(curve, x) - curve[-1] / 2.0)
 
 
 def weighted_difference(y, treated, weights=None) -> float:
@@ -125,7 +135,7 @@ def true_uplift(frame: pd.DataFrame, discount_bps) -> np.ndarray | None:
                + _CLAWBACK_RATE * frame["credit_clawback"].fillna(False).astype(float).to_numpy())
     logit0 = np.log(p / (1 - p)) + elasticity * applied
     d = np.broadcast_to(np.asarray(discount_bps, dtype=float), logit0.shape)
-    clawed = frame["risk_grade"].isin(_CLAWBACK_GRADES).to_numpy() & (d > _CLAWBACK_ABOVE_BPS)
+    clawed = frame["risk_grade"].isin(_clawback_grades()).to_numpy() & (d > _CLAWBACK_ABOVE_BPS)
     sig = lambda z: 1.0 / (1.0 + np.exp(-z))                         # noqa: E731
     kept = sig(logit0 + elasticity * d / 100.0)
     partly = sig(logit0 + elasticity * (d / 100.0 - _CLAWBACK_RATE))

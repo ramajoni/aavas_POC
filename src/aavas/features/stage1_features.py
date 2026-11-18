@@ -61,10 +61,12 @@ def eligibility(df: pd.DataFrame, rate: pd.Series | np.ndarray, policy_cfg: dict
     foir_cap = policy_cfg["stage1"]["eligibility_foir_cap"]
     income = numeric_column(df, "declared_monthly_income", 0.0)
     obligations = numeric_column(df, "declared_obligations", 0.0)
-    tenure = numeric_column(df, "requested_tenure_years", 20.0)
+    tenure = numeric_column(df, "requested_tenure_years", float(policy_cfg["constraints"]["max_tenure_years"]))
 
     max_emi = np.maximum(foir_cap * income - obligations, 0.0)
-    r = np.asarray(rate, dtype=float) / 100.0 / 12.0
+    # Tested at the stressed rate, as underwriting tests it (pricing.stress_test_add_pct).
+    stress = float((policy_cfg.get("pricing") or {}).get("stress_test_add_pct", 0.0))
+    r = (np.asarray(rate, dtype=float) + stress) / 100.0 / 12.0
     n = tenure.to_numpy() * 12
     growth = (1 + r) ** n
     principal = np.where(r > 0, max_emi * (growth - 1) / (r * growth), max_emi * n)
@@ -86,10 +88,12 @@ def eligibility_binding_constraint(df: pd.DataFrame, rate: pd.Series | np.ndarra
     foir_cap = policy_cfg["stage1"]["eligibility_foir_cap"]
     income = numeric_column(df, "declared_monthly_income", 0.0)
     obligations = numeric_column(df, "declared_obligations", 0.0)
-    tenure = numeric_column(df, "requested_tenure_years", 20.0)
+    tenure = numeric_column(df, "requested_tenure_years", float(policy_cfg["constraints"]["max_tenure_years"]))
 
     max_emi = np.maximum(foir_cap * income - obligations, 0.0)
-    r = np.asarray(rate, dtype=float) / 100.0 / 12.0
+    # Tested at the stressed rate, as underwriting tests it (pricing.stress_test_add_pct).
+    stress = float((policy_cfg.get("pricing") or {}).get("stress_test_add_pct", 0.0))
+    r = (np.asarray(rate, dtype=float) + stress) / 100.0 / 12.0
     n = tenure.to_numpy() * 12
     growth = (1 + r) ** n
     principal = np.where(r > 0, max_emi * (growth - 1) / (r * growth), max_emi * n)

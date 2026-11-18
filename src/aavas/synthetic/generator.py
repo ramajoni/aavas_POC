@@ -120,7 +120,9 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
 
     # Oversample: files that breach hard policy would have been declined at credit,
     # so they are filtered out at the end rather than written as impossible rows.
-    n_target, n = n, int(n * 1.3)
+    # The 13-17% policy declines more (bureau below its minimum, grade D, age at
+    # maturity), so draw half as many again and keep the target after the filter.
+    n_target, n = n, int(n * 1.5)
 
     # ------------------------------------------------------------- identity / time
     day_offset = rng.integers(0, 730, n)  # 24 months of history
@@ -188,14 +190,26 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     # Valuation typically comes in below the customer's estimate.
     appraised = (estimated_value * np.clip(rng.normal(0.96, 0.06, n), 0.75, 1.10)).round(-3)
     d["appraised_property_value"] = appraised
-    d["requested_tenure_years"] = np.clip(rng.normal(19, 4, n), 5, pol["constraints"]["max_tenure_years"]).round().astype(int)
-    d["tenure_years"] = np.clip(d["requested_tenure_years"] + rng.integers(-3, 2, n), 5, pol["constraints"]["max_tenure_years"])
+    # Tenure lives inside the product's range (36-120 months under HL-LAP-POLICY-2026.14).
+    # Most borrowers stretch towards the maximum to keep the EMI down. Salaried
+    # borrowers must also finish repaying by the policy's age at maturity.
+    min_years = int(np.ceil(pol["constraints"].get("min_tenure_months", 60) / 12))
+    max_years = int(pol["constraints"]["max_tenure_years"])
+    d["requested_tenure_years"] = np.clip(rng.normal(max_years * 0.85, max_years * 0.18, n),
+                                          min_years, max_years).round().astype(int)
+    tenure = np.clip(d["requested_tenure_years"] + rng.integers(-3, 2, n), min_years, max_years)
+    age_limits = pol["constraints"].get("max_age_at_maturity")
+    if age_limits:
+        salaried = np.char.startswith(d["segment"].astype(str), "salaried")
+        limit = np.where(salaried, age_limits["salaried"], age_limits["self_employed"]) - d["applicant_age"]
+        tenure = np.maximum(np.minimum(tenure, limit), 1)   # below min_years: declined at the filter
+    d["tenure_years"] = tenure
 
     # Credit trims the ticket to respect LTV and FOIR. The FOIR cap is applied by
     # inverting the EMI formula at an indicative rate, which is what a credit
     # officer does with the eligibility calculator.
     max_by_ltv = appraised * pol["constraints"]["max_ltv"]
-    indicative_rate = 11.5
+    indicative_rate = (pol["reference"]["card_rate_floor"] + pol["reference"]["card_rate_ceiling"]) / 2
     r_m = indicative_rate / 100.0 / 12.0
     n_m = d["tenure_years"] * 12
     growth = (1 + r_m) ** n_m
@@ -204,7 +218,8 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
 
     sanctioned_amount = np.minimum(requested_amount, max_by_ltv)
     sanctioned_amount = np.minimum(sanctioned_amount, max_by_foir)
-    sanctioned_amount = np.minimum(sanctioned_amount, verified_income * 46).round(-3)
+    # Round DOWN to Rs 1,000: rounding to nearest pushes half the FOIR-bound tickets over the cap.
+    sanctioned_amount = np.floor(np.minimum(sanctioned_amount, verified_income * 46) / 1000.0) * 1000.0
     sanctioned_amount = np.clip(sanctioned_amount, 250000, pol["constraints"]["max_loan_amount"])
     d["sanctioned_loan_amount"] = sanctioned_amount
     d["ltv"] = np.round(np.clip(sanctioned_amount / appraised, 0.2, pol["constraints"]["max_ltv"]), 4)
@@ -241,15 +256,36 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     lgd_base = df["property_type"].map(cfg["risk"]["lgd_by_property_type"]).to_numpy()
     df["true_lgd"] = np.clip(lgd_base + (df["ltv"].to_numpy() - 0.70) * 0.35, 0.10, 0.65).round(4)
 
-    cuts = cfg["risk"]["grade_cutoffs"]
+    # Labels and thresholds both come from model_config risk.grade_cutoffs, so the
+    # history is graded on the same scale the risk model serves and the policy prices.
+    order = sorted(cfg["risk"]["grade_cutoffs"].items(), key=lambda kv: kv[1])
     df["risk_grade"] = pd.cut(
-        true_pd, bins=[-1, cuts["A"], cuts["B"], cuts["C"], cuts["D"], 1.01],
-        labels=["A", "B", "C", "D", "E"],
+        true_pd, bins=[-1] + [cut for _, cut in order[:-1]] + [1.01],
+        labels=[grade for grade, _ in order],
     ).astype(str)
+    weakest_grades = [grade for grade, _ in order[-2:]]
 
     # ----------------------------------------------------------- sales context
     # Single source of truth: the same function the policy agent enforces at runtime.
     df["policy_card_rate"] = constraints.card_rate(df).round(2)
+
+    # Size the loan the way the policy does - grade, then price, then amount: the most
+    # the grade's FOIR ceiling allows at the card rate plus the stress add-on, never
+    # more than credit already allowed. The grade was taken on the initial terms and a
+    # smaller ticket does not re-improve it (optimizer.freeze_initial_ltv_for_scoring).
+    stressed = df["policy_card_rate"].to_numpy() + constraints.stress_add_pct()
+    r_s = stressed / 100.0 / 12.0
+    growth_s = (1 + r_s) ** (df["tenure_years"].to_numpy() * 12)
+    room = constraints.grade_foir_cap(df) * verified_income - df["declared_obligations"].to_numpy()
+    capacity = np.where(room > 0, room * (growth_s - 1) / (r_s * growth_s), 0.0)
+    resized = np.where(np.isnan(capacity), sanctioned_amount,
+                       np.floor(np.minimum(sanctioned_amount, capacity) / 1000.0) * 1000.0)
+    log.info("affordability at the stressed rate trimmed %s of %s tickets", int(np.sum(resized < sanctioned_amount)), n)
+    sanctioned_amount = resized
+    df["sanctioned_loan_amount"] = sanctioned_amount
+    df["ltv"] = np.round(sanctioned_amount / appraised, 4)
+    emi_at_card = _emi(sanctioned_amount, df["policy_card_rate"].to_numpy(), df["tenure_years"].to_numpy())
+    df["foir"] = np.round((emi_at_card + df["declared_obligations"].to_numpy()) / verified_income, 4)
 
     # Competitors bid harder for better files; that is what makes elasticity
     # correlate with quality rather than being random noise.
@@ -294,7 +330,12 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     # Before this platform existed, pricing was a grid plus judgement. The legacy
     # recommendation is the card rate with a small statistical adjustment.
     legacy_adjust = (-14 * score_z + 30 * (df["ltv"].to_numpy() - 0.70) + rng.normal(0, 9, n)) / 100.0
-    df["ai_recommended_rate"] = np.round(df["policy_card_rate"] + legacy_adjust, 2)
+    floor_rate = pol["reference"]["card_rate_floor"]
+    # Nothing is booked above the card rate plus the largest premium any authority may
+    # approve: under a grade-matrix policy (premium 0) the matrix rate is the ceiling.
+    max_premium = max(level["max_premium_bps"] for level in pol["approval_authority"]) / 100.0
+    ceiling_rate = np.minimum(pol["reference"]["card_rate_ceiling"], df["policy_card_rate"].to_numpy() + max_premium)
+    df["ai_recommended_rate"] = np.round(np.clip(df["policy_card_rate"] + legacy_adjust, floor_rate, ceiling_rate), 2)
 
     comp_gap_bps = (df["ai_recommended_rate"] - df["competitor_rate"]) * 100
     override_pressure = (
@@ -317,6 +358,11 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     # A human may not breach the absolute discount floor either.
     max_discount = pol["constraints"]["absolute_discount_floor_bps"]
     override_bps = np.maximum(override_bps, -max_discount)
+    # Nor the floor or ceiling: a discount stops at 13.00%, a premium at 17.00%.
+    ai_rate = df["ai_recommended_rate"].to_numpy()
+    override_bps = np.clip(override_bps, np.round((floor_rate - ai_rate) * 100), np.round((ceiling_rate - ai_rate) * 100))
+    # A discount the floor swallows whole never happened: no rate moved, so no reason is recorded.
+    overridden = overridden & (np.nan_to_num(override_bps) != 0)
     df["override_bps"] = override_bps
 
     reason = np.full(n, "", dtype=object)
@@ -334,12 +380,13 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     # Branches in contested markets also shade the rate down outside of a formal
     # override, which is the regional effect a central model cannot see.
     regional_shading = -6.0 * intensity + rng.normal(0, 2.5, n)
-    df["sales_offered_rate"] = np.round(
-        df["ai_recommended_rate"] + (override_bps + regional_shading) / 100.0, 2)
+    df["sales_offered_rate"] = np.round(np.clip(
+        df["ai_recommended_rate"] + (override_bps + regional_shading) / 100.0, floor_rate, ceiling_rate), 2)
 
     # Credit may claw back part of an aggressive discount on weak files.
-    clawback = ((df["risk_grade"].isin(["D", "E"])) & (override_bps < -30) & (rng.random(n) < 0.45))
-    df["sanctioned_rate"] = np.round(np.where(clawback, df["sales_offered_rate"] + 0.15, df["sales_offered_rate"]), 2)
+    clawback = ((df["risk_grade"].isin(weakest_grades)) & (override_bps < -30) & (rng.random(n) < 0.45))
+    df["sanctioned_rate"] = np.round(np.clip(np.where(clawback, df["sales_offered_rate"] + 0.15,
+                                                      df["sales_offered_rate"]), floor_rate, ceiling_rate), 2)
     df["credit_clawback"] = clawback
 
     # ------------------------------------------------------------ customer response
@@ -408,6 +455,7 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     loss_severity = np.where(defaulted, realized_lgd, 0.0)
 
     months_to_exit = np.where(bt_out, rng.integers(7, 25, n), rng.integers(48, 121, n))
+    months_to_exit = np.minimum(months_to_exit, np.maximum(df["tenure_years"].to_numpy(), 1) * 12)
     df["months_to_exit"] = np.where(disbursed, months_to_exit, 0)
     realized_life = np.where(disbursed, months_to_exit / 12.0, 0.0)
     df["realized_life_years"] = realized_life.round(2)
@@ -450,22 +498,37 @@ def generate(n: int | None = None, seed: int | None = None) -> tuple[pd.DataFram
     # What the branch verbally quoted at enquiry, before any assessment.
     quote_mid = df["policy_card_rate"].to_numpy() + rng.normal(-0.05, 0.22, n)
     half_band = np.clip(rng.normal(0.30, 0.10, n), 0.12, 0.65)
-    df["stage1_min_rate"] = np.round(quote_mid - half_band, 2)
-    df["stage1_max_rate"] = np.round(quote_mid + half_band, 2)
+    # Clipped to the quote envelope (stage1.quote_band_floor/ceiling), keeping the
+    # minimum credible width at the edges rather than a band squeezed to a point.
+    s1 = pol["stage1"]
+    q_floor, q_ceiling = s1.get("quote_band_floor", floor_rate), s1.get("quote_band_ceiling", ceiling_rate)
+    min_width = s1["min_band_width_bps"] / 100.0
+    low = np.clip(quote_mid - half_band, q_floor, q_ceiling - min_width)
+    high = np.clip(quote_mid + half_band, q_floor + min_width, q_ceiling)
+    df["stage1_min_rate"] = np.round(low, 2)
+    df["stage1_max_rate"] = np.round(np.maximum(high, low + min_width), 2)
 
     # ------------------------------------------------- drop files credit would decline
     con = pol["constraints"]
     ref = pol["reference"]
-    keep = (
-        (df["foir"] <= con["max_foir"] + 1e-9)
-        & (df["ltv"] <= con["max_ltv"] + 1e-9)
-        & (df["sanctioned_rate"].between(ref["card_rate_floor"], ref["card_rate_ceiling"]))
-        & (df["ai_recommended_rate"].between(ref["card_rate_floor"], ref["card_rate_ceiling"]))
-        & (df["sales_offered_rate"].between(ref["card_rate_floor"], ref["card_rate_ceiling"]))
-        & (df["stage1_min_rate"] >= ref["card_rate_floor"])
-        & (df["stage1_max_rate"] <= ref["card_rate_ceiling"])
-    )
+    min_score = con.get("min_credit_score")
+    floor_ok = lambda col: df[col].between(ref["card_rate_floor"], ref["card_rate_ceiling"])  # noqa: E731
+    declines = {
+        "no standard offer (grade or rate above ceiling)": df["policy_card_rate"].isna(),
+        "tenure below product minimum (age at maturity)": df["tenure_years"] < np.ceil(con.get("min_tenure_months", 0) / 12),
+        "bureau score below minimum": ~df["new_to_credit"] & (df["bureau_score"] < (min_score or 0)),
+        "FOIR above cap": df["foir"] > con["max_foir"] + 1e-9,
+        "below minimum ticket after affordability sizing": df["sanctioned_loan_amount"] < 250000,
+        "LTV above cap": df["ltv"] > con["max_ltv"] + 1e-9,
+        "rate outside envelope": ~(floor_ok("sanctioned_rate") & floor_ok("ai_recommended_rate")
+                                   & floor_ok("sales_offered_rate")
+                                   & (df["stage1_min_rate"] >= ref["card_rate_floor"])
+                                   & (df["stage1_max_rate"] <= ref["card_rate_ceiling"])),
+    }
+    keep = ~np.logical_or.reduce([mask.to_numpy() for mask in declines.values()])
     dropped = int((~keep).sum())
+    log.info("declined at credit (a file can breach several): %s",
+             {name: int(mask.sum()) for name, mask in declines.items() if mask.any()})
     df = df.loc[keep].copy()
     if len(df) < n_target:
         log.warning("only %s policy-compliant rows generated for a target of %s", len(df), n_target)

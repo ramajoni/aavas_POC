@@ -126,7 +126,7 @@ export function DecisionSupport({ request, a, final, go, onUse }) {
   const ltv = a.estimated_property_value ? Math.round(((a.sanctioned_loan_amount || a.requested_loan_amount) / (a.appraised_property_value || a.estimated_property_value)) * 100) : null;
 
   // "What it means" in plain words: what the number says, then what to do about it.
-  const GRADE = { A: 'Very strong credit', B: 'Strong credit', C: 'Average credit', D: 'Weak credit', E: 'High-risk credit' };
+  const GRADE = { 'A+': 'Very strong credit', A: 'Strong credit', B: 'Average credit', C: 'Weak credit', D: 'High-risk credit: no offer under policy' };
   const cutWord = g => g >= 5 ? 'That is a big gain.' : g >= 2 ? 'That is a small gain.' : 'That is a very small gain.';
   const items = [
     // Need for the discount
@@ -159,7 +159,7 @@ export function DecisionSupport({ request, a, final, go, onUse }) {
         : `Cuts this size have been given here before (largest so far ${pct(deepest / 100)}).`, ['branch', 'summary']],
     ['cost', 'margin', margin == null ? 'info' : margin >= 1 ? 'good' : margin >= 0.5 ? 'warn' : 'bad', 'Profit margin left',
       margin == null ? '—' : pct(margin), margin == null ? 'Not available.' : <>The bank breaks even at {pct(breakeven)}. At {pct(ask)} it still makes {pct(margin)} a year. <b>{margin >= 1 ? 'Healthy.' : margin >= 0.5 ? 'Thin.' : 'Close to a loss.'}</b></>, ['price']],
-    ['cost', 'credit', ['D', 'E'].includes(r.risk_grade) ? 'bad' : !checksClear ? 'verify' : ['A', 'B'].includes(r.risk_grade) ? 'good' : 'warn', 'Credit quality', r.risk_grade ? `Grade ${r.risk_grade}` : '—',
+    ['cost', 'credit', ['C', 'D'].includes(r.risk_grade) ? 'bad' : !checksClear ? 'verify' : ['A+', 'A'].includes(r.risk_grade) ? 'good' : 'warn', 'Credit quality', r.risk_grade ? `Grade ${r.risk_grade}` : '—',
       <>{GRADE[r.risk_grade] || 'Credit grade not known'}. {a.new_to_credit || !(a.bureau_score > 0) ? 'New to credit' : `Credit score ${a.bureau_score}`}{ltv ? `, loan is ${ltv}% of the property value` : ''}. {checksClear ? 'Legal and technical checks are done.' : <b>Legal or technical check not done yet: verify before approving.</b>}</>, ['application', 'details']],
     ['cost', 'alternatives', 'info', 'Other ways to close the deal', `${(c.alternatives?.options || []).length} options`, 'Options that may work instead of a big rate cut, and what each costs the bank.', null,
       <table className="sc-table ck-table"><thead><tr><th>Option</th><th>Rate</th><th>Tenure</th><th>EMI</th><th>EMI against the ask</th><th>For the bank, over the loan</th></tr></thead>

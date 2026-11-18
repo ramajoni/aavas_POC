@@ -120,12 +120,17 @@ risk:
   # so a model fitted on ~1,000 defaults can talk itself down to a severity no
   # credit committee would sign; expected loss must not reach zero that way.
   lgd_floor: 0.10
-  grade_cutoffs:                 # PD upper bounds
-    A: 0.010
-    B: 0.025
-    C: 0.050
-    D: 0.090
-    E: 1.000
+  # Annual PD upper bounds, labelled on the pricing policy's grade scale
+  # (HL-LAP-POLICY-2026.14: A+ .. D, D = no offer). The thresholds are the ones the
+  # A-E scale used; each band moved one letter up (A->A+, B->A, C->B, D->C, E->D).
+  # The policy's interim grade source (grades.assignment, decision D-02) until the scorecard grades files:
+  # these letters come from PD, the policy's from a 100-point score.
+  grade_cutoffs:
+    A+: 0.010
+    A: 0.025
+    B: 0.050
+    C: 0.090
+    D: 1.000
 
 lgd:
   # Loss severity on defaulted files. Fitted on the LGD fraction for the

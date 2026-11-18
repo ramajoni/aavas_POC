@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..agents.orchestrator import NoStandardOffer
 from ..governance import audit, decision_logger
 from ..governance import policy_versions as policy_store
 from ..logging_utils import get_logger
@@ -23,6 +24,11 @@ def final_assessment(request: Stage2Request, include_scenarios: bool = Query(
         principal: Principal = Depends(current_principal)) -> dict:
     try:
         result = orchestrator.process(request.to_row())
+    except NoStandardOffer as declined:
+        # Not a failure: the policy declines the file. 422 with the factual reason.
+        raise HTTPException(status_code=422, detail={
+            "decision": "decline", "loan_id": declined.loan_id, "reason": declined.reason,
+            "decision_id": declined.decision_id}) from declined
     except Exception as exc:                        # noqa: BLE001
         log.exception("final assessment failed for %s", request.loan_id)
         raise HTTPException(status_code=500, detail=f"final assessment failed: {exc}") from exc

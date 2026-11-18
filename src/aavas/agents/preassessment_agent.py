@@ -44,9 +44,17 @@ class PreAssessmentAgent:
         confidence = quote["confidence"]
         caveats = self._caveats(twin, quote)
 
+        # The policy minimum applies to the soft-pull score too: a branch must not quote a
+        # band to a file the policy declines on that score alone.
+        below = bool(constraints.bureau_below_minimum(twin.frame)[0])
+        if below:
+            caveats.insert(0, constraints.no_offer_reason(twin.frame))
+            twin.note("bureau score below the policy minimum: no standard offer")
+
         return {
             "loan_id": twin.loan_id,
             "stage": Stage.PRE_ASSESSMENT.value,
+            "standard_offer": not below,
             "band": {"min_rate": round(clamped_min, 2), "max_rate": round(clamped_max, 2),
                      "width_bps": round((clamped_max - clamped_min) * 100, 1)},
             "indicative_rate": quote["indicative_rate"],

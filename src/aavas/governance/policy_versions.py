@@ -46,8 +46,16 @@ def _raws() -> dict[str, str]:
 
 
 def _order(version: str) -> tuple:
-    """HL-POLICY-2026.9 before HL-POLICY-2026.10: numbers compare as numbers."""
-    return tuple((0, int(p), "") if p.isdigit() else (1, 0, p) for p in str(version).replace("-", ".").split("."))
+    """HL-POLICY-2026.9 before HL-POLICY-2026.10: numbers compare as numbers.
+
+    Ordered on the version from its first number on, so the product prefix does not
+    decide history: HL-LAP-POLICY-2026.14 sorts after HL-POLICY-2000.01 (an
+    alphabetical prefix would put it first). The prefix only breaks a tie.
+    """
+    parts = str(version).replace("-", ".").split(".")
+    first = next((i for i, p in enumerate(parts) if p.isdigit()), len(parts))
+    number = tuple((0, int(p), "") if p.isdigit() else (1, 0, p) for p in parts[first:])
+    return number, ".".join(parts[:first])
 
 
 def versions() -> list[dict[str, Any]]:
