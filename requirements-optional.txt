@@ -6,6 +6,7 @@
 #
 shap>=0.46             # SHAP attributions (else the ablation explainer); 0.46+ for NumPy 2
 xgboost>=2.0           # learner families for model selection and Stage-2
-lightgbm>=4.0
+lightgbm>=4.0         # on Linux it needs the OpenMP runtime: apt install libgomp1 (else it
+                      # cannot load, and model selection falls back to other learners)
 catboost>=1.2
 anthropic>=1.0         # the AI-written loan explanation and competitor research (needs ANTHROPIC_API_KEY)

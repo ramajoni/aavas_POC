@@ -31,43 +31,43 @@ DOCUMENTS = [("income_proof", "salary_or_itr.pdf", PDF), ("bank_statement", "ban
              ("identity_address", "pan_aadhaar.png", PNG), ("property_papers", "sale_agreement.pdf", PDF)]
 
 # Declared at application, then the verified assessment the RM's file carries.
-BASE = {"city": "Pune", "channel": "branch_walkin", "property_type": "resale_flat", "requested_tenure_years": 20,
-        "tenure_years": 20, "delinquency_count_24m": 0, "deviation_count": 0, "legal_flag": 0, "technical_flag": 0}
+BASE = {"city": "Pune", "channel": "branch_walkin", "property_type": "resale_flat", "requested_tenure_years": 10,
+        "tenure_years": 10, "delinquency_count_24m": 0, "deviation_count": 0, "legal_flag": 0, "technical_flag": 0}
 
 CASES = [
     {"loan_id": "APP-PW-2601", "name": "Ananya Kulkarni", "mobile": "9822000101", "email": "ananya.k@example.com",
      "stage": "rm",
      "story": "Strong salaried file, no competitor in play. Price it and send the recommended rate directly.",
      "file": {"segment": "salaried_formal", "property_type": "builder_flat", "applicant_age": 34,
-              "declared_monthly_income": 120000, "verified_monthly_income": 118000, "declared_obligations": 8000,
+              "declared_monthly_income": 270000, "verified_monthly_income": 266000, "declared_obligations": 8000,
               "requested_loan_amount": 6500000, "sanctioned_loan_amount": 6500000,
               "estimated_property_value": 9500000, "appraised_property_value": 9400000,
               "bureau_score": 812, "bureau_vintage_months": 120, "banking_behaviour_score": 88,
               "sales_context": {}}},
     {"loan_id": "APP-PW-2602", "name": "Sameer Joshi", "mobile": "9822000102", "email": "sameer.j@example.com",
      "stage": "rm",
-     "story": "Salary-account customer asking for a little off; the 10.95% HDFC rate he mentions is unverified. "
+     "story": "Salary-account customer asking for a little off; the 14.20% HDFC rate he mentions is unverified. "
               "Up to 0.15% below the recommendation, with a reason, is within the RM's own authority.",
      "file": {"segment": "salaried_formal", "applicant_age": 41,
-              "declared_monthly_income": 85000, "verified_monthly_income": 82000, "declared_obligations": 12000,
+              "declared_monthly_income": 175000, "verified_monthly_income": 169000, "declared_obligations": 12000,
               "requested_loan_amount": 3800000, "sanctioned_loan_amount": 3800000,
               "estimated_property_value": 5600000, "appraised_property_value": 5500000,
               "bureau_score": 768, "bureau_vintage_months": 84, "banking_behaviour_score": 80,
               "sales_context": {"existing_relationship": True, "customer_negotiating": True,
-                                "competitor_name": "HDFC Bank", "competitor_rate": 10.95}}},
+                                "competitor_name": "HDFC Bank", "competitor_rate": 14.20}}},
     {"loan_id": "APP-PW-2603", "name": "Farida Shaikh", "mobile": "9822000103", "email": "farida.s@example.com",
      "stage": "am", "ask_bps": 25, "reason": "competitor_lower_rate",
-     "note": "Doctor with her own clinic. ICICI Home Finance sanction letter at 10.20% seen and uploaded; "
+     "note": "Doctor with her own clinic. ICICI Home Finance sanction letter at 13.80% seen and uploaded; "
              "she will move this week if we do not beat it.",
      "story": "Verified competitor offer below our rate; asks 0.25% below the recommendation, within Meera's "
               "0.40% limit. Approve, or match the competitor for less.",
      "file": {"segment": "self_employed_professional", "applicant_age": 39,
-              "declared_monthly_income": 160000, "verified_monthly_income": 150000, "declared_obligations": 20000,
+              "declared_monthly_income": 325000, "verified_monthly_income": 305000, "declared_obligations": 20000,
               "requested_loan_amount": 7200000, "sanctioned_loan_amount": 7000000,
               "estimated_property_value": 10500000, "appraised_property_value": 10200000,
               "bureau_score": 786, "bureau_vintage_months": 96, "banking_behaviour_score": 82,
               "sales_context": {"customer_negotiating": True, "prior_negotiation_rounds": 2,
-                                "competitor_name": "ICICI Home Finance", "competitor_rate": 10.20,
+                                "competitor_name": "ICICI Home Finance", "competitor_rate": 13.80,
                                 "competitor_evidence_verified": True}}},
     {"loan_id": "APP-PW-2604", "name": "Vikram Patil", "mobile": "9822000104", "email": "vikram.p@example.com",
      "stage": "am", "ask_bps": 30, "reason": "strong_negotiation",
@@ -75,23 +75,23 @@ CASES = [
      "story": "No evidence of a lower offer; asks 0.30% below, down to the policy floor. Within Meera's limit, "
               "but is the discount buying anything? Decline, or approve a smaller cut.",
      "file": {"segment": "self_employed_non_professional", "channel": "connector", "applicant_age": 46,
-              "declared_monthly_income": 95000, "verified_monthly_income": 72000, "declared_obligations": 15000,
+              "declared_monthly_income": 170000, "verified_monthly_income": 129000, "declared_obligations": 15000,
               "requested_loan_amount": 3500000, "sanctioned_loan_amount": 3300000,
               "estimated_property_value": 4800000, "appraised_property_value": 4600000,
               "bureau_score": 724, "bureau_vintage_months": 60, "banking_behaviour_score": 62, "deviation_count": 1,
               "sales_context": {"customer_negotiating": True, "prior_negotiation_rounds": 3}}},
     {"loan_id": "APP-PW-2605", "name": "Neha Deshmukh", "mobile": "9822000105", "email": "neha.d@example.com",
      "stage": "am", "ask_bps": 55, "reason": "competitor_lower_rate",
-     "note": "Threatening a balance transfer; SBI offer letter at 9.75% seen. Wants a clear gap below it to stay.",
+     "note": "Threatening a balance transfer; SBI offer letter at 13.50% seen. Wants a clear gap below it to stay.",
      "story": "Balance-transfer threat backed by a verified SBI letter, 0.55% below: beyond Meera's 0.40% "
               "limit. She can decline, approve no lower than her limit, or it goes to the credit head.",
      "file": {"segment": "salaried_formal", "property_type": "self_construction", "applicant_age": 37,
-              "declared_monthly_income": 105000, "verified_monthly_income": 104000, "declared_obligations": 6000,
+              "declared_monthly_income": 215000, "verified_monthly_income": 213000, "declared_obligations": 6000,
               "requested_loan_amount": 5200000, "sanctioned_loan_amount": 5200000,
               "estimated_property_value": 8000000, "appraised_property_value": 7900000,
               "bureau_score": 801, "bureau_vintage_months": 132, "banking_behaviour_score": 90,
               "sales_context": {"customer_negotiating": True, "existing_relationship": True,
-                                "competitor_name": "SBI Home Loans", "competitor_rate": 9.75,
+                                "competitor_name": "SBI Home Loans", "competitor_rate": 13.50,
                                 "competitor_evidence_verified": True}}},
 ]
 DECLARED = ["loan_id", "segment", "city", "channel", "property_type", "declared_monthly_income",
@@ -145,9 +145,16 @@ def seed(api: Api, case: dict) -> dict:
     if api.call("GET", f"/applications/{loan_id}")[0] == 200:
         return {"loan_id": loan_id, "skipped": "already exists"}
     file = {**BASE, **case["file"], "loan_id": loan_id}
-    file["sales_context"] = {"competitor_evidence_verified": False, **file["sales_context"]}
+    # The file is complete only with the customer interaction answered: whether they
+    # already bank with Aavas, and the RM's notes from the conversation.
+    file["sales_context"] = {"competitor_evidence_verified": False, "existing_relationship": False,
+                             **file["sales_context"]}
+    if file["sales_context"].get("customer_negotiating"):
+        file["sales_context"].setdefault("prior_negotiation_rounds", 1)
     api.ok("POST", "/pricing/pre-assessment", {k: file[k] for k in DECLARED if k in file})
-    applicant = {**file, "name": case["name"], "mobile": case["mobile"], "email": case["email"]}
+    applicant = {**file, "name": case["name"], "mobile": case["mobile"], "email": case["email"],
+                 "conversation_notes": case.get("note") or "Met the customer at the branch; documents "
+                                                           "collected, no rate discussion yet."}
     made = api.ok("POST", "/applications", {"loan_id": loan_id, "applicant": applicant})
     for kind, filename, content in DOCUMENTS:
         api.upload(loan_id, kind, filename, content)

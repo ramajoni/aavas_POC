@@ -16,6 +16,25 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.6.4] - 2026-11-19
+
+### Changed
+- `requirements-optional.txt` notes that LightGBM needs the OpenMP runtime on Linux
+  (`apt install libgomp1`). Without it LightGBM cannot load and model selection quietly
+  trains other learners, so a server's models differ from the ones tested elsewhere.
+
+### Fixed
+- The demo data scripts (`scripts/demo_scenarios.py`, `scripts/seed_demo_cases.py`)
+  still built files for HL-POLICY-2026.13: 15-25 year tenures, competitor offers around
+  9%, incomes sized for 20-year EMIs and one bureau score under the new 675 minimum.
+  Under 2026.14 every rate request was refused. They now use tenures of at most ten
+  years, competitor offers in the 13-17% market and incomes that pass the stressed
+  affordability test, and each case still shows the decision it was built for.
+- `scripts/seed_demo_cases.py` sent files to the area manager without the customer
+  interaction the readiness check requires (existing customer, conversation notes,
+  negotiation rounds), so its rate requests were refused. Each seeded file now answers
+  them.
+
 ## [0.6.3] - 2026-11-19
 
 ### Fixed
