@@ -16,6 +16,24 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.6.2] - 2026-11-19
+
+### Security
+- The AutoGluon Assistant engine is refused unless
+  `training.autogluon_assistant.allow_unsandboxed` is `true` (default `false`,
+  `config/agentic_os.yaml` AOS-2026.12). It runs code it writes itself, unsandboxed, as
+  the platform user, so it must not start on a shared or production host until it runs
+  in an isolated container.
+
+### Fixed
+- An AutoGluon Assistant run repointed `AAVAS_RAW_PATH` and `AAVAS_PROCESSED_PATH` in
+  the process environment while it read its dataset, so a pricing request served at
+  that moment could read the run's data. The loader now takes the paths explicitly.
+- Two promotion requests for the same run at once could both pass the "already
+  promoted" check, and the second replaced the champions' backup with the models just
+  promoted. Promotion now runs one at a time, re-reads the run from disk, and never
+  overwrites a backup.
+
 ## [0.6.1] - 2026-11-19
 
 ### Changed

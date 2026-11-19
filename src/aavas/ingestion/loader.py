@@ -74,15 +74,15 @@ def add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def build_training_table(save: bool = True) -> pd.DataFrame:
-    df = add_derived_columns(load_raw())
+def build_training_table(save: bool = True, raw_path=None, processed_path=None) -> pd.DataFrame:
+    df = add_derived_columns(load_raw(str(raw_path) if raw_path else None))
     report = validator.validate(df)
     log.info("training table: %s", report.summary())
     df, bad = validator.quarantine(df, report)
     if len(bad):
         log.warning("quarantined %s rows", len(bad))
     if save:
-        out = data_path("processed_path")
+        out = resolve(processed_path) if processed_path else data_path("processed_path")
         out.parent.mkdir(parents=True, exist_ok=True)
         # Write beside the target and rename over it. A write cut short (a full
         # disk, a killed process) must leave the previous table, not half of a
@@ -97,9 +97,12 @@ def build_training_table(save: bool = True) -> pd.DataFrame:
     return df
 
 
-def load_training_table(rebuild: bool = False) -> pd.DataFrame:
-    p = data_path("processed_path")
-    raw = data_path("raw_path")
+def load_training_table(rebuild: bool = False, raw_path=None, processed_path=None) -> pd.DataFrame:
+    """The processed training table. ``raw_path`` / ``processed_path`` read another
+    dataset (an agentic run's workspace) without touching the process environment,
+    which every other request in the server shares."""
+    p = resolve(processed_path) if processed_path else data_path("processed_path")
+    raw = resolve(raw_path) if raw_path else data_path("raw_path")
     # The processed table is a cache of the raw file. Regenerating the raw data
     # and then reading a cache built from the previous version would train every
     # model on columns the raw file no longer has, or without ones it gained.
@@ -107,7 +110,7 @@ def load_training_table(rebuild: bool = False) -> pd.DataFrame:
     if stale:
         log.info("processed training table is older than %s; rebuilding", raw.name)
     if rebuild or stale or not p.exists():
-        return build_training_table()
+        return build_training_table(raw_path=raw, processed_path=p)
     return validator.coerce_types(pd.read_csv(p))
 
 

@@ -65,3 +65,54 @@ def test_no_aws_account_number_is_committed_in_config() -> None:
         text = path.read_text(encoding="utf-8")
         own = [m for m in re.findall(r"arn:aws:iam::(\d{12})|-(\d{12})\b", text) if any(m)]
         assert not own, f"{path.name} carries an AWS account number; use the environment"
+
+
+def test_the_autogluon_assistant_is_refused_unless_unsandboxed_running_is_allowed(tmp_path) -> None:
+    """It executes code it wrote itself; without an explicit opt-in it must not start at all."""
+    import pytest
+
+    from aavas.agentic.engines import mlzero
+    from aavas.agentic.workflow import StepError
+    from aavas.config import load
+
+    class Run:
+        workspace = tmp_path
+        config = {"training": {"autogluon_assistant": dict(load("agentic_os")["training"]["autogluon_assistant"])}}
+
+    assert Run.config["training"]["autogluon_assistant"]["allow_unsandboxed"] is False   # the shipped default
+    with pytest.raises(StepError, match="unsandboxed"):
+        mlzero.train(Run(), {})
+    Run.config["training"]["autogluon_assistant"]["allow_unsandboxed"] = "yes"          # only a real true counts
+    with pytest.raises(StepError, match="unsandboxed"):
+        mlzero.train(Run(), {})
+
+
+def test_a_runs_dataset_is_read_without_touching_the_process_environment(tmp_path, training_data) -> None:
+    """Other requests share the process: an agentic run must not repoint AAVAS_*_PATH."""
+    import os
+
+    from aavas.ingestion import loader
+
+    before = {k: os.environ.get(k) for k in ("AAVAS_RAW_PATH", "AAVAS_PROCESSED_PATH")}
+    processed = tmp_path / "training_data.csv"
+    training_data.head(50).to_csv(processed, index=False)
+    table = loader.load_training_table(raw_path=tmp_path / "absent.csv", processed_path=processed)
+    assert len(table) == 50
+    assert {k: os.environ.get(k) for k in before} == before
+
+
+def test_a_run_is_promoted_once_and_its_backup_is_never_overwritten(tmp_path, monkeypatch) -> None:
+    import pytest
+
+    from aavas.agentic import runs, workflow
+
+    monkeypatch.setattr(runs, "RUNS_DIR", tmp_path)
+    run = runs.create({"training": {"engine": "local"}, "serving": {"mode": "in_process"}, "workflow": []},
+                      started_by="arjun")
+    run.record.update(status="succeeded", engine="local",
+                      promotion={"approved_by": "meera", "at": runs.now(), "promoted": ["stage2"]})
+    run.save()
+    stale = runs.get(run.run_id)
+    stale.record.pop("promotion")              # a second request that read the run before the first finished
+    with pytest.raises(workflow.StepError, match="already promoted"):
+        workflow.promote(stale, "arjun")

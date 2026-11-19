@@ -13,6 +13,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import traceback
 from pathlib import Path
 from typing import Any
@@ -215,8 +216,24 @@ def serving_step(run: runs.Run, env: dict[str, str]) -> tuple[str, dict]:
             {"awaiting_promotion": True})
 
 
+_PROMOTE_LOCK = threading.Lock()
+
+
 def promote(run: runs.Run, approved_by: str) -> dict[str, Any]:
-    """Make a local run's models the champions: back up, copy in, register, reload."""
+    """Make a local run's models the champions: back up, copy in, register, reload.
+
+    One promotion at a time. The run is re-read from disk under the lock, so a second
+    request for the same run is refused rather than replacing the champions' backup
+    with the models the first one just promoted."""
+    with _PROMOTE_LOCK:
+        fresh = runs.get(run.run_id) or run
+        if fresh.record.get("promotion"):
+            raise StepError(f"run {run.run_id} was already promoted")
+        run.record = fresh.record
+        return _promote(run, approved_by)
+
+
+def _promote(run: runs.Run, approved_by: str) -> dict[str, Any]:
     if run.record.get("engine") != "local":
         raise StepError("only locally trained models are promoted into the API; SageMaker models are served "
                         "by their endpoint and AutoGluon Assistant models stay challengers")
@@ -231,7 +248,7 @@ def promote(run: runs.Run, approved_by: str) -> dict[str, Any]:
         stem = card_path.name[: -len(".card.json")]
         for suffix in (".joblib", ".card.json"):
             current = live / f"{stem}{suffix}"
-            if current.exists():
+            if current.exists() and not (backup / current.name).exists():   # keep the first backup
                 shutil.copy2(current, backup / current.name)
             shutil.copy2(source / f"{stem}{suffix}", current)
         card = json.loads(card_path.read_text(encoding="utf-8"))

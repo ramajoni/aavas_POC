@@ -41,13 +41,9 @@ def _dataset(run: runs.Run, target: str):
     spec = TARGETS[target]
     files = {"raw": run.workspace / "data" / "home_loan_data.csv",
              "processed": run.workspace / "data" / "training_data.csv"}
-    os.environ["AAVAS_RAW_PATH"] = str(files["raw"])
-    os.environ["AAVAS_PROCESSED_PATH"] = str(files["processed"])
-    try:
-        table = loader.load_training_table()
-    finally:
-        os.environ.pop("AAVAS_RAW_PATH", None)
-        os.environ.pop("AAVAS_PROCESSED_PATH", None)
+    # Explicit paths, not os.environ: the API serves other requests in this process
+    # while a run executes, and they must keep reading the live dataset.
+    table = loader.load_training_table(raw_path=files["raw"], processed_path=files["processed"])
     contract = feature_config()[target]
     wanted = list(contract["numeric"]) + list(contract["categorical"])
     columns = [c for c in wanted if c in table.columns]
@@ -57,6 +53,10 @@ def _dataset(run: runs.Run, target: str):
 
 def train(run: runs.Run, env: dict[str, str]) -> dict:
     cfg = run.config["training"]["autogluon_assistant"]
+    if cfg.get("allow_unsandboxed") is not True:
+        raise StepError("the AutoGluon Assistant runs code it writes itself, unsandboxed on this host, so it "
+                        "is refused here. It needs an isolated container first; on a developer machine "
+                        "only, set training.autogluon_assistant.allow_unsandboxed: true.")
     target = cfg.get("target", "stage2")
     if target not in TARGETS:
         raise StepError(f"AutoGluon Assistant target must be one of {sorted(TARGETS)}")

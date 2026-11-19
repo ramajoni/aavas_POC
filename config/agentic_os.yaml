@@ -8,7 +8,7 @@
 #   4. serving   serve the result: promote in-process, or deploy a SageMaker endpoint
 # Edited from the Agentic OS screen (or here); every change is versioned and audited.
 
-agentic_os_config_version: "AOS-2026.11"
+agentic_os_config_version: "AOS-2026.12"
 
 workflow: [data, policy, training, serving]
 
@@ -52,6 +52,11 @@ training:
     target: stage2             # which contract it trains a challenger for: stage2 (final rate) | conversion
     max_iterations: 3
     time_limit_minutes: 45
+    # The agent runs code it writes itself, as the platform user, with no sandbox. It is
+    # refused unless this is true, and it must stay false on any shared or production
+    # host until the engine runs in an isolated container (no host mounts but input and
+    # output, Bedrock-only credentials, no other network).
+    allow_unsandboxed: false
     instructions: >-
       Train a regression model that predicts sanctioned_rate from the other columns.
       Use only the training file; write predictions for the test file to results.
