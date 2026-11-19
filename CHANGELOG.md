@@ -16,6 +16,14 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.7.1] - 2026-11-19
+
+### Fixed
+- On Windows, with `core.autocrlf` on, git checked out the generated policy kit files
+  with CRLF line endings, and two of the kit's drift tests failed on a fresh clone.
+  `.gitattributes` now keeps `policy_kit/*.json`, `*.yaml` and `*.md` as LF in every
+  checkout.
+
 ## [0.7.0] - 2026-11-19
 
 ### Added

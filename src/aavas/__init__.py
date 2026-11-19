@@ -5,4 +5,4 @@ risk-adjusted yield optimization, policy validation, explainability, human
 override capture and outcome-driven continuous learning.
 """
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
