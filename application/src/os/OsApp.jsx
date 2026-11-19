@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {Sliders,PlugsConnected,Robot,Flask,Brain,Eye,Gauge,ChartLineUp,ShieldCheck,Graph,Broadcast,Waveform,Stack,ArrowSquareOut,CircleNotch,Binoculars} from '@phosphor-icons/react';
+import {Sliders,PlugsConnected,Robot,Flask,Brain,Eye,Gauge,ChartLineUp,ShieldCheck,Graph,Broadcast,Waveform,Stack,ArrowSquareOut,CircleNotch,Binoculars,FlowArrow} from '@phosphor-icons/react';
 import {api} from '../api';
 import {Login,NoAccess} from '../Login';
 import {sessionUser,refreshUser,signOut,canOpen,SESSION_ENDED} from '../session';
@@ -18,6 +18,7 @@ import {SystemOfRecord} from '../SystemOfRecord';
 import {Governance} from '../Governance';
 import {Features} from '../Features';
 import {Competitors} from '../Competitors';
+import {AgenticOS} from '../AgenticOS';
 
 // The console is the control tower over one workload: this pricing engine. The
 // tower itself sits above the lifecycle - Configure -> Train -> Validate &
@@ -33,6 +34,7 @@ const MODULES=[
    {key:'config', label:'Configuration', icon:Sliders},
    {key:'connectors', label:'Connectors', icon:PlugsConnected}]},
  {key:'train', n:2, label:'Train', icon:Flask, views:[
+   {key:'agentic-os', label:'Agentic OS', icon:FlowArrow},
    {key:'mlflow', label:'AutoML & MLflow', icon:Flask},
    {key:'models', label:'Trained models', icon:Brain},
    {key:'features', label:'Feature intelligence', icon:Flask}]},
@@ -97,6 +99,7 @@ function Console({user,onSignOut}){
    case 'record':      return <SystemOfRecord/>;
    case 'config':       return <Config/>;
    case 'connectors':   return <Connectors/>;
+   case 'agentic-os':   return <AgenticOS user={user}/>;
    case 'mlflow':       return <Mlflow navigate={()=>go('validate','xai-dash')}/>;
    case 'features':     return <Features/>;
    case 'models':       return <Operations page="models" cards={cards} state={OPS_STATE} health={health}/>;

@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from ..governance import (agent_registry, approvals, knowledge_registry, model_registry,
                           monitors, prompt_registry, regulatory)
@@ -209,3 +210,69 @@ def gates(artefact_type: str, artefact_id: str,
         raise HTTPException(404, str(exc)) from exc
     return _envelope({"artefact_type": artefact_type, "artefact_id": artefact_id,
                       "gates": results, "clear": approvals.gates_clear(results)}, principal)
+
+
+# ------------------------------------------------------------ model risk (MRM)
+
+class ValidationIn(BaseModel):
+    model: str = Field(..., min_length=1, max_length=64)
+    outcome: str = Field(..., max_length=32)
+    findings: str = Field(..., min_length=1, max_length=4000)
+    exceptions: str | None = Field(None, max_length=2000)
+    remediation_due: str | None = Field(None, max_length=10)
+
+
+class RMCBReportIn(BaseModel):
+    reported_on: str = Field(..., min_length=10, max_length=10)
+
+
+class ReviewIn(BaseModel):
+    notes: str = Field(..., min_length=1, max_length=4000)
+
+
+def _mr_fail(exc) -> HTTPException:
+    return HTTPException(exc.status, exc.detail)
+
+
+@router.get("/model-risk", summary="Model inventory, risk tiers, validations and open findings")
+def model_risk_view() -> dict[str, Any]:
+    from ..governance import model_risk
+    return model_risk.assess()
+
+
+@router.get("/model-risk/validations", summary="Independent validations on record, newest first")
+def model_validations(model: str | None = None) -> dict[str, Any]:
+    from ..governance import model_risk
+    return {"validations": model_risk.validations(model)}
+
+
+@router.post("/model-risk/validations", summary="Record an independent validation of the model version in use")
+def record_model_validation(body: ValidationIn, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    from ..governance import model_risk
+    try:
+        return model_risk.record_validation(body.model, outcome=body.outcome, findings=body.findings,
+                                            exceptions=body.exceptions, remediation_due=body.remediation_due,
+                                            validator=principal.name or "unknown", roles=list(principal.roles))
+    except model_risk.ModelRiskError as exc:
+        raise _mr_fail(exc) from exc
+
+
+@router.post("/model-risk/validations/{validation_id}/rmcb",
+             summary="Record the date a validation report reached the RMCB")
+def validation_reported(validation_id: str, body: RMCBReportIn,
+                        principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    from ..governance import model_risk
+    try:
+        return model_risk.report_to_rmcb(validation_id, reported_on=body.reported_on,
+                                         recorded_by=principal.name or "unknown")
+    except model_risk.ModelRiskError as exc:
+        raise _mr_fail(exc) from exc
+
+
+@router.post("/model-risk/review", summary="Record the periodic review of the inventory and its tiers")
+def inventory_review(body: ReviewIn, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    from ..governance import model_risk
+    try:
+        return model_risk.record_review(reviewer=principal.name or "unknown", notes=body.notes)
+    except model_risk.ModelRiskError as exc:
+        raise _mr_fail(exc) from exc

@@ -79,18 +79,27 @@ def test_an_unknown_role_on_a_key_is_dropped_not_granted(monkeypatch) -> None:
 
 # --------------------------------------------------------------------- gates
 
+def _fails_fairness() -> str:
+    """A champion whose card fails its fairness test, as name:version. Which one fails
+    changes when the models are retrained, so it is read from the cards, not named."""
+    from aavas.governance import model_registry
+    for name, card in sorted(model_registry.load_bundle().cards().items()):
+        if (card.get("fairness") or {}).get("passed") is False:
+            return f"{name}:{card.get('version', 'v1')}"
+    pytest.skip("no champion fails its fairness test: the gate has nothing to block")
+
+
 def test_a_failed_gate_blocks_the_request(client: TestClient, keys) -> None:
-    """The risk champion fails the fairness gate. It must not be promotable by
-    approving it harder."""
+    """A champion that fails the fairness gate must not be promotable by approving it harder."""
     response = client.post("/governance/approvals", headers=keys["alice"], json={
-        "artefact_type": "model", "artefact_id": "risk:v1", "action": "promote"})
+        "artefact_type": "model", "artefact_id": _fails_fairness(), "action": "promote"})
     assert response.status_code == 422
     assert "fairness_pass" in response.json()["detail"]
 
 
 def test_overriding_a_gate_needs_a_real_justification(client: TestClient, keys) -> None:
     short = client.post("/governance/approvals", headers=keys["alice"], json={
-        "artefact_type": "model", "artefact_id": "risk:v1", "action": "promote",
+        "artefact_type": "model", "artefact_id": _fails_fairness(), "action": "promote",
         "override_justification": "fine"})
     assert short.status_code == 422
 
@@ -100,7 +109,7 @@ def test_an_override_is_recorded_against_the_approval_permanently(
     justification = ("Calibration gap accepted pending the age-band recalibration scheduled "
                      "for Q4; monitored weekly by model risk.")
     created = client.post("/governance/approvals", headers=keys["alice"], json={
-        "artefact_type": "model", "artefact_id": "risk:v1", "action": "promote",
+        "artefact_type": "model", "artefact_id": _fails_fairness(), "action": "promote",
         "override_justification": justification}).json()["approval"]
     assert created["gates_passed"] is False
     assert created["override_justification"] == justification

@@ -18,13 +18,18 @@ from aavas.governance import store
 
 PASSWORDS = {"rohit": "Rohit@2026", "meera": "Meera@2026", "arjun": "Arjun@2026",
              "rahul": "Rahul@2026", "admin": "Admin@2026"}
+# The live policy allows 36-120 months and stresses affordability at rate + 2% against the grade's
+# FOIR cap, so a Rs 20 lakh loan is a 10-year file with an income that carries it.
 FILE = {"segment": "salaried_formal", "city": "Jaipur", "channel": "branch_walkin",
-        "property_type": "resale_flat", "declared_monthly_income": 55000,
-        "requested_loan_amount": 2000000, "requested_tenure_years": 20, "applicant_age": 35,
+        "property_type": "resale_flat", "declared_monthly_income": 120000,
+        "requested_loan_amount": 2000000, "requested_tenure_years": 10, "applicant_age": 35,
         "declared_obligations": 5000, "estimated_property_value": 2900000, "bureau_score": 790,
-        "sales_context": {"competitor_rate": 11.5, "competitor_evidence_verified": False},
-        "verified_monthly_income": 53000, "appraised_property_value": 2900000,
-        "sanctioned_loan_amount": 2000000, "tenure_years": 20, "bureau_vintage_months": 96,
+        # Policy lets a discount run at most 60 bps under the card rate (15.0% here), and a rival
+        # quoting below the card pulls the recommendation to within a few bps of that floor. A rival
+        # above the card leaves the room these approval tests need between recommendation and floor.
+        "sales_context": {"competitor_rate": 15.5, "competitor_evidence_verified": False},
+        "verified_monthly_income": 118000, "appraised_property_value": 2900000,
+        "sanctioned_loan_amount": 2000000, "tenure_years": 10, "bureau_vintage_months": 96,
         "delinquency_count_24m": 0, "banking_behaviour_score": 75, "deviation_count": 0,
         "legal_flag": 0, "technical_flag": 0}
 
@@ -173,17 +178,24 @@ def test_the_customer_decision_closes_the_offer(client) -> None:
 
 
 def test_the_cost_of_a_lower_rate_is_counted_over_the_whole_loan() -> None:
-    """Rs 40 lakh over 20 years at 10.00% instead of 14.40%: the EMI falls by about
-    Rs 12,300, so the bank gives up about Rs 29.5 lakh of interest over 240 EMIs -
-    not the Rs 1.76 lakh that one year of the rate gap suggests."""
+    """Rs 40 lakh over 10 years at 13.40% instead of 14.40%: the EMI falls, so the bank gives
+    up the interest over all 120 EMIs - not the one year of the rate gap that a single year's
+    interest suggests. Figures follow from the annuity formula, worked here independently."""
     from aavas.intake import offers as intake_offers
 
-    payload = {"recommendation": {"recommended_rate": 14.40},
-               "application_snapshot": {"tenure_years": 20, "sanctioned_loan_amount": 4000000}}
-    full = intake_offers.full_term(payload, 10.00, 4000000)
-    assert full["tenure_years"] == 20
-    assert full["emi_recommended"] - full["emi_requested"] == pytest.approx(12_306, abs=5)
-    assert full["cost_full_term"] == pytest.approx(2_953_500, abs=500)
+    loan, years, rec, asked = 4_000_000, 10, 14.40, 13.40
+
+    def emi(rate: float) -> float:
+        r, n = rate / 1200, years * 12
+        return loan * r / (1 - (1 + r) ** -n)
+
+    payload = {"recommendation": {"recommended_rate": rec},
+               "application_snapshot": {"tenure_years": years, "sanctioned_loan_amount": loan}}
+    full = intake_offers.full_term(payload, asked, loan)
+    assert full["tenure_years"] == years
+    assert full["emi_recommended"] - full["emi_requested"] == pytest.approx(emi(rec) - emi(asked), abs=1)
+    assert full["cost_full_term"] == pytest.approx((emi(rec) - emi(asked)) * years * 12, abs=years * 12)
+    assert full["cost_full_term"] > loan * (rec - asked) / 100, "more than one year of the rate gap"
     assert intake_offers.full_term({"recommendation": {"recommended_rate": 11}, "application_snapshot": {}},
                                    10.5, 1000000)["cost_full_term"] is None
 
@@ -217,25 +229,31 @@ def test_a_recommendation_at_the_floor_leaves_nothing_to_approve() -> None:
     from aavas.intake import offers
     from aavas.config import policy
     room = policy()["constraints"]["absolute_discount_floor_bps"] / 100
-    at_floor = round(12.45 - room, 2)
+    card = 14.50                                   # grade A, 61-84 months
+    at_floor = round(max(card - room, policy()["reference"]["card_rate_floor"]), 2)
     payload = {"recommendation": {"recommended_rate": at_floor},
-               "envelope": {"min_rate": at_floor, "max_rate": 16.5, "card_rate": 12.45}}
+               "envelope": {"min_rate": at_floor, "max_rate": policy()["reference"]["card_rate_ceiling"],
+                            "card_rate": card}}
     f = offers.floors(payload, at_floor - 0.5, 100)
     assert f["below_policy_floor"] and f["nothing_approvable"] and f["manager_floor"] == at_floor
-    above = {**payload, "recommendation": {"recommended_rate": 12.45}}
-    assert not offers.floors(above, 12.0, 100)["nothing_approvable"]
+    above = {**payload, "recommendation": {"recommended_rate": card}}
+    assert not offers.floors(above, at_floor - 0.5, 100)["nothing_approvable"]
 
 
 def test_a_request_is_decided_under_the_policy_in_force() -> None:
-    """A file priced when the floor was card less 0.60% is decided under today's floor."""
+    """A file priced under an older, deeper floor is decided under today's floor."""
     from aavas.config import policy
     from aavas.intake import offers
-    old = {"recommendation": {"recommended_rate": 13.15},
-           "envelope": {"min_rate": 13.15, "max_rate": 16.5, "card_rate": 13.75}}
+    card, rec = 14.50, 14.00                                # grade A, 61-84 months
+    stale_floor = round(card - 1.50, 2)                     # the floor stored on the file: 150 bps under the card
+    old = {"recommendation": {"recommended_rate": rec},
+           "envelope": {"min_rate": stale_floor, "max_rate": policy()["reference"]["card_rate_ceiling"],
+                        "card_rate": card}}
     lim = offers.limits(old, 25, 100)
-    expected = round(max(13.75 - policy()["constraints"]["absolute_discount_floor_bps"] / 100,
+    expected = round(max(card - policy()["constraints"]["absolute_discount_floor_bps"] / 100,
                          policy()["reference"]["card_rate_floor"]), 2)
-    assert lim["floor"] == expected and lim["manager_floor"] == round(max(13.15 - 1.0, expected), 2) < 13.15
+    assert expected > stale_floor, "today's floor is higher than the one the file was priced under"
+    assert lim["floor"] == expected and lim["manager_floor"] == round(max(rec - 1.0, expected), 2) < rec
 
 
 def test_the_rm_sees_the_final_acceptance_at_the_rate_they_offer(client) -> None:

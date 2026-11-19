@@ -38,3 +38,8 @@ aavas_POC/
 
 # Local snapshots taken before a policy re-baseline
 backups/
+
+# Agentic OS run workspaces (data, models, logs per run)
+reports/agentic_runs/
+# Drift runs and the alerts OpenObserve sent (regenerate: python scripts/run_drift.py)
+reports/drift/

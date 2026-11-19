@@ -16,7 +16,27 @@ import pytest
 from aavas.governance import store
 from aavas.intake import worklist
 
-from test_applications import COMPLETE, client, quote_and_apply, sign_in, upload  # noqa: F401
+import test_applications as _base
+from test_applications import client, sign_in, upload  # noqa: F401
+
+# The live policy allows 36-120 months and stresses affordability at rate + 2% against the
+# grade's FOIR cap, so a Rs 20 lakh loan needs a 10-year tenure and an income that carries it.
+TENURE_YEARS = 10          # asked for and quoted at Stage 1
+SANCTIONED_YEARS = 7       # what credit sanctions: a shorter tenure, so a longer one is still open
+INCOME = 120_000
+# Policy lets a discount run at most 60 bps under the card rate, and against a rival quoting below
+# the card the engine recommends at (or within a few bps of) that floor, leaving nothing for the
+# manager to approve. A rival at 15.5% sits above the card, so the recommendation keeps room above
+# the lowest rate policy allows, which is what these approval tests need.
+SALES = {**_base.COMPLETE["sales_context"], "competitor_rate": 15.5}
+COMPLETE = {**_base.COMPLETE, "tenure_years": SANCTIONED_YEARS, "verified_monthly_income": INCOME - 2_000,
+            "sales_context": SALES}
+
+
+def quote_and_apply(client, headers, loan_id, name="Rahul Verma", **extra) -> dict:
+    return _base.quote_and_apply(client, headers, loan_id, name, **{
+        "requested_tenure_years": TENURE_YEARS, "declared_monthly_income": INCOME,
+        "sales_context": {**_base.applicant(loan_id)["sales_context"], "competitor_rate": 15.5}, **extra})
 
 REQUIRED = ("income_proof", "bank_statement", "identity_address")
 
@@ -433,7 +453,10 @@ def test_the_managers_checklist(client) -> None:
     assert c["this_month"]["rm"]["asked"] >= 1 and c["this_month"]["rm"]["pending"] >= 1
 
     # Holding the rate over a longer tenure brings the EMI to the ask without a cut.
-    alt = manager_checks.alternatives(loan=2_000_000, years=20, age=35, ask=10.65, rec=10.95, counter=None)
+    # Policy tenures run 36-120 months, so a 5-year file can stretch to the 10-year maximum.
+    rec = 14.95
+    alt = manager_checks.alternatives(loan=2_000_000, years=5, age=35, ask=round(rec - 0.30, 2), rec=rec,
+                                      counter=None)
     longer = next(o for o in alt["options"] if o["key"] == "tenure")
     assert longer["emi_vs_ask"] <= 1 and longer["bank_change_inr"] > 0 and longer["age_at_end"] == 35 + longer["tenure_years"]
     assert manager_checks.reason_hints(None, "")["found"] == []

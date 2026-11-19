@@ -1,0 +1,69 @@
+# Agentic OS: how the platform rebuilds its models, step by step.
+#
+# The workflow runs four agents in order. Each checks its pre-conditions, does its
+# work, and checks its post-conditions; a failed check stops the run and says why.
+#   1. data      build or fetch the dataset, then check it obeys the pricing policy
+#   2. policy    run the policy file's consistency checks and its sample data
+#   3. training  train the models with the chosen engine (local, SageMaker, MLZero)
+#   4. serving   serve the result: promote in-process, or deploy a SageMaker endpoint
+# Edited from the Agentic OS screen (or here); every change is versioned and audited.
+
+agentic_os_config_version: "AOS-2026.11"
+
+workflow: [data, policy, training, serving]
+
+data:
+  source: synthetic            # synthetic: generate a book under the policy in force | live: the current dataset
+  rows: 20000
+  seed: 42
+  # Every row must pass these before training starts.
+  checks: [rates_inside_envelope, no_rate_above_card, tenure_in_range, stressed_affordability,
+           bureau_minimum, no_declined_grade, validator_clean]
+
+policy:
+  file: config/pricing_policy.yaml
+  require_consistency_checks: true   # INV-01..INV-11 (scripts/check_policy.py)
+  require_sample_cases: true         # tests/data/policy_cases.csv
+
+training:
+  engine: local                # local | sagemaker | autogluon_assistant
+  models: [stage1, stage2, conversion, prepayment, lgd, risk, override, uplift]
+  register_as: challenger      # challenger: kept beside the champions until promoted | champion
+
+  sagemaker:
+    region: ap-south-1
+    # The role ARN and bucket name carry the AWS account number and this repository is
+    # public: they come from AAVAS_SAGEMAKER_ROLE_ARN and AAVAS_SAGEMAKER_BUCKET (the
+    # environment or the git-ignored .env). A value written here would win.
+    role_arn: null
+    bucket: null
+    prefix: aavas-pricing
+    # The same image trains and serves, so the artefacts load where they are served.
+    image: 720646828776.dkr.ecr.ap-south-1.amazonaws.com/sagemaker-scikit-learn:1.4-2-cpu-py3
+    instance_type: ml.m5.xlarge
+    max_runtime_minutes: 60
+    poll_seconds: 30
+
+  autogluon_assistant:         # MLZero: an LLM agent that writes and runs its own AutoGluon code
+    cli: .venv-mlzero/Scripts/mlzero.exe
+    provider: bedrock
+    region: ap-south-1
+    model: global.anthropic.claude-sonnet-4-6   # Bedrock profile in ap-south-1; claude-haiku-4-5 is the cheaper one
+    target: stage2             # which contract it trains a challenger for: stage2 (final rate) | conversion
+    max_iterations: 3
+    time_limit_minutes: 45
+    instructions: >-
+      Train a regression model that predicts sanctioned_rate from the other columns.
+      Use only the training file; write predictions for the test file to results.
+
+serving:
+  mode: in_process             # in_process: the API loads the models itself | sagemaker_serverless
+  promote_on_success: false    # true: a passing run replaces the champions without a separate approval
+  sagemaker_serverless:
+    endpoint_name: aavas-pricing-bundle
+    memory_mb: 3072            # 1024-6144, in steps of 1024
+    max_concurrency: 5
+    parity_tolerance: 1.0e-6   # endpoint predictions must match the ones recorded at training time
+
+approval:
+  promote_roles: [administrator, model_validation]

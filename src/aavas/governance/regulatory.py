@@ -100,8 +100,32 @@ def facts() -> dict[str, Any]:
         "overrides": overrides, "signatures": int(signatures[0]["n"]) if signatures else 0,
         "audit_entries": store.count("audit_log"), "versions": policy_versions.versions(),
         "approvals": approvals.summary(), "monitors": monitors.status()["monitors"],
-        "policy": policy(),
+        "policy": policy(), **_fpc_facts(decisions, cards),
     }
+
+
+def _fpc_facts(decisions: list[dict[str, Any]], cards: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Facts for the Fair Practices Code, model risk and FREE-AI rows."""
+    from ..monitoring import drift
+    from . import model_risk
+    fp = load("fair_practices")
+    sent = store.query("SELECT offer_id FROM offers")
+    kfs_rows = store.query("SELECT offer_id, illustrative, acknowledged_at FROM kfs_statements")
+    declines = store.query("SELECT payload FROM decisions WHERE stage = 'post_assessment'")
+    declined = [p for p in (store.decode(r.get("payload")) for r in declines)
+                if isinstance(p, dict) and p.get("decision") == "decline"]
+    terms = [str(x).lower() for x in (fp.get("non_discrimination") or {}).get("protected_terms") or []]
+    hits = sorted({f"{name}: {feat}" for name, card in cards.items() for feat in (card.get("features") or [])
+                   if any(term in str(feat).lower() for term in terms)})
+    alerts_file = drift.reports_dir() / "alerts.jsonl"
+    alerts = alerts_file.read_text(encoding="utf-8").splitlines() if alerts_file.exists() else []
+    notes = store.query("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'rejection_note_issued'")
+    return {"fair_practices": fp, "offers_sent": len(sent),
+            "kfs": {"issued": len(kfs_rows), "offers_with_kfs": len({r["offer_id"] for r in kfs_rows}),
+                    "acknowledged": sum(bool(r.get("acknowledged_at")) for r in kfs_rows)},
+            "declined": declined, "rejection_notes": int(notes[0]["n"]) if notes else 0,
+            "protected_hits": hits, "model_risk": model_risk.assess(),
+            "drift_alerts": len([a for a in alerts if a.strip()])}
 
 
 # ------------------------------------------------------- one sentence per key
@@ -172,7 +196,7 @@ def _ltv(low: float, high: float | None, cap: float):
 def _all_in_cost(f):
     fee = float((f["policy"].get("economics") or {}).get("processing_fee_pct") or 0)
     return {"text": f"Offers show the rate, EMI, a {fee:.2f}% processing fee and the interest over the full "
-                    "term. An APR and a repayment schedule are not produced.",
+                    "term; the KFS adds the APR and the repayment schedule.",
             "figures": {"processing_fee_pct": fee}}
 
 
@@ -292,6 +316,200 @@ def _audit(f):
             "figures": {"audit_entries": f["audit_entries"], "signatures": f["signatures"]}}
 
 
+# ------------------------------------------- Fair Practices Code (HFC Ch. X, RBC)
+
+def _approved(f) -> bool:
+    return bool(((f.get("fair_practices") or {}).get("approval") or {}).get("approved"))
+
+
+def _kfs(f):
+    k, sent = f.get("kfs") or {}, f.get("offers_sent", 0)
+    text = (f"{k.get('issued', 0)} KFS issued for {k.get('offers_with_kfs', 0)} of {sent} offers sent; "
+            f"{k.get('acknowledged', 0)} acknowledged by the borrower. Each carries a proposal number, a "
+            "three-working-day validity, the APR on the net amount disbursed and the repayment schedule.")
+    if not _approved(f):
+        text += " The charges in it are illustrative until the Board approves the schedule."
+    return {"text": text, "coverage": "in_place" if _approved(f) else "partial",
+            "attention": bool(sent) and not k.get("offers_with_kfs"),
+            "figures": {**k, "offers_sent": sent}}
+
+
+def _penal_schedule(f):
+    penal = ((f.get("fair_practices") or {}).get("charges") or {}).get("penal") or []
+    named = "; ".join(f"{c['name']} ₹{c['amount_inr']:,} {c['basis']}" for c in penal) or "none listed"
+    return {"text": "Penal charges on the KFS, as charges on the amount in default, never interest or "
+                    f"capitalised: {named}." + ("" if _approved(f) else " Amounts are illustrative, awaiting "
+                                                                        "the board-approved policy."),
+            "coverage": "gap" if not penal else "in_place" if _approved(f) else "partial",
+            "figures": {"penal_charges": len(penal)}}
+
+
+def _prepayment_terms(f):
+    pre = ((f.get("fair_practices") or {}).get("charges") or {}).get("prepayment") or {}
+    configured = float(pre.get("floating_individual_non_business_pct") or 0)
+    return {"text": "The KFS states no pre-payment charge on a floating-rate loan to an individual for "
+                    "purposes other than business, from any source and with no lock-in; the KFS builder "
+                    "enforces it whatever the configuration says"
+                    + (f" (the configuration asks for {configured}%, which is ignored)." if configured else "."),
+            "coverage": "in_place", "attention": bool(configured), "figures": {"configured_pct": configured}}
+
+
+def _benchmark_impact(f):
+    bench = (f.get("fair_practices") or {}).get("benchmark") or {}
+    shocks = ", ".join(f"+{b} bps" for b in bench.get("impact_shocks_bps") or [])
+    return {"text": "The KFS shows the EMI with the tenure unchanged and the tenure with the EMI unchanged at "
+                    f"{shocks or 'no'} benchmark changes, and says when a rise would leave the EMI below the "
+                    f"interest (no negative amortisation). Benchmark: {bench.get('name')} at "
+                    f"{bench.get('rate_pct')}%, reset every {bench.get('reset_every_months')} months"
+                    + ("." if _approved(f) else ", illustrative until the ALCO confirms it."),
+            "coverage": "in_place" if _approved(f) else "partial",
+            "figures": {"shocks_bps": bench.get("impact_shocks_bps")}}
+
+
+def _rejection_reasons(f):
+    declined = f.get("declined") or []
+    reasoned = sum(bool((d.get("policy") or {}).get("violations")) for d in declined)
+    return {"text": f"{len(declined)} files declined, {reasoned} with the policy's reason on record; "
+                    f"{f.get('rejection_notes', 0)} written rejection notes issued, each giving the reasons in "
+                    "plain words and the grievance route.",
+            "coverage": "in_place" if reasoned == len(declined) else "gap",
+            "attention": reasoned < len(declined),
+            "figures": {"declined": len(declined), "with_reason": reasoned, "notes": f.get("rejection_notes", 0)}}
+
+
+def _protected_attributes(f):
+    hits = f.get("protected_hits") or []
+    return {"text": ("No model uses sex, caste, religion or disability as an input." if not hits else
+                     f"Inputs that name a protected ground: {', '.join(hits)}."),
+            "coverage": "gap" if hits else "in_place", "attention": bool(hits), "figures": {"hits": hits}}
+
+
+def _document_release(f):
+    d = (f.get("fair_practices") or {}).get("document_release") or {}
+    ok = int(d.get("days_after_closure") or 999) <= 30 and int(d.get("compensation_inr_per_day") or 0) >= 5000
+    return {"text": f"The KFS commits to release within {d.get('days_after_closure')} days, at the borrower's "
+                    f"choice of office, and ₹{d.get('compensation_inr_per_day', 0):,} for each day of delay. "
+                    "Releasing the documents is done in loan servicing.",
+            "coverage": "partial" if ok else "gap", "attention": not ok}
+
+
+def _grievance(f):
+    g = (f.get("fair_practices") or {}).get("grievance") or {}
+    ok = (int(g.get("acknowledge_within_days") or 99) <= 7 and int(g.get("final_response_within_days") or 99) <= 42
+          and int(g.get("escalate_after_days") or 99) <= 30)
+    return {"text": f"Acknowledgement within {g.get('acknowledge_within_days')} days, full reply within "
+                    f"{g.get('final_response_within_days')}, escalation to the {g.get('escalation_body')} after "
+                    f"{g.get('escalate_after_days')}: stated on every KFS and rejection note. Complaints are "
+                    "handled outside the platform.",
+            "coverage": "partial" if ok else "gap", "attention": not ok}
+
+
+def _ai_disclosure(f):
+    text = ((f.get("fair_practices") or {}).get("ai_disclosure") or {}).get("text")
+    return {"text": "Every KFS and rejection note tells the borrower that models helped price the loan, that a "
+                    "person made the offer, and how to ask for reasons and a human review." if text else
+                    "No AI-use disclosure is configured.",
+            "coverage": "in_place" if text else "gap"}
+
+
+# ------------------------------------------------ model risk (draft MRM, FREE-AI)
+
+def _mr(f) -> dict[str, Any]:
+    return f.get("model_risk") or {"models": [], "findings": [], "summary": {}, "inventory_review": {}, "drift": {}}
+
+
+def _mr_findings(f, refs: tuple[str, ...]) -> list[dict[str, Any]]:
+    return [x for x in _mr(f)["findings"] if any(r in x["ref"] for r in refs)]
+
+
+def _model_tiering(f):
+    mr = _mr(f)
+    tiers = ", ".join(f"{n} {lv}" for lv, n in (mr["summary"].get("by_tier") or {}).items())
+    review = mr["inventory_review"]
+    reviewed = review.get("days_since") is not None and review["days_since"] <= 365
+    return {"text": f"{len(mr['models'])} models tiered from materiality, complexity and autonomy ({tiers}); "
+                    "a low score never lowers a material model's tier. "
+                    + (f"Last reviewed {review['days_since']} days ago by {review['by']}." if review.get("last")
+                       else "The tiers have not been reviewed yet."),
+            "coverage": "in_place" if reviewed else "partial", "attention": not reviewed,
+            "figures": mr["summary"].get("by_tier")}
+
+
+def _inventory_fields(f):
+    gaps = _mr_findings(f, ("MRM 21", "MRM 22"))
+    mr = _mr(f)
+    return {"text": f"{len(mr['models'])} entries, the rate grid and every Claude call included, each with owner, "
+                    "developers, validators, approver, intended use, tier and upstream and downstream models"
+                    + (f"; open: {'; '.join(g['text'] for g in gaps)}." if gaps else "."),
+            "coverage": "gap" if gaps else "in_place", "attention": bool(gaps)}
+
+
+def _independent_validation(f):
+    mr = _mr(f)
+    active = [m for m in mr["models"] if m["status"] == "active"]
+    current = [m["name"] for m in active if m["validation"]["state"] in ("approved", "approved with exceptions")]
+    open_ = [m["name"] for m in active if m["name"] not in current]
+    return {"text": f"{len(current)} of {len(active)} models in use have a current independent validation of "
+                    "the version in use. A validator who builds or owns the model is refused"
+                    + (f". Not validated: {', '.join(open_)}." if open_ else "."),
+            "coverage": "in_place" if active and not open_ else "partial" if current else "gap",
+            "attention": bool(open_), "figures": {"validated": current, "open": open_}}
+
+
+def _validation_reporting(f):
+    late = _mr_findings(f, ("MRM 33",))
+    return {"text": "Each validation records when its report reached the RMCB; a report still outstanding three "
+                    "months on is flagged" + (f": {len(late)} outstanding." if late else "; none outstanding."),
+            "coverage": "partial" if late else "in_place", "attention": bool(late)}
+
+
+def _third_party_models(f):
+    tp = [m for m in _mr(f)["models"] if m["third_party"]]
+    names = ", ".join(f"{m['name']} ({m['third_party']})" for m in tp)
+    return {"text": f"{len(tp)} third-party models in the inventory, each under RMCB oversight whatever its "
+                    f"tier: {names}. Vendor documentation and audit rights in the contracts are outside the "
+                    "platform.",
+            "coverage": "partial",
+            "attention": any(m["validation"]["state"] == "never validated" and m["status"] == "active" for m in tp)}
+
+
+def _kill_switch(f):
+    active = [m for m in _mr(f)["models"] if m["status"] == "active"]
+    switch = [m["name"] for m in active if m["kill_switch"]]
+    fallback = [m["name"] for m in active if m["fallback"]]
+    return {"text": f"{len(switch)} of {len(active)} models in use can be suspended on their own "
+                    f"({', '.join(switch) or 'none'}); {len(fallback)} have a fallback. The pricing models have "
+                    "no per-model switch yet.",
+            "coverage": "in_place" if active and len(switch) == len(active) else "partial" if switch else "gap",
+            "attention": len(switch) < len(active)}
+
+
+def _drift_monitoring(f):
+    d = _mr(f)["drift"]
+    if not d.get("ran"):
+        return {"text": "Drift detection has never run.", "coverage": "gap", "attention": True}
+    st = d.get("status") or {}
+    return {"text": f"Data, model and concept drift last checked {d.get('age_days')} days ago on the live book: "
+                    f"data {st.get('data')}, model {st.get('model')}, concept {st.get('concept')}. Findings go "
+                    "to OpenObserve, whose alerts post back to the platform.",
+            "coverage": "partial" if d.get("finding") else "in_place", "attention": bool(d.get("finding"))}
+
+
+def _ai_incidents(f):
+    n = f.get("drift_alerts", 0)
+    return {"text": f"{n} drift alerts received from OpenObserve and logged. Reporting AI incidents to the "
+                    "regulator waits on the framework FREE-AI asks RBI to set up.",
+            "coverage": "partial"}
+
+
+def _inventory_review(f):
+    review = _mr(f)["inventory_review"]
+    fresh = review.get("days_since") is not None and review["days_since"] <= 182
+    return {"text": (f"Inventory last reviewed {review['days_since']} days ago by {review['by']}."
+                     if review.get("last") else "The inventory has not been reviewed yet.")
+                    + " FREE-AI asks for at least half-yearly.",
+            "coverage": "in_place" if fresh else "gap", "attention": not fresh}
+
 EVIDENCE: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "value_decomposition": _value_decomposition, "reason_codes": _reason_codes,
     "policy_versions": _policy_versions,
@@ -302,6 +520,14 @@ EVIDENCE: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "model_validation": _model_validation, "model_fairness": _model_fairness,
     "model_limitations": _model_limitations, "monitors": _monitors, "overrides": _overrides,
     "audit": _audit,
+    "kfs": _kfs, "penal_schedule": _penal_schedule, "prepayment_terms": _prepayment_terms,
+    "benchmark_impact": _benchmark_impact, "rejection_reasons": _rejection_reasons,
+    "protected_attributes": _protected_attributes, "document_release": _document_release,
+    "grievance": _grievance, "ai_disclosure": _ai_disclosure,
+    "model_tiering": _model_tiering, "inventory_fields": _inventory_fields,
+    "independent_validation": _independent_validation, "validation_reporting": _validation_reporting,
+    "third_party_models": _third_party_models, "kill_switch": _kill_switch,
+    "drift_monitoring": _drift_monitoring, "ai_incidents": _ai_incidents, "inventory_review": _inventory_review,
 }
 
 

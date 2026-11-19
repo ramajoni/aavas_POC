@@ -798,11 +798,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     ensure_dirs()
-    cfg = model_config()["data"]
     df, notes = generate(args.rows, args.seed)
 
-    raw_path = Path(resolve(cfg["raw_path"]))
-    notes_path = Path(resolve(cfg["notes_path"]))
+    from ..ingestion.loader import data_path      # honours the AAVAS_*_PATH overrides
+
+    raw_path, notes_path = Path(data_path("raw_path")), Path(data_path("notes_path"))
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    notes_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(raw_path, index=False)
     notes.to_csv(notes_path, index=False)
 

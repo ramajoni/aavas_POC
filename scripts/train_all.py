@@ -60,6 +60,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--regenerate", action="store_true", help="regenerate the synthetic dataset first")
     parser.add_argument("--rows", type=int, default=None)
     parser.add_argument("--only", nargs="*", help="train only these models")
+    parser.add_argument("--role", default="champion", choices=["champion", "challenger"],
+                        help="how the registry records what this run trains")
     args = parser.parse_args(argv)
 
     ensure_dirs()
@@ -79,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         log.info("--- training %s ---", name)
         card = module.train(df=df)
-        model_registry.register(card, role="champion")
+        model_registry.register(card, role=args.role)
         headline = ", ".join(
             f"{k}={card.metrics[k]:.4g}" for k in HEADLINE[name] if k in card.metrics)
         rows.append({"model": name, "learner": card.learner,

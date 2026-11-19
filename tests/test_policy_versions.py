@@ -31,7 +31,8 @@ def archive(monkeypatch, tmp_path):
     """An earlier version beside the live one: the live file with a different cap."""
     older = yaml.safe_load(config_path("policy").read_text(encoding="utf-8"))
     older["policy_version"] = "HL-POLICY-2000.01"
-    older["override"]["max_unevidenced_discount_bps"] = 15
+    # Differs from the live cap whatever it is set to, so the change is always detected.
+    older["override"]["max_unevidenced_discount_bps"] = policy()["override"]["max_unevidenced_discount_bps"] + 10
     (tmp_path / "HL-POLICY-2000.01.yaml").write_text(yaml.safe_dump(older, sort_keys=False), encoding="utf-8")
     monkeypatch.setattr(policy_versions, "ARCHIVE", tmp_path)
     return older
@@ -68,7 +69,8 @@ def test_an_archived_version_shows_what_changed(archive) -> None:
     live = policy_versions.get(policy()["policy_version"])
     assert live["previous"] == "HL-POLICY-2000.01"
     change = {c["path"]: c for c in live["changes_from_previous"]}
-    assert change["override.max_unevidenced_discount_bps"]["before"] == 15
+    assert change["override.max_unevidenced_discount_bps"]["before"] == archive["override"]["max_unevidenced_discount_bps"]
+    assert change["override.max_unevidenced_discount_bps"]["after"] == policy()["override"]["max_unevidenced_discount_bps"]
     old = policy_versions.get("HL-POLICY-2000.01")
     assert not old["current"] and old["next"] == policy()["policy_version"]
     assert policy_versions.get("HL-POLICY-1999.01") is None

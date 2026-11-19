@@ -13,7 +13,32 @@ from __future__ import annotations
 
 from aavas.intake import readiness
 
-from test_applications import COMPLETE, applicant, client, quote_and_apply, sign_in  # noqa: F401
+import test_applications as _base
+from test_applications import client, sign_in, upload  # noqa: F401
+
+# The live policy allows 36-120 months and stresses affordability at rate + 2% against the grade's
+# FOIR cap, so a Rs 20 lakh loan needs a 10-year tenure and an income that carries it. Policy lets a
+# discount run at most 60 bps under the card rate, and against a rival quoting below the card the
+# engine recommends at that floor; a rival at 15.5% sits above the card, which leaves room above the
+# lowest rate policy allows for the manager to approve.
+TENURE_YEARS = 10          # asked for and quoted at Stage 1
+SANCTIONED_YEARS = 7       # what credit sanctions
+INCOME = 120_000
+SALES = {**_base.COMPLETE["sales_context"], "competitor_rate": 15.5}
+COMPLETE = {**_base.COMPLETE, "tenure_years": SANCTIONED_YEARS, "verified_monthly_income": INCOME - 2_000,
+            "sales_context": SALES}
+
+
+def applicant(loan_id: str, name: str = "Rahul Verma") -> dict:
+    return {**_base.applicant(loan_id, name), "requested_tenure_years": TENURE_YEARS,
+            "declared_monthly_income": INCOME, "sales_context": {**_base.applicant(loan_id)["sales_context"],
+                                                                 "competitor_rate": 15.5}}
+
+
+def quote_and_apply(client, headers, loan_id, name="Rahul Verma", **extra) -> dict:
+    return _base.quote_and_apply(client, headers, loan_id, name, **{
+        k: v for k, v in applicant(loan_id, name).items()
+        if k in ("requested_tenure_years", "declared_monthly_income", "sales_context")}, **extra)
 
 
 def full(**over) -> dict:

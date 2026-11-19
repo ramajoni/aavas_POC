@@ -451,3 +451,69 @@ def decide(request_id: str, body: DecisionIn, principal: Principal = Depends(cur
                              capture_override=orchestrator.capture_override, uplift=body.uplift)
     except offers.OfferError as exc:
         raise _fail(exc) from exc
+
+
+# ------------------------------------------------ Fair Practices Code documents
+
+class KFSIn(BaseModel):
+    language: str = Field("en", min_length=2, max_length=8)
+
+
+def _kfs_offer(offer_id: str, principal: Principal) -> dict[str, Any]:
+    from ..governance import store
+    row = store.fetch_one("SELECT offer_id, sent_by FROM offers WHERE offer_id = ?", (offer_id,))
+    if row is None:
+        raise HTTPException(404, f"no offer {offer_id}")
+    if _own_only(principal) and row["sent_by"] != principal.name:
+        raise HTTPException(403, "a relationship manager gives the KFS for their own offers")
+    return row
+
+
+@router.post("/offers/{offer_id}/kfs", summary="Give the borrower the Key Facts Statement for an offer")
+def issue_kfs(offer_id: str, body: KFSIn = KFSIn(),
+              principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    """RBC Directions para 29: the APR, every charge and the repayment schedule, before
+    the contract, binding for three working days. A still-valid KFS for the same rate is
+    returned again, not replaced."""
+    from ..intake import kfs
+    _require(principal, RM, AM, ADMIN)
+    _kfs_offer(offer_id, principal)
+    try:
+        return kfs.issue(offer_id, issued_by=principal.name, language=body.language)
+    except kfs.KFSError as exc:
+        raise HTTPException(exc.status, exc.detail) from exc
+
+
+@router.get("/offers/{offer_id}/kfs", summary="Key Facts Statements given for an offer")
+def list_kfs(offer_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    from ..intake import kfs
+    _require(principal, RM, AM, ADMIN)
+    _kfs_offer(offer_id, principal)
+    return {"statements": kfs.statements(offer_id=offer_id)}
+
+
+@router.post("/offers/{offer_id}/kfs/{kfs_id}/acknowledge",
+             summary="Record that the borrower acknowledged the KFS after it was explained")
+def acknowledge_kfs(offer_id: str, kfs_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    from ..intake import kfs
+    _require(principal, RM, ADMIN)
+    _kfs_offer(offer_id, principal)
+    held = [s for s in kfs.statements(offer_id=offer_id) if s["kfs_id"] == kfs_id]
+    if not held:
+        raise HTTPException(404, f"no KFS {kfs_id} for offer {offer_id}")
+    return kfs.acknowledge(kfs_id, recorded_by=principal.name)
+
+
+@router.get("/rejection-note/{loan_id}", summary="The reasons for a rejection, in writing (HFC Directions 135)")
+def rejection_note(loan_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    from ..intake import fair_practices
+    _require(principal, RM, AM, ADMIN)
+    if _own_only(principal):
+        row = intake.get(loan_id) or {}
+        logged = {x for x in ((row.get("applicant") or {}).get("created_by"), row.get("owner")) if x}
+        if principal.name not in logged:
+            raise HTTPException(403, "a relationship manager gets the rejection note for files they logged")
+    try:
+        return fair_practices.rejection_note(loan_id, requested_by=principal.name)
+    except fair_practices.NoDecline as exc:
+        raise HTTPException(409, str(exc)) from exc

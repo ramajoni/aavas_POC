@@ -8,7 +8,7 @@
 # PBKDF2-SHA256 hashes; make a new one with `python -m aavas.api.access`. These
 # are synthetic personas for the POC; production replaces the users table with
 # SSO and roles from the directory.
-version: ACCESS-2026.10
+version: ACCESS-2026.11
 
 # Borrowers may create their own account from the sign-in screen. Such accounts
 # are stored in the database and can only ever be borrowers.
@@ -57,7 +57,7 @@ roles:
     landing: models
     console: true
     pages: [models, xai, credit-score, xai-dash, mlflow, features, runtime, record,
-            governance, control-tower, agents, learning, learning-proof, audit, regulatory, policy, config]
+            governance, control-tower, agents, agentic-os, learning, learning-proof, audit, regulatory, policy, config]
   administrator:
     label: "Platform administrator"
     landing: dashboard
@@ -115,6 +115,8 @@ public:
   - {path: /auth/personas, methods: [GET]}
   - {path: /auth/register, methods: [POST]}
   - {path: /auth/registration, methods: [GET]}
+  # OpenObserve posts drift alerts here; the handler requires the shared webhook token.
+  - {path: /monitoring/alert-webhook, methods: [POST], exact: true}
 
 # -------------------------------------------------------------- route rules
 # The matching rule with the longest path wins. Anything no rule matches is
@@ -145,6 +147,8 @@ routes:
 
   # Offers and rate approvals. Who may decide a request is checked in api/offers.py.
   - {path: /pricing/offers, roles: [relationship_manager, area_manager]}
+  # HFC Directions 135: the reasons for a rejection, in writing.
+  - {path: /pricing/rejection-note, methods: [GET], roles: [relationship_manager, area_manager]}
   - {path: /pricing/rate-requests, roles: [relationship_manager, area_manager]}
   # The area's disbursements against target, by RM: the area manager's.
   - {path: /pricing/area, methods: [GET], roles: [area_manager]}
@@ -183,4 +187,8 @@ routes:
   - {path: /learning, roles: [model_validation]}
   - {path: /agents, methods: [GET], roles: [model_validation]}
   - {path: /config, methods: [GET], roles: [model_validation]}
+  # Agentic OS: rebuild, check and serve the models (settings edits stay administrator-only).
+  - {path: /agentic, roles: [model_validation]}
+  # Drift monitoring: data, model and concept drift, and the alerts OpenObserve raised.
+  - {path: /monitoring, roles: [model_validation]}
   # /connectors: administrator only (no rule).

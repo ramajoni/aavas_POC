@@ -1,0 +1,69 @@
+# Model monitoring: data drift, model (prediction) drift and concept drift, shipped to
+# OpenObserve. Read by src/aavas/monitoring; run by scripts/run_drift.py and the
+# recorded drift monitor (scripts/run_monitors.py --monitor drift).
+#
+#   data drift     the inputs moved: the mix of files is not the one the models learned
+#   model drift    the predictions moved: the models now answer differently on the book
+#   concept drift  the relationship moved: the same inputs now lead to different outcomes,
+#                  so the models are wrong even where the inputs look familiar
+
+monitoring_config_version: "MON-2026.11"
+
+windows:
+  reference: training          # training: the rows the champions were fitted on (the time split's train part)
+  current: holdout             # holdout: the latest rows (the time split's test part) | last_days
+  last_days: 90                # used when current = last_days
+  reference_sample: 6000       # rows scored for model drift (speed); every row is used for data drift
+
+thresholds:
+  psi_warn: 0.10               # same as model_config drift
+  psi_alert: 0.25
+  ks_warn: 0.10                # Kolmogorov-Smirnov statistic; p-values alone flag trivial shifts at this n
+  ks_alert: 0.20
+  min_rows: 200                # fewer rows in a window: no verdict, reported as insufficient
+  # concept drift: degradation against the reference window's own performance
+  mae_increase_warn_pct: 20    # stage-2 rate error
+  mae_increase_alert_pct: 50
+  auc_drop_warn: 0.03          # conversion and prepayment ranking
+  auc_drop_alert: 0.06
+  calibration_gap_warn_pts: 3  # conversion: observed minus predicted disbursal rate, points
+  calibration_gap_alert_pts: 6
+  default_ratio_warn: [0.80, 1.25]   # risk: observed / expected defaults
+  default_ratio_alert: [0.67, 1.50]
+
+change_detection:              # CUSUM on each error stream in date order, against the card's in-control level
+  # Stage-2 absolute rate error, against the card's out-of-sample MAE (bps):
+  error_slack: 0.25            # excess tolerated per loan, as a share of that MAE
+  error_threshold: 50.0        # alarm when the accumulated excess passes this many MAEs
+  # Conversion residual (disbursed minus predicted probability), against zero:
+  residual_slack: 0.02         # 2 points of miscalibration tolerated per file
+  residual_threshold: 20.0     # alarm when the accumulated miscalibration passes 20 files' worth
+  min_observations: 100
+
+openobserve:
+  enabled: true
+  # Connection from the environment (never stored here): AAVAS_O2_URL, AAVAS_O2_ORG,
+  # AAVAS_O2_USER, AAVAS_O2_PASSWORD. Locally they come from .env.openobserve.
+  url_default: http://localhost:5080
+  org_default: default
+  timeout_seconds: 15
+  streams:
+    summary: aavas_drift_summary     # one row per drift run
+    findings: aavas_drift_findings   # one row per feature, prediction and performance metric
+    monthly: aavas_drift_monthly     # performance and inputs per calendar month
+  alert_destination:
+    name: aavas_api_webhook
+    url: http://localhost:8000/monitoring/alert-webhook
+  alerts:                      # each fires when its SQL returns at least one row in the period
+    - name: aavas_data_drift_alert
+      description: An input feature drifted past the alert threshold (PSI or KS).
+      kind: data
+    - name: aavas_model_drift_alert
+      description: A model's predictions drifted past the alert threshold.
+      kind: model
+    - name: aavas_concept_drift_alert
+      description: A model's performance on outcomes degraded past the alert threshold.
+      kind: concept
+  alert_period_minutes: 60
+  alert_frequency_minutes: 5
+  alert_silence_minutes: 60

@@ -60,6 +60,17 @@ DESCRIPTIONS = {
                    "them under, which bare names are ambiguous, and the fuzzy-match bound.",
     "intake": "Online applications: the document types a borrower is asked for, the file "
               "formats accepted (judged by contents), and the size and count limits.",
+    "monitoring": "Model monitoring: data, model (prediction) and concept drift thresholds, the "
+                  "comparison windows, and the OpenObserve streams and alerts the findings go to.",
+    "fair_practices": "Fair Practices Code: the charges, benchmark, KFS rules, document-release and "
+                      "grievance commitments a borrower is told, and the plain-language reasons "
+                      "for a rejection (RBI HFC and Responsible Business Conduct Directions, 2025).",
+    "model_risk": "Model risk management: the model inventory with owners, validators, risk tier, "
+                  "dependencies, oversight and fallback, and the framework's review and validation "
+                  "intervals (RBI draft MRM guidance 2026, FREE-AI).",
+    "agentic_os": "The agentic model-building workflow: where the data comes from, the policy "
+                  "checks it must pass, the training engine (local, SageMaker, AutoGluon "
+                  "Assistant) and how the result is served.",
     "market_research": "Competitor fact checking: how often a lender's advertised rates "
                        "are searched again, and the points a quoted rate scores for its "
                        "evidence, the market and the customer's profile.",
@@ -93,7 +104,9 @@ VERSION_KEYS = ("policy_version", "model_config_version", "feature_config_versio
                 "acceptance_config_version", "automl_config_version",
                 "federated_config_version", "connectors_config_version",
                 "governance_config_version", "competitors_config_version",
-                "intake_config_version", "market_research_config_version")
+                "intake_config_version", "market_research_config_version",
+                "agentic_os_config_version", "monitoring_config_version",
+                "fair_practices_config_version", "model_risk_config_version")
 
 
 def _path(name: str):

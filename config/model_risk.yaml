@@ -1,0 +1,240 @@
+# Model inventory and model risk framework settings, under
+#   RBI Draft Guidance on Regulatory Principles for Model Risk Management, 2026
+#     (press release 2026-2027/528, 24 Jun 2026; cited "MRM <para>"). A draft:
+#     comments closed 24 Jul 2026, no final text yet. It applies to NBFC-ML/UL
+#     (MRM 4), and an HFC sits in the middle or upper layer (HFC Directions para 9).
+#   FREE-AI committee report, 13 Aug 2025 (cited "FREE-AI rec <n>").
+#
+# MRM 7(3): a model is anything that turns data and assumptions into results used
+# for decisions, "irrespective of whether such tools are recognised as models" -
+# so the rate grid in pricing_policy.yaml is listed, and so is every Claude call.
+# MRM 21: nothing may be used unless it is in this inventory. MRM 22 names the
+# fields kept for each entry. src/aavas/governance/model_risk.py checks them.
+#
+# Roles: owner = the business that answers for the model's use (first line);
+# developers = who build it; validators = platform roles allowed to validate it,
+# which must not overlap the developers or the owner (MRM 7(8), 15).
+# Dates left null have not happened: the checks report them as open, not as done.
+model_risk_config_version: MRM-2026.11
+
+framework:
+  board_approved_on: null           # MRM 9-11: the MRMF is approved by the Board outside the platform
+  levels: [Low, Medium, High]
+  tier_review_max_days: 365         # MRM 17, 12(2): at least annually
+  validation_every_months:          # MRM 30 leaves the frequency to the MRMF; this is the RE's choice
+    High: 12
+    Medium: 24
+    Low: 36
+  validation_report_to_rmcb_days: 90   # MRM 33: within three months of completing the validation
+  inventory_review_max_days: 182    # FREE-AI rec 23: AI inventory updated at least half-yearly
+  decommissioned_retention_years: 10   # MRM 23
+  drift_report_max_age_days: 31     # MRM 37, 54(7): drift monitored on an ongoing basis
+  third_party_enhanced_oversight: true # MRM 46(ii): RMCB oversight irrespective of tier
+  approvers:                        # MRM 18(ii): High-tier models need RMCB approval
+    High: rmcb
+    Medium: chief_risk_officer
+    Low: chief_risk_officer
+
+defaults: &ml
+  owner: retail_pricing
+  developers: [data_science]
+  validators: [model_validation]
+  third_party: null
+  status: active
+  oversight: human_in_the_loop      # a person sends every offer, within their authority
+  kill_switch: null                 # no per-model switch exists in the platform yet
+  fallback: null
+  fallback_tested_on: null
+
+models:
+  policy_grid:
+    <<: *ml
+    title: "Rate grid (grade x tenure matrix)"
+    kind: rules
+    version_from: policy
+    intended_use: "Sets the card rate and the permissible band for every file from its risk grade and tenure; declines grade D and anything priced above the 17% ceiling."
+    materiality: High
+    complexity: Low
+    autonomy: High                  # it declines files without a person deciding
+    consumer_facing: true
+    upstream: [risk]
+    downstream: [stage2, stage1]
+    kill_switch: "Restore an earlier policy version through change control (POST /config/policy/history/{id}/restore)."
+    fallback: "Earlier policy version."
+
+  risk:
+    <<: *ml
+    title: "Probability of default and risk grade"
+    kind: ml
+    card: risk
+    intended_use: "Estimates the 12-month probability of default; the grade cut-offs turn it into the A+ to D grade that drives the rate and the decline."
+    materiality: High
+    complexity: Medium
+    autonomy: High
+    consumer_facing: true
+    upstream: []
+    downstream: [policy_grid, stage2, lgd]
+
+  stage2:
+    <<: *ml
+    title: "Recommended rate (final assessment)"
+    kind: ml
+    card: stage2
+    intended_use: "Recommends the rate within the permissible band for a verified file."
+    materiality: High
+    complexity: Medium
+    autonomy: Medium
+    consumer_facing: true
+    upstream: [risk, policy_grid, conversion, prepayment, lgd]
+    downstream: [override, uplift]
+    fallback: "The policy card rate for the file's grade and tenure."
+
+  stage1:
+    <<: *ml
+    title: "Indicative quote band (pre-assessment)"
+    kind: ml
+    card: stage1
+    intended_use: "Gives an applicant an indicative rate range before verification."
+    materiality: Medium
+    complexity: Medium
+    autonomy: Medium
+    consumer_facing: true
+    upstream: [policy_grid]
+    downstream: []
+    fallback: "The policy band for the declared grade."
+
+  conversion:
+    <<: *ml
+    title: "Offer acceptance probability"
+    kind: ml
+    card: conversion
+    intended_use: "Probability the customer accepts at a given rate; used to weigh a lower rate against the value given up."
+    materiality: Medium
+    complexity: Medium
+    autonomy: Low
+    consumer_facing: false
+    upstream: [llm_note_extraction]
+    downstream: [stage2]
+
+  prepayment:
+    <<: *ml
+    title: "Prepayment probability and expected life"
+    kind: ml
+    card: prepayment
+    intended_use: "Expected life of the loan in the value of a priced file; early exit is priced as risk, never charged."
+    materiality: Medium
+    complexity: Medium
+    autonomy: Low
+    consumer_facing: false
+    upstream: []
+    downstream: [stage2]
+
+  lgd:
+    <<: *ml
+    title: "Loss given default"
+    kind: ml
+    card: lgd
+    intended_use: "Loss on default for the expected credit loss in the rate build-up."
+    materiality: Medium
+    complexity: Medium
+    autonomy: Low
+    consumer_facing: false
+    upstream: [risk]
+    downstream: [stage2]
+
+  override:
+    <<: *ml
+    title: "Override likelihood"
+    kind: ml
+    card: override
+    intended_use: "How likely a recommendation is to be overridden; used to watch overrides, not to price."
+    materiality: Low
+    complexity: Medium
+    autonomy: Low
+    consumer_facing: false
+    upstream: [stage2]
+    downstream: []
+
+  uplift:
+    <<: *ml
+    title: "Commercial uplift"
+    kind: ml
+    card: uplift
+    intended_use: "Effect of a discount on acceptance; a large commercial uplift sends the file to fair-pricing review."
+    materiality: Medium
+    complexity: Medium
+    autonomy: Low
+    consumer_facing: true
+    upstream: [stage2]
+    downstream: []
+
+  llm_note_extraction:
+    <<: *ml
+    title: "Sales-note signal extraction (Claude)"
+    kind: llm
+    version_from: acceptance
+    intended_use: "Reads the sales officer's notes and proposes typed signals; never a probability."
+    materiality: Medium
+    complexity: High
+    autonomy: Low
+    consumer_facing: false
+    third_party: "Anthropic (Claude)"
+    upstream: []
+    downstream: [conversion]
+    kill_switch: "AAVAS_LLM_ENABLED=false, or llm_enabled: false in config/acceptance.yaml."
+    fallback: "Rule-based extraction, used whenever the LLM is off or unreachable."
+
+  llm_market_research:
+    <<: *ml
+    title: "Competitor rate research (Claude with web search)"
+    kind: llm
+    version_from: market_research
+    intended_use: "Finds a competitor's published rates so an area manager can check a 'lower rate elsewhere' claim."
+    materiality: Medium
+    complexity: High
+    autonomy: Low
+    consumer_facing: false
+    third_party: "Anthropic (Claude)"
+    owner: area_sales
+    upstream: []
+    downstream: []
+    kill_switch: null               # no switch: it stops only when the API key is removed
+    fallback: "The area manager checks the claim by hand."
+
+  llm_narrative:
+    <<: *ml
+    title: "Plain-language price explanation (Claude)"
+    kind: llm
+    version_from: narrative
+    intended_use: "Explains one loan's price to the credit officer from figures already on the page; every number is checked back."
+    materiality: Low
+    complexity: High
+    autonomy: Low
+    consumer_facing: false
+    third_party: "Anthropic (Claude)"
+    owner: model_governance
+    upstream: [stage2]
+    downstream: []
+    kill_switch: null               # no switch: it stops only when the API key is removed
+    fallback: "The explanation page without the narrative."
+
+  autogluon_assistant:
+    <<: *ml
+    title: "AutoGluon Assistant (MLZero) challenger engine"
+    kind: llm_agent
+    version_from: agentic_os
+    intended_use: "Writes and runs AutoGluon training code to build challenger models; never promoted, never prices."
+    materiality: Low
+    complexity: High
+    autonomy: High                  # it executes code it wrote itself
+    consumer_facing: false
+    third_party: "AutoGluon Assistant (open source) with Claude on Amazon Bedrock"
+    owner: model_governance
+    status: inactive                # blocked: Bedrock Anthropic use-case form not submitted
+    oversight: human_on_the_loop
+    upstream: []
+    downstream: []
+    kill_switch: "training.engine other than autogluon_assistant in config/agentic_os.yaml."
+    fallback: "Local training engine."
+    known_risks:
+      - "Runs model-written code unsandboxed as the platform user (MRM 58, FREE-AI rec 19); needs a container with Bedrock-only credentials before any use beyond a developer machine."

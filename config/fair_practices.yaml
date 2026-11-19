@@ -1,0 +1,101 @@
+# Fair Practices Code: what a borrower is told, in the Key Facts Statement and in
+# writing, under
+#   Reserve Bank of India (Housing Finance Companies) Directions, 2025, Chapter-X
+#     (RBI/DoR/2025-26/365), cited "HFC <para>", and
+#   Reserve Bank of India (NBFC - Responsible Business Conduct) Directions, 2025
+#     (RBI/DoR/2025-26/362), which HFC paras 134-177 apply to HFCs, cited "RBC <para>".
+#
+# The rate itself comes from config/pricing_policy.yaml (the board-adopted interest
+# rate model, HFC 14(14) / RBC 22); this file holds the charges and the commitments
+# around it. src/aavas/intake/kfs.py builds the KFS from both.
+#
+# CHARGES BELOW ARE ILLUSTRATIVE until `approval.approved` is true. Penal charges,
+# switching charges and the benchmark are board / ALCO decisions (RBC 7, 30(3), 31(4));
+# every KFS issued while this is false carries an "illustrative" banner, and the
+# RBI register shows the row as partly in place.
+fair_practices_config_version: FPC-2026.11
+
+approval:
+  approved: false
+  approved_by: null            # e.g. "Board, meeting of <date>"
+  approved_on: null
+
+product:
+  default_loan_type: "Housing loan to an individual"
+  purpose: non_business         # RBC 33-34 turn on business vs other purposes
+  borrower: individual
+  rate_type: floating            # the only rate type offered
+  interest_annualised: true      # RBC 24: always quote the annualised rate
+  repayment: monthly_emi
+  # HFC 10(8): a loan against property for any other purpose is a non-housing loan.
+  # HFC 163 (housing loans) then does not apply; RBC 34 still does by borrower and purpose.
+
+benchmark:                       # RBC 31(1): impact of a benchmark change on EMI / tenure
+  name: "Reference rate"
+  rate_pct: 10.00                # ILLUSTRATIVE: the ALCO sets and publishes the benchmark
+  reset_every_months: 3
+  impact_shocks_bps: [25, 100]   # shown on the KFS: EMI and tenure at benchmark + 25 / + 100 bps
+
+kfs:                             # RBC 29
+  validity_working_days: 3       # 29(2): at least three working days for a tenor of 7 days or more
+  apr_method: "IRR of the cash flows on the net amount disbursed, monthly rate x 12 (reducing balance)"
+  rounding: nearest_rupee_half_up   # RBC 103
+  languages: [en, hi]            # RBC 10, HFC 167: the borrower's language; KFS text here is English
+  acknowledgement_required: true # 29(1)
+
+charges:
+  # Payable to the HFC. processing_fee_pct is read from pricing_policy.yaml economics.
+  third_party: []                # 29(4): recovered at actuals (insurance, legal, valuation) and in the APR;
+                                 # e.g. - {name: "Property valuation", amount_inr: 3000, payable_to: "Valuer"}
+  penal:                         # RBC 30: charges, never interest; not capitalised; on the amount in default
+    - {name: "Late payment of an instalment", basis: "per instalment in default", amount_inr: 500}
+    - {name: "Instalment mandate dishonoured", basis: "per dishonour", amount_inr: 500}
+  switching:                     # RBC 31(4)
+    floating_to_fixed: "Not offered"
+    fixed_to_floating: "Not applicable"
+  prepayment:
+    # RBC 33-34, HFC 163. Floating-rate loans to individuals for purposes other than
+    # business: no charge, from any source, no lock-in. kfs.py enforces this; a value
+    # here cannot switch it on for that class.
+    floating_individual_non_business_pct: 0
+    other_pct: 0
+
+document_release:                # RBC 35-41 (applied to HFCs by HFC 177)
+  days_after_closure: 30
+  compensation_inr_per_day: 5000 # 39: delay attributable to the HFC
+  extra_days_if_lost: 30         # 40: penalty counted after 60 days in all
+  where: "the branch that services the loan or any other office of the company, as the borrower prefers"
+
+grievance:                       # HFC 139-144
+  acknowledge_within_days: 7     # 142: "within a week"
+  final_response_within_days: 42 # 143: "within six weeks"
+  escalate_after_days: 30        # 144: no response within a month, or dissatisfied
+  escalation_body: "National Housing Bank, Complaint Redressal Cell"
+  officer: "Grievance Redressal Officer (name and contact on the company website)"
+
+change_of_terms:                 # RBC 15, HFC 137
+  notice: "in the borrower's language, before the change takes effect"
+  interest_changes: prospective_only
+  exit_window_days: 60           # HFC 137: close or switch without charge if the change is adverse
+
+rejection:                       # HFC 135: reasons for rejection in writing
+  in_writing: true
+  plain_reasons:                 # internal no-offer reason -> what the applicant reads
+    bureau: "Your credit bureau score is below the minimum our lending policy accepts."
+    grade: "Your overall credit assessment falls outside the risk our lending policy accepts."
+    ceiling: "At the tenure requested, the rate our policy requires would be above the highest rate we charge. A shorter tenure may change this."
+    affordability: "The repayments on the amount requested would be more than your income can support under our lending policy."
+    other: "Your application does not meet our lending policy."
+
+ai_disclosure:                   # FREE-AI rec 18, MRM draft para 59
+  text: >-
+    Statistical and machine-learning models helped assess this application and
+    recommend its rate. A member of our staff reviewed the recommendation and
+    made the offer. You can ask for the reasons for your rate and for a review by
+    a person through the grievance process below.
+
+non_discrimination:              # HFC 168, 172(5); RBC 28
+  protected_terms: [sex, gender, caste, religion, disability, disabled, handicap, visually, impair]
+  statement: >-
+    We do not discriminate on grounds of sex, caste, religion or disability.
+    No additional interest, collateral or other burden is imposed on account of a disability.

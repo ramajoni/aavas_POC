@@ -27,6 +27,10 @@ _FILES = {
     "competitors": "competitors.yaml",
     "intake": "intake.yaml",
     "market_research": "market_research.yaml",
+    "agentic_os": "agentic_os.yaml",
+    "monitoring": "monitoring.yaml",
+    "fair_practices": "fair_practices.yaml",
+    "model_risk": "model_risk.yaml",
 }
 
 
@@ -79,6 +83,24 @@ def reload() -> None:
 
 def env(key: str, default: str | None = None) -> str | None:
     return os.environ.get(key, default)
+
+
+def env_or_file(key: str, path=None) -> str | None:
+    """An environment variable, else the same KEY=VALUE line in the repo's git-ignored
+    .env file. For values that must not be committed but need no secret store."""
+    if os.environ.get(key):
+        return os.environ[key]
+    from .paths import ROOT
+    path = path or ROOT / ".env"
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        name, sep, value = line.strip().partition("=")
+        if sep and name.strip() == key and not line.lstrip().startswith("#"):
+            return value.strip().strip('"').strip("'") or None
+    return None
 
 
 def env_bool(key: str, default: bool = False) -> bool:

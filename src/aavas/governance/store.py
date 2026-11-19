@@ -89,6 +89,41 @@ CREATE TABLE IF NOT EXISTS offers (
 );
 CREATE INDEX IF NOT EXISTS idx_offers_loan ON offers(loan_id);
 
+-- Key Facts Statements given to borrowers (RBC Directions para 29). The terms in a
+-- KFS bind the company for its validity period, so each issued KFS is kept whole.
+CREATE TABLE IF NOT EXISTS kfs_statements (
+    kfs_id          TEXT PRIMARY KEY,
+    offer_id        TEXT NOT NULL,
+    loan_id         TEXT NOT NULL,
+    issued_by       TEXT NOT NULL,
+    issued_at       TEXT NOT NULL,
+    valid_until     TEXT NOT NULL,
+    rate_pct        REAL NOT NULL,
+    apr_pct         REAL NOT NULL,
+    language        TEXT NOT NULL,
+    illustrative    INTEGER NOT NULL,
+    payload         TEXT NOT NULL,
+    acknowledged_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_kfs_offer ON kfs_statements(offer_id);
+
+-- Independent model validations (RBI draft MRM guidance paras 29-33): who
+-- validated which model version, the outcome, and when the report reached the RMCB.
+CREATE TABLE IF NOT EXISTS model_validations (
+    validation_id   TEXT PRIMARY KEY,
+    model           TEXT NOT NULL,
+    model_version   TEXT NOT NULL,
+    outcome         TEXT NOT NULL,
+    findings        TEXT NOT NULL,
+    exceptions      TEXT,
+    remediation_due TEXT,
+    validator       TEXT NOT NULL,
+    validator_roles TEXT NOT NULL,
+    validated_at    TEXT NOT NULL,
+    reported_to_rmcb_on TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_validations_model ON model_validations(model);
+
 -- A lower rate the relationship manager asked the area manager to approve.
 CREATE TABLE IF NOT EXISTS rate_requests (
     request_id      TEXT PRIMARY KEY,
@@ -474,7 +509,7 @@ def reset() -> None:
                       "feature_proposals", "applications", "application_documents",
                       "loan_book", "datasets", "config_changes", "borrower_accounts",
                       "offers", "rate_requests", "market_rate_research", "customer_logins",
-                      "customer_nudges"):
+                      "customer_nudges", "kfs_statements", "model_validations"):
             conn.execute(f"DROP TABLE IF EXISTS {table}")
         conn.executescript(SCHEMA)
     log.info("governance store reset (%s)", database_path())

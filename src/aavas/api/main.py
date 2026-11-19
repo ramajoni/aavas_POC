@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse, Response
 from ..config import versions
 from ..governance import model_registry, request_log, store
 from ..logging_utils import get_logger
-from . import (access, agents, applications, auth, competitors, customers, learning, market_check, offers, configuration, connectors, control_tower,
+from . import (access, agentic, agents, monitoring, applications, auth, competitors, customers, learning, market_check, offers, configuration, connectors, control_tower,
                explain, features, governance, outcome, override, portfolio, security, stage1,
                system_of_record, stage2, tracking, xai)
 from .contracts import HealthResponse
@@ -176,6 +176,8 @@ app.include_router(explain.router)
 app.include_router(override.router)
 app.include_router(outcome.router)
 app.include_router(agents.router)
+app.include_router(agentic.router)
+app.include_router(monitoring.router)
 app.include_router(configuration.router)
 app.include_router(connectors.router)
 app.include_router(control_tower.router)

@@ -48,10 +48,12 @@ def applicant(loan_id: str, name: str = "Rahul Verma") -> dict:
     return {
         "loan_id": loan_id, "name": name, "mobile": "9811100000", "segment": "salaried_formal", "city": "Pune",
         "channel": "digital", "property_type": "resale_flat",
-        "declared_monthly_income": 55000, "requested_loan_amount": 2000000,
-        "requested_tenure_years": 20, "applicant_age": 35, "declared_obligations": 5000,
+        # HL-LAP-POLICY-2026.14: 36-120 months, affordability stressed at rate + 2% against the
+        # grade's FOIR cap, and a rival above the card rate so a discount has room to approve.
+        "declared_monthly_income": 120000, "requested_loan_amount": 2000000,
+        "requested_tenure_years": 10, "applicant_age": 35, "declared_obligations": 5000,
         "estimated_property_value": 2900000, "bureau_score": 790,
-        "sales_context": {"competitor_rate": 11.5, "competitor_evidence_verified": False},
+        "sales_context": {"competitor_rate": 15.5, "competitor_evidence_verified": False},
     }
 
 
@@ -185,16 +187,16 @@ def test_the_source_cannot_be_claimed_by_the_request(client) -> None:
 
 # ------------------------------------------------------------- staff edits
 
-VERIFIED = {"verified_monthly_income": 52000, "appraised_property_value": 2900000,
-            "sanctioned_loan_amount": 2000000, "tenure_years": 20}
+VERIFIED = {"verified_monthly_income": 118000, "appraised_property_value": 2900000,
+            "sanctioned_loan_amount": 2000000, "tenure_years": 10}
 
 # What the RM enters once the documents are in: every verified figure and the
 # customer's behaviour, so the file can be priced, scored and sent.
 COMPLETE = {
-    "verified_monthly_income": 53000, "appraised_property_value": 2900000, "sanctioned_loan_amount": 2000000,
-    "tenure_years": 20, "bureau_vintage_months": 96, "delinquency_count_24m": 0, "banking_behaviour_score": 75,
+    "verified_monthly_income": 118000, "appraised_property_value": 2900000, "sanctioned_loan_amount": 2000000,
+    "tenure_years": 10, "bureau_vintage_months": 96, "delinquency_count_24m": 0, "banking_behaviour_score": 75,
     "deviation_count": 0, "legal_flag": 0, "technical_flag": 0,
-    "sales_context": {"competitor_rate": 11.5, "competitor_name": "HDFC Bank", "competitor_evidence_verified": False,
+    "sales_context": {"competitor_rate": 15.5, "competitor_name": "HDFC Bank", "competitor_evidence_verified": False,
                       "competitor_quote": True, "customer_negotiating": True, "prior_negotiation_rounds": 1,
                       "existing_relationship": False},
     "conversation_notes": "Has a quote from another lender and asked for a lower rate.",
@@ -211,7 +213,7 @@ def test_staff_edits_are_saved_and_who_entered_it_never_changes(client) -> None:
     assert "verified_monthly_income" in changed.json()["changed"] and "name" in changed.json()["changed"]
     stored = client.get("/applications/APP-EDIT-1", headers=rohit).json()
     assert stored["applicant_name"] == "Walk-In Customer"
-    assert stored["applicant"]["verified_monthly_income"] == 52000
+    assert stored["applicant"]["verified_monthly_income"] == VERIFIED["verified_monthly_income"]
     assert stored["source"] == "assisted" and stored["created_by"] == "rohit", "an edit cannot rewrite provenance"
     actions = [e["action"] for e in client.get("/pricing/audit/APP-EDIT-1",
                                                 headers=sign_in(client, "meera")).json()["audit_entries"]]

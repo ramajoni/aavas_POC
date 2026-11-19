@@ -1,21 +1,30 @@
 # RBI artefacts for home-loan pricing and the models behind it.
 #
 # The RBI directions, circulars and drafts that bear on how a housing finance
-# company prices a home loan and governs its pricing models, what each asks for,
-# and where this platform holds the evidence. Served by GET /governance/regulatory
-# (src/aavas/governance/regulatory.py) to the risk and model validation role.
+# company prices a home loan and governs its pricing models, what each asks for
+# (with the paragraph it comes from), and where this platform holds the evidence.
+# Served by GET /governance/regulatory (src/aavas/governance/regulatory.py) to the
+# risk and model validation role.
 #
-# Each requirement names an `evidence` key. The number behind it is worked out
-# from the store, the model cards and the policy on every read, and some keys
-# decide the coverage themselves (an LTV cap either holds or it does not). A row
-# with no key carries the coverage written here.
+# Citations:
+#   HFC <para>  Reserve Bank of India (Housing Finance Companies) Directions, 2025,
+#               RBI/DoR/2025-26/365 (Chapter-X is the Fair Practices Code, paras 129-177)
+#   RBC <para>  Reserve Bank of India (NBFC - Responsible Business Conduct) Directions,
+#               2025, RBI/DoR/2025-26/362, which HFC paras 130-177 apply to HFCs
+#   MRM <para>  Draft Guidance on Regulatory Principles for Model Risk Management, 2026
+#   FREE-AI     Framework for Responsible and Ethical Enablement of AI, committee report
 #
-# References and statuses were checked on `checked_on` against rbi.org.in and the
-# secondary summaries listed under `source`. Directions are amended; read the
-# current text before relying on a row.
-version: RBI-ARTEFACTS-2026.10
-checked_on: "2026-10-27"
-entity: "Housing finance company registered under section 29A of the NHB Act, 1987"
+# Each requirement names an `evidence` key. The number behind it is worked out from
+# the store, the model cards, the policy, config/fair_practices.yaml and
+# config/model_risk.yaml on every read, and most keys decide the coverage themselves.
+# A row with no key carries the coverage written here.
+#
+# Read against rbi.org.in on `checked_on`. Not read: Annex I of the RBC Directions
+# (the KFS format) and Annexes III-V of the HFC Directions; the FREE-AI report PDF.
+# Directions are amended; read the current text before relying on a row.
+version: RBI-ARTEFACTS-2026.11
+checked_on: "2026-11-19"
+entity: "Housing finance company registered under section 29A of the NHB Act, 1987 (NBFC middle or upper layer, HFC 9)"
 
 coverage:
   in_place: "In place"
@@ -31,33 +40,157 @@ status:
 artefacts:
   - id: fpc-rate-model
     title: "Fair Practices Code: how the rate is set and explained"
-    instrument: "Reserve Bank of India (Housing Finance Companies) Directions, 2025 — Fair Practices Code"
-    reference: "RBI/DoR/2025-26/365"
+    instrument: "HFC Directions 2025 Chapter-X, with RBC Directions 2025 paras 22-24"
+    reference: "RBI/DoR/2025-26/365; RBI/DoR/2025-26/362"
     issued: "2025-11-28"
     status: in_force
-    status_note: "Consolidates the 2021 HFC Master Direction as it stood; amended on 10 Mar, 15 Apr and 6 Aug 2026."
+    status_note: "In force from publication on the RBI website. The HFC Directions consolidate the 2021 Master Direction; the page reads 'updated as on 1 Oct 2026'."
     source: "https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12939"
-    why: "The rate a customer is quoted has to come from a board-adopted interest-rate model, and the customer has to be told why their rate differs from another's."
+    why: "The rate a customer is quoted has to come from a board-adopted interest-rate model, be annualised, and come with the reason it differs from another borrower's."
     requirements:
-      - ask: "Adopt an interest-rate model that takes into account the cost of funds, margin and risk premium."
+      - ask: "HFC 14(14), RBC 22: adopt an interest-rate model that takes into account the cost of funds, margin and risk premium."
         platform: "Every recommended rate is built up from the cost of funds, servicing cost, capital charge, expected credit loss and margin, and the build-up is stored with the decision."
         evidence: value_decomposition
         coverage: in_place
         page: record
-      - ask: "Disclose the rate, the approach to gradation of risk and the rationale for charging different rates to different borrowers, in the application form and the sanction letter."
-        platform: "Each decision carries reason codes that say what priced the file up or down, and the policy describes each risk grade in plain words. The application form and sanction letter are produced outside the platform."
+      - ask: "RBC 22: disclose the rate, the approach to gradation of risk and the rationale for different rates in the application form and explicitly in the sanction letter."
+        platform: "Each decision carries reason codes that say what priced the file up or down, and the KFS states the rate, benchmark and spread. The application form and sanction letter are produced outside the platform."
         evidence: reason_codes
         coverage: partial
         page: xai
-      - ask: "Publish the interest-rate model and the range of rates on the company website."
+      - ask: "RBC 23, HFC 152: publish the rates and the gradation approach on the website and update them whenever rates change."
         platform: "The pricing policy behind the published rates is versioned here, with every earlier version readable. Publishing it is a website task."
         evidence: policy_versions
         coverage: outside
         policy: true
+      - ask: "RBC 24: the rate of interest must be the annualised rate."
+        platform: "Every rate the platform quotes is an annual rate; the KFS also gives the APR with all charges."
+        coverage: in_place
+        page: application
+
+  - id: kfs
+    title: "Key Facts Statement and the all-in cost"
+    instrument: "RBC Directions 2025 para 29 (applied to HFCs by HFC 175); HFC 131-132"
+    reference: "RBI/DoR/2025-26/362"
+    issued: "2025-11-28"
+    status: in_force
+    status_note: "For all new retail and MSME term loans sanctioned on or after 1 Oct 2024 (first issued as RBI/2024-25/18)."
+    source: "https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12942"
+    why: "The customer must see the all-in cost as an annual percentage rate, with every charge and the repayment schedule, before signing."
+    requirements:
+      - ask: "RBC 29(1)-(3): a KFS before the contract, with a unique proposal number, validity of at least three working days during which its terms bind, the APR and the repayment schedule; acknowledgement obtained."
+        platform: "POST /pricing/offers/{id}/kfs issues it from the live offer and keeps it whole; the borrower's acknowledgement is recorded against it."
+        evidence: kfs
+        page: application
+      - ask: "RBC 29(4), 6(1), HFC 132: the APR includes every charge, third-party charges at actuals included; the all-in cost is disclosed."
+        platform: "APR is the IRR on the net amount disbursed (loan less every upfront charge), monthly rate x 12, which reproduces RBI's own illustration (17.07%)."
+        evidence: all_in_cost
+        coverage: in_place
+        page: application
+      - ask: "RBC 29(5): no fee or charge outside the KFS without the borrower's explicit consent."
+        platform: "The KFS says so in words. Charging is done in loan servicing."
+        coverage: outside
+      - ask: "RBC 10, 13, HFC 165, 167: communicate in the vernacular or a language the borrower understands."
+        platform: "The KFS records the language asked for; a non-English KFS is marked for translation before it is given. Translated text is not produced here."
+        coverage: partial
+        page: application
+
+  - id: penal-charges
+    title: "Penal charges, not penal interest"
+    instrument: "RBC Directions 2025 para 30 (applied to HFCs by HFC 174)"
+    reference: "RBI/DoR/2025-26/362"
+    issued: "2025-11-28"
+    status: in_force
+    status_note: "For fresh loans from 1 Apr 2024 (first issued as RBI/2023-24/53)."
+    source: "https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12942"
+    why: "A penalty for a breach may not be built into the rate, capitalised, or used to raise revenue."
+    requirements:
+      - ask: "RBC 30(1)-(2): penalties as penal charges, never penal interest added to the rate, and never capitalised."
+        platform: "The rate build-up has no penal element: it is the cost of funds, servicing, capital, expected credit loss and margin."
+        evidence: rate_components
+        coverage: in_place
+        page: record
+      - ask: "RBC 30(3)-(7): a board-approved penal charges policy; the quantum and reason disclosed upfront in the loan agreement and KFS and on the website."
+        evidence: penal_schedule
+        page: config
+
+  - id: prepayment
+    title: "No pre-payment charges on floating-rate home loans"
+    instrument: "RBC Directions 2025 paras 33-34; HFC 163"
+    reference: "RBI/DoR/2025-26/362; RBI/DoR/2025-26/365"
+    issued: "2025-11-28"
+    status: in_force
+    status_note: "Para 34 for loans sanctioned or renewed on or after 1 Jan 2026 (first issued as RBI/2025-26/64)."
+    source: "https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12942"
+    why: "A loan's value cannot count on a foreclosure fee, so early exit has to be priced as risk, not recovered as a charge."
+    requirements:
+      - ask: "RBC 34(1),(3), HFC 163(1): no pre-payment charge on floating-rate loans to individuals for purposes other than business, from any source, with no lock-in."
+        platform: "The value of a loan assumes no pre-payment charge; early exit enters the price as a shorter expected life, from the prepayment model."
+        evidence: prepayment
+        coverage: in_place
+        page: models
+      - ask: "RBC 34(8): state the pre-payment terms in the sanction letter, loan agreement and KFS."
+        evidence: prepayment_terms
+        page: application
+
+  - id: floating-reset
+    title: "Floating-rate reset"
+    instrument: "RBC Directions 2025 paras 31-32 (applied to HFCs by HFC 176(3)); HFC 32 Explanation"
+    reference: "RBI/DoR/2025-26/362"
+    issued: "2025-11-28"
+    status: in_force
+    status_note: "Para 31 names personal loans; its note uses a home loan as the example, and para 32 extends it to equated-instalment loans while also saying para 31 does not apply to other loans. Read with legal before relying on its scope for LAP."
+    source: "https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12942"
+    why: "A borrower must know at sanction what a benchmark rise does to the EMI and tenure, and the tenure may never grow without the EMI covering the interest."
+    requirements:
+      - ask: "RBC 31(1), 31(5): at sanction, the possible impact of a benchmark change on EMI and/or tenor; no negative amortisation on tenor elongation."
+        evidence: benchmark_impact
+        page: application
+      - ask: "RBC 31(2)-(4), (6): at reset, the choice of higher EMI, longer tenor or prepayment; switching charges disclosed; quarterly statements with the APR."
+        platform: "Resets and statements are loan servicing; the KFS states the switching options and charges."
+        coverage: outside
+
+  - id: rejection-and-fairness
+    title: "Reasons for rejection and non-discrimination"
+    instrument: "HFC Directions 2025 paras 135, 168, 172; RBC 28"
+    reference: "RBI/DoR/2025-26/365"
+    issued: "2025-11-28"
+    status: in_force
+    source: "https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12939"
+    why: "An applicant who is turned down is told why in writing, and no one is priced or refused on sex, caste, religion or disability."
+    requirements:
+      - ask: "HFC 135: if the loan is not given, communicate the reasons for rejection in writing."
+        platform: "Every declined file keeps the policy's reason; GET /pricing/rejection-note/{loan_id} writes it in plain words with the grievance route."
+        evidence: rejection_reasons
+        page: application
+      - ask: "HFC 168, 172(5), RBC 28: no discrimination on grounds of sex, caste, religion or disability; no additional interest or other burden on account of a disability."
+        evidence: protected_attributes
+        page: models
+      - ask: "HFC 132, RBC 30(4): charges and penal charges applied without discrimination within a product."
+        platform: "Charges come from one schedule for every borrower in the product; the pricing never adds a charge per borrower."
+        coverage: in_place
+        page: config
+
+  - id: borrower-commitments
+    title: "Document release, grievance and change of terms"
+    instrument: "RBC Directions 2025 paras 15, 35-41; HFC 137, 139-144"
+    reference: "RBI/DoR/2025-26/362; RBI/DoR/2025-26/365"
+    issued: "2025-11-28"
+    status: in_force
+    source: "https://www.rbi.org.in/Scripts/BS_ViewMasDirections.aspx?id=12942"
+    why: "What the borrower can hold the company to after signing has to be written down for them at the start."
+    requirements:
+      - ask: "RBC 35-39: release property documents within 30 days of full repayment, at the borrower's choice of office; ₹5,000 for each day of delay attributable to the lender."
+        evidence: document_release
+      - ask: "HFC 142-144: acknowledge a complaint within a week, reply within six weeks, and tell the borrower they may go to the NHB after a month."
+        evidence: grievance
+      - ask: "RBC 15, HFC 137: notice of changes in the borrower's language; interest changes only prospectively; 60 days to exit without charge if a change is adverse."
+        platform: "The KFS states these terms. Notices of change are sent from loan servicing."
+        coverage: partial
 
   - id: ltv-ceilings
     title: "Loan-to-value ceilings on housing loans to individuals"
-    instrument: "Reserve Bank of India (Housing Finance Companies) Directions, 2025 — prudential limits"
+    instrument: "HFC Directions 2025 para 58 (prudential limits)"
     reference: "RBI/DoR/2025-26/365"
     issued: "2025-11-28"
     status: in_force
@@ -74,60 +207,6 @@ artefacts:
       - ask: "Loans above ₹75 lakh: LTV no more than 75%."
         evidence: ltv_above_75l
         page: config
-
-  - id: kfs
-    title: "Key Facts Statement"
-    instrument: "Key Facts Statement (KFS) for Loans & Advances"
-    reference: "RBI/2024-25/18"
-    issued: "2024-04-15"
-    status: in_force
-    status_note: "In force from 1 Oct 2024 for retail and MSME term loans; for NBFCs now carried in the Responsible Business Conduct Directions, 2025."
-    source: "https://website.rbi.org.in/web/rbi/-/notifications/key-facts-statement-kfs-for-loans-advances"
-    why: "The customer must see the all-in cost of the loan, as an annual percentage rate, before signing."
-    requirements:
-      - ask: "Give the borrower a KFS with the annual percentage rate (APR), every fee and the repayment schedule before the loan agreement is signed."
-        platform: "The offer shows the rate, EMI, processing fee and interest over the full term, and the like-for-like calculator folds fees into one effective rate. No KFS document, APR or repayment schedule is produced."
-        evidence: all_in_cost
-        coverage: partial
-      - ask: "Charge nothing that is not in the KFS without the borrower's explicit consent."
-        platform: "The processing fee is the only charge the pricing uses. Charging is done in loan servicing."
-        coverage: outside
-
-  - id: penal-charges
-    title: "Penal charges, not penal interest"
-    instrument: "Fair Lending Practice — Penal Charges in Loan Accounts"
-    reference: "RBI/2023-24/53"
-    issued: "2023-08-18"
-    status: in_force
-    status_note: "Applied to fresh loans from 1 Apr 2024; covers all NBFCs, HFCs included."
-    source: "https://taxguru.in/rbi/fair-lending-practice-penal-charges-loan-accounts.html"
-    why: "A penalty for a breach may not be built into the rate of interest."
-    requirements:
-      - ask: "Levy any penalty as a penal charge, never as penal interest added to the rate, and never capitalise it."
-        platform: "The rate build-up has no penal element: it is the cost of funds, servicing, capital, expected credit loss and margin."
-        evidence: rate_components
-        coverage: in_place
-        page: record
-      - ask: "Keep a board-approved penal charges policy and show the charges in the KFS and on the website."
-        coverage: outside
-
-  - id: prepayment
-    title: "No pre-payment charges on floating-rate home loans"
-    instrument: "Reserve Bank of India (Pre-payment Charges on Loans) Directions, 2025"
-    reference: "RBI/2025-26/64"
-    issued: "2025-07-02"
-    status: in_force
-    status_note: "For loans sanctioned or renewed on or after 1 Jan 2026."
-    source: "https://www.scconline.com/blog/post/2025/07/10/rbi-prepayment-charges-on-loans-directions-2025/"
-    why: "A loan's value cannot count on income from a foreclosure fee, so early exit has to be priced as risk, not recovered as a charge."
-    requirements:
-      - ask: "Charge no pre-payment fee on floating-rate loans to individuals for purposes other than business."
-        platform: "The value of a loan assumes no pre-payment charge. Early exit enters the price as a shorter expected life, from the prepayment model."
-        evidence: prepayment
-        coverage: in_place
-        page: models
-      - ask: "State the pre-payment terms in the sanction letter, loan agreement and KFS."
-        coverage: outside
 
   - id: interest-rate-directions
     title: "Interest rates on loans and advances"
@@ -156,44 +235,65 @@ artefacts:
   - id: model-risk
     title: "Model risk management"
     instrument: "Draft Guidance on Regulatory Principles for Model Risk Management, 2026"
-    reference: "Draft for comment"
+    reference: "Press release 2026-2027/528 (draft for comment)"
     issued: "2026-06-24"
     status: draft
-    status_note: "Comments closed 24 Jul 2026. Covers every model, AI and ML included, and takes over from the Aug 2024 draft on credit models. No final text yet."
+    status_note: "Comments closed 24 Jul 2026; no effective date stated and no final text yet. Applies to NBFC-ML/UL (para 4), so to an HFC. Would replace Chapter 3 of the 2002 credit risk guidance note."
     source: "https://rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63006"
-    why: "Every model that prices a loan would need an owner, an inventory entry, independent validation and monitoring, under a board-approved framework."
+    why: "Every model that prices or declines a loan, the rate grid and each LLM call included, needs an inventory entry, a risk tier, independent validation and monitoring under a board-approved framework."
     requirements:
-      - ask: "A board-approved model risk management framework covering every model, built in-house or bought."
-        platform: "Changes to models, policy and configuration go through change requests with named sign-off roles and gates. The board framework itself sits outside the platform."
+      - ask: "MRM 9-13: a board-approved model risk management framework, with RMCB and senior management roles."
+        platform: "Changes to models, policy and configuration go through change requests with named sign-off roles and gates. The Board framework and the RMCB sit outside the platform."
         evidence: change_control
         coverage: partial
         page: governance
-      - ask: "A model inventory with each model tiered by risk."
-        platform: "Every model in use has a model card. A risk tier is not recorded yet."
-        evidence: model_inventory
+      - ask: "MRM 7(3), 21-22: an inventory of every model, however sourced, with owners, developers, validators, approvers, tier, intended use and dependencies; nothing used unless listed."
+        evidence: inventory_fields
+        page: models
+      - ask: "MRM 17-20: a risk tier from materiality, complexity and other factors, factors not offsetting each other, reviewed at least annually."
+        evidence: model_tiering
+        page: models
+      - ask: "MRM 7(8), 29-31: independent validation of every model, third-party included, before and after deployment, after each change and periodically."
+        evidence: independent_validation
+        page: models
+      - ask: "MRM 33: validation reports to the RMCB within three months of completion."
+        evidence: validation_reporting
+        page: models
+      - ask: "MRM 38-42: structured change management with impact assessment, a versioned change log and approvals."
+        evidence: change_control
         coverage: partial
-        page: models
-      - ask: "Independent validation before a model is used, and again periodically."
-        evidence: model_validation
-        page: models
-      - ask: "Ongoing monitoring of performance and drift."
+        page: governance
+      - ask: "MRM 37, 54(7): ongoing monitoring of every deployed model, data drift and concept drift included."
+        evidence: drift_monitoring
+        page: runtime
+      - ask: "MRM 37: performance and stability monitors run on a schedule."
         evidence: monitors
         page: runtime
-      - ask: "AI and ML models: explainable outcomes."
-        platform: "Each decision names the factors that moved the rate, in basis points."
+      - ask: "MRM 45-48, 51, 53: third-party models validated independently whatever the vendor says, under enhanced RMCB oversight, with documentation and audit rights in the contract."
+        evidence: third_party_models
+        page: models
+      - ask: "MRM 54(1): explainability thresholds, higher for models with significant customer impact."
+        platform: "Each decision names the factors that moved the rate, in basis points; model-level explanations come from SHAP."
         evidence: reason_codes
         coverage: in_place
         page: xai
-      - ask: "AI and ML models: testing for bias."
+      - ask: "MRM 26(2), 54(3): identify bias and unfair treatment of customer groups; fairness assessment and mitigation."
         evidence: model_fairness
         page: models
-      - ask: "Human oversight of decisions the models drive."
+      - ask: "MRM 60-63: human oversight, with override, suspension and kill-switch mechanisms and periodic review of overrides."
         platform: "A rate below the recommendation needs a named approver within their authority and a reason, and is recorded."
         evidence: overrides
         coverage: in_place
         page: audit
-      - ask: "Document each model, its assumptions and known limitations."
+      - ask: "MRM 43, 60(ii): continuity and fallback if a model fails or degrades; a way to suspend it."
+        evidence: kill_switch
+        page: models
+      - ask: "MRM 24, 57: documentation for every model, its assumptions and known limitations."
         evidence: model_limitations
+        page: models
+      - ask: "MRM 55: structured challenge and red-teaming, especially for customer-facing or generative models."
+        platform: "Not done. The three Claude components and the AutoGluon Assistant have had no red-team exercise."
+        coverage: gap
         page: models
 
   - id: free-ai
@@ -202,26 +302,43 @@ artefacts:
     reference: "Committee report"
     issued: "2025-08-13"
     status: report
-    status_note: "Seven sutras and 26 recommendations. A committee report, not a direction."
+    status_note: "Seven sutras and 26 recommendations; recommendations 10 and 14-25 are addressed to regulated entities. A committee report, not a direction."
     source: "https://www.rbi.org.in/scripts/BS_PressReleaseDisplay.aspx?prid=61018"
-    why: "Sets out how RBI expects regulated entities to use AI; the directions above are where it is likely to become binding."
+    why: "Sets out how RBI expects regulated entities to use AI; the model risk guidance above is where much of it is becoming binding."
     requirements:
-      - ask: "Fairness: outcomes do not discriminate."
-        evidence: model_fairness
-        page: models
-      - ask: "Understandable by design: decisions can be explained."
-        platform: "Reason codes on every decision, and model-level explanations."
-        evidence: reason_codes
-        coverage: in_place
-        page: xai
-      - ask: "Accountability: a record of who decided what."
-        evidence: audit
-        coverage: in_place
-        page: audit
-      - ask: "People first: a human can review and override."
+      - ask: "Rec 14: a board-approved AI policy."
+        platform: "The Board's AI policy sits outside the platform."
+        coverage: outside
+      - ask: "Rec 16, sutra People First: human oversight of medium- and high-risk AI; the ability to override."
         evidence: overrides
         coverage: in_place
         page: audit
-      - ask: "Safety, resilience and sustainability: models are watched once live."
-        evidence: monitors
+      - ask: "Rec 18: transparency to consumers, including that AI is being used, and accessible recourse."
+        evidence: ai_disclosure
+        page: application
+      - ask: "Rec 21: business continuity for AI, with fallbacks tested in drills."
+        evidence: kill_switch
+        page: models
+      - ask: "Rec 22: AI incident detection and reporting."
+        evidence: ai_incidents
         page: runtime
+      - ask: "Rec 23: an AI inventory with use cases, risks and dependencies, updated at least half-yearly."
+        evidence: inventory_review
+        page: models
+      - ask: "Rec 24, sutra Accountability: a risk-based AI audit of inputs, models and outputs, with a record of who decided what."
+        evidence: audit
+        coverage: in_place
+        page: audit
+      - ask: "Sutra Fairness and Equity: outcomes do not discriminate."
+        evidence: model_fairness
+        page: models
+      - ask: "Sutra Understandable by Design: decisions can be explained."
+        evidence: reason_codes
+        coverage: in_place
+        page: xai
+      - ask: "Rec 19, sutra Safety: AI-specific security risks identified and defended."
+        platform: "The AutoGluon Assistant runs model-written code unsandboxed and is kept off all but a developer machine; its environment is stripped of platform secrets. A container with scoped credentials is still needed."
+        coverage: partial
+        page: models
+      - ask: "Rec 25: AI disclosures in the annual report and on the website."
+        coverage: outside

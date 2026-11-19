@@ -7,6 +7,8 @@ future and flatters every metric in this repo.
 
 from __future__ import annotations
 
+import os
+
 import pandas as pd
 
 from ..config import model_config
@@ -17,9 +19,20 @@ from . import validator
 log = get_logger(__name__)
 
 
+_DATA_ENV = {"raw_path": "AAVAS_RAW_PATH", "notes_path": "AAVAS_NOTES_PATH",
+             "processed_path": "AAVAS_PROCESSED_PATH"}
+
+
+def data_path(key: str):
+    """Where a data file lives. ``AAVAS_RAW_PATH`` / ``AAVAS_NOTES_PATH`` /
+    ``AAVAS_PROCESSED_PATH`` override the config, so an agentic run can generate,
+    train and test on its own dataset beside the live one (as ``AAVAS_MODEL_DIR``
+    does for model artefacts)."""
+    return resolve(os.environ.get(_DATA_ENV[key]) or model_config()["data"][key])
+
+
 def load_raw(path: str | None = None) -> pd.DataFrame:
-    cfg = model_config()["data"]
-    p = resolve(path or cfg["raw_path"])
+    p = resolve(path) if path else data_path("raw_path")
     if not p.exists():
         raise FileNotFoundError(
             f"{p} not found. Generate it first: python data/synthetic/generate_dataset.py"
@@ -29,8 +42,7 @@ def load_raw(path: str | None = None) -> pd.DataFrame:
 
 
 def load_notes(path: str | None = None) -> pd.DataFrame:
-    cfg = model_config()["data"]
-    p = resolve(path or cfg["notes_path"])
+    p = resolve(path) if path else data_path("notes_path")
     if not p.exists():
         return pd.DataFrame(columns=["loan_id", "note_text", "override_reason"])
     return pd.read_csv(p)
@@ -63,7 +75,6 @@ def add_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_training_table(save: bool = True) -> pd.DataFrame:
-    cfg = model_config()["data"]
     df = add_derived_columns(load_raw())
     report = validator.validate(df)
     log.info("training table: %s", report.summary())
@@ -71,7 +82,7 @@ def build_training_table(save: bool = True) -> pd.DataFrame:
     if len(bad):
         log.warning("quarantined %s rows", len(bad))
     if save:
-        out = resolve(cfg["processed_path"])
+        out = data_path("processed_path")
         out.parent.mkdir(parents=True, exist_ok=True)
         # Write beside the target and rename over it. A write cut short (a full
         # disk, a killed process) must leave the previous table, not half of a
@@ -87,9 +98,8 @@ def build_training_table(save: bool = True) -> pd.DataFrame:
 
 
 def load_training_table(rebuild: bool = False) -> pd.DataFrame:
-    cfg = model_config()["data"]
-    p = resolve(cfg["processed_path"])
-    raw = resolve(cfg["raw_path"])
+    p = data_path("processed_path")
+    raw = data_path("raw_path")
     # The processed table is a cache of the raw file. Regenerating the raw data
     # and then reading a cache built from the previous version would train every
     # model on columns the raw file no longer has, or without ones it gained.
