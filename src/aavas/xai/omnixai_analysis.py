@@ -147,6 +147,81 @@ def _patch_shap_legacy_output() -> None:
     log.debug("applied the shap>=0.45 multi-output compatibility shim")
 
 
+def _patch_omnixai_for_pandas3() -> None:
+    """Let omnixai 1.3.1 run under pandas 3, whose copy-on-write and strict dtypes it
+    predates. Each replacement is omnixai's own method (BSD-3-Clause, Salesforce) with
+    one change, applied once, idempotently:
+
+    * ``ALE._categorical_order`` (after PyALE) built its distance tables as int64 with
+      ``pd.DataFrame(0, ...)`` and wrote fractions into them; pandas 3 refuses the
+      silent upcast ("Invalid value ... for dtype 'int64'"). The tables are float.
+    * ``ImbalanceAnalyzer._get_counts_per_class`` wrote into ``df.values[0]``, which
+      pandas 3 hands back read-only. It writes into a copy.
+    """
+    from omnixai.explainers.data import imbalance
+    from omnixai.explainers.tabular.agnostic import ale
+
+    if getattr(ale.ALE._categorical_order, "_aavas_pandas3", False):
+        return
+
+    def _get_counts_per_class(self, tabular_data, features):
+        feature2index = {f: i for i, f in enumerate(self.feature_columns)}
+        df = pd.DataFrame(
+            data=self.transformer.transform(tabular_data.remove_target_column()), columns=self.feature_columns
+        )
+        counts = df.groupby(by=list(features))[features[0]].count()
+
+        x, results = df.values[0].copy(), []
+        for values, count in zip(counts.keys(), counts.values):
+            if not isinstance(values, (list, tuple)):
+                values = [values]
+            for feat, value in zip(features, values):
+                x[feature2index[feat]] = value
+            y = self.transformer.invert(x).to_pd(copy=False)
+            results.append((y[features].values[0].tolist(), count))
+        return results
+
+    imbalance.ImbalanceAnalyzer._get_counts_per_class = _get_counts_per_class
+
+    def _categorical_order(self, column, num_bins=100):
+        from statsmodels.distributions.empirical_distribution import ECDF
+
+        df = pd.DataFrame(self.data, columns=range(len(self.feature_columns)))
+        cate_features = set(self.categorical_features)
+        features = sorted(df[column].unique())
+
+        scores = pd.DataFrame(0.0, index=features, columns=features)
+        for i in range(len(self.feature_columns)):
+            if i == column:
+                continue
+            s = pd.DataFrame(0.0, index=features, columns=features)
+            if i in cate_features:
+                counts = pd.crosstab(self.data[:, column], self.data[:, i])
+                fractions = counts.div(np.sum(counts, axis=1), axis=0)
+                for j in features:
+                    diff = abs(fractions - fractions.loc[j]).sum(axis=1) / 2
+                    s.loc[j, :] = diff
+                    s.loc[:, j] = diff
+            else:
+                seq = np.arange(0, 1, 1 / num_bins)
+                q = df[i].quantile(seq).to_list()
+                cdf = df.groupby(column)[i].agg(ECDF)
+                q_cdf = cdf.apply(lambda x: x(q))
+                for j in features:
+                    diff = q_cdf.apply(lambda x: max(abs(x - q_cdf[j])))
+                    s.loc[j, :] = diff
+                    s.loc[:, j] = diff
+            scores += s
+
+        z = self.cmds(scores, 1).flatten()
+        sorted_indices = z.argsort()
+        return [features[i] for i in sorted_indices]
+
+    _categorical_order._aavas_pandas3 = True
+    ale.ALE._categorical_order = _categorical_order
+    log.debug("applied the pandas 3 compatibility shims to omnixai")
+
+
 # --------------------------------------------------------------------- bundles
 
 
@@ -492,6 +567,7 @@ def analyse(
 
     _quiet_libraries()
     _patch_shap_legacy_output()
+    _patch_omnixai_for_pandas3()
 
     t0 = time.time()
     timings: dict[str, float] = {}

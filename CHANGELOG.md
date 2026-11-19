@@ -16,6 +16,27 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.6.1] - 2026-11-19
+
+### Changed
+- `scripts/setup_xai_env.sh` builds the OmniXAI overlay on Windows (Git Bash) as well, and
+  inherits the repo's own training environment (`.venv`) through a `.pth` file when it
+  exists, so the explained models load in exactly the packages they were trained in.
+  On Windows it installs `chroma-hnswlib` (the same library, prebuilt) in place of
+  `hnswlib`, which has no Windows wheel and needs the MSVC build tools.
+- `requirements-xai.txt` pins `setuptools<81`: omnixai imports `pkg_resources`, which
+  setuptools 81 removed.
+
+### Fixed
+- The OmniXAI analysis failed on every model under pandas 3: omnixai 1.3.1's ALE wrote
+  fractions into integer tables, and its imbalance analysis wrote into a read-only
+  array. Both methods are replaced at run time with the one-line fix
+  (`_patch_omnixai_for_pandas3` in `src/aavas/xai/omnixai_analysis.py`).
+- Two explainability tests depended on local artefacts: one named the risk model's
+  rank-agreement score from an earlier training run, the other a dashboard screenshot
+  taken by hand. They now check the trust thresholds and every model's reading
+  against them, and serve a capture the test places itself.
+
 ## [0.6.0] - 2026-11-19
 
 Agentic retraining and serving on AWS, drift monitoring with OpenObserve, and the RBI

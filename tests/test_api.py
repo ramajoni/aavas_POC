@@ -192,11 +192,15 @@ def test_xai_index_lists_a_report_per_model(client):
 
 
 def test_xai_index_translates_rank_agreement_into_a_reading(client):
-    rows = {m["model"]: m for m in client.get("/xai").json()["models"]}
-    # risk scores ~0.39: the two methods disagree, and the payload has to say so
-    assert rows["risk"]["trust"]["level"] == "weak"
-    assert "not lean" in rows["risk"]["trust"]["reading"]
-    assert rows["stage2"]["trust"]["level"] == "strong"
+    from aavas.api import xai
+    # Where the two methods disagree the payload has to say so, in words.
+    assert xai._trust(0.39) == {"level": "weak", "reading": "do not lean on the ranking"}
+    assert xai._trust(0.70)["level"] == "moderate" and xai._trust(0.90)["level"] == "strong"
+    assert xai._trust(None)["level"] == "unknown"
+    # Every model's row reads its own score that way; which model scores what changes
+    # each time the models are retrained, so the scores are read, not named.
+    rows = client.get("/xai").json()["models"]
+    assert rows and all(r["trust"] == xai._trust(r["rank_agreement_spearman"]) for r in rows)
 
 
 def test_xai_detail_carries_importance_limitations_and_captures(client):
@@ -223,7 +227,14 @@ def test_xai_report_returns_the_written_brief(client):
     assert len(response.text) > 200
 
 
-def test_xai_capture_serves_a_png_and_refuses_traversal(client):
+def test_xai_capture_serves_a_png_and_refuses_traversal(client, tmp_path, monkeypatch):
+    # Captures are screenshots of a running dashboard, taken by hand; the route is
+    # tested against one placed here rather than one that may or may not exist.
+    from aavas.api import xai
+    (tmp_path / "ui").mkdir()
+    png = bytes([0x89]) + b"PNG" + bytes([13, 10, 26, 10]) + bytes(16)   # a PNG signature
+    (tmp_path / "ui" / "stage2-global.png").write_bytes(png)
+    monkeypatch.setattr(xai, "OMNIXAI_DIR", tmp_path)
     ok = client.get("/xai/capture/stage2-global.png")
     assert ok.status_code == 200 and ok.headers["content-type"] == "image/png"
     assert client.get("/xai/capture/../../../etc/passwd").status_code in (400, 404)

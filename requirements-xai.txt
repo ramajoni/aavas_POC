@@ -25,3 +25,4 @@ tabulate
 statsmodels
 ipython
 openai                            # omnixai's GPT explainer imports it at module scope
+setuptools<81                     # omnixai imports pkg_resources, which setuptools 81 removed
