@@ -16,6 +16,21 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.7.0] - 2026-11-19
+
+### Added
+- A reusable lending policy kit (`policy_kit/`): the common structure of a pricing
+  policy that any lender can fill in and run in this engine. It holds 44 sections in six
+  parts (governance; pricing; credit and eligibility; authority and overrides; controls;
+  decision record), each marked as required by the engine, optional or
+  jurisdiction-specific, with an owner and a plain purpose. It ships a blank template, a
+  JSON Schema and an adoption guide.
+- `scripts/policy_kit.py`: `build` regenerates the schema, the template and the README
+  table from the live policy, so the kit keeps step as the policy changes; `validate`
+  checks any company's policy against the schema and the engine's own consistency
+  checks, naming every value not yet filled in.
+- `jsonschema` in `requirements.txt`, for the validator.
+
 ## [0.6.4] - 2026-11-19
 
 ### Changed

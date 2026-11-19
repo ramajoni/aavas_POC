@@ -24,3 +24,4 @@ pytest>=8.0
 boto3>=1.34              # agentic OS: SageMaker training and serving
 botocore[crt]>=1.34      # credentials from `aws login`
 httpx>=0.27              # FastAPI TestClient (tests); Starlette 1.x needs it
+jsonschema>=4.0          # policy kit: scripts/policy_kit.py validates a lender policy against policy_kit/lending_policy.schema.json

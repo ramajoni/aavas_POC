@@ -1,0 +1,422 @@
+# Single source of section metadata for the lending policy kit.
+# `python scripts/policy_kit.py build` reads this file and the live policy to
+# regenerate the schema, the template and the README sections table.
+#
+# Fields per section
+#   part                        A..F (see `parts`)
+#   title, purpose              plain words for the policy team
+#   requirement                 required      the engine reads it; the file fails without it
+#                               optional      the engine ignores it or reads it with a default
+#                               jurisdiction  tied to one country or regulator
+#   company_defined_vocabulary  true when the keys are the company's own names
+#   vocabulary_paths            where those names sit. "." is the section itself,
+#                               "*" is any key at that level. Only these paths take any key.
+#   owner                       risk | credit policy | pricing | compliance | technology
+#   engine_reads                modules that read the section, relative to src/<package>/
+#   engine_read_keys            keys inside the section the engine indexes directly.
+#                               These are `required` in the schema. "*" is a company-named key.
+#                               Lists are transparent: "a.b" covers a list of {b: ...} too.
+
+parts:
+  A: {title: Identity and governance, summary: "Which policy this is, which one it replaces, and what has been decided about it."}
+  B: {title: Pricing, summary: "How a rate is built from a reference rate, grade, tenure and loadings, and how an offer is searched."}
+  C: {title: Credit and eligibility, summary: "Hard limits, scorecards, grades, affordability and the rules that stop a file."}
+  D: {title: Authority and overrides, summary: "Who may move a price or clear an exception, and on what grounds."}
+  E: {title: Controls and guardrails, summary: "Evidence rules, segregation of duties, fair-pricing conduct and per-party checks."}
+  F: {title: Decision record and assurance, summary: "What every decision must record, how it is explained, and the checks that keep the file consistent."}
+
+sections:
+  # ------------------------------------------------------------------ Part A
+  policy_version:
+    part: A
+    title: Policy version
+    purpose: The unique name of this policy file. Every decision records it, so a reviewer can read the policy a decision was priced under.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: compliance
+    engine_reads: [agents/policy_agent.py, agentic/workflow.py, config.py, governance/decision_logger.py, governance/policy_versions.py, intake/kfs.py, knowledge/policy_indexer.py, models/stage1/train.py, optimization/constraints.py]
+  supersedes:
+    part: A
+    title: Policy it replaces
+    purpose: The policy_version this file replaces. Leave it null for the first policy.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: compliance
+    engine_reads: []
+  based_on_draft_of:
+    part: A
+    title: Draft it was based on
+    purpose: The version of the circulated draft this file was aligned to, if any.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: compliance
+    engine_reads: []
+  status:
+    part: A
+    title: Approval status
+    purpose: Where the policy stands, for example draft pending approval or approved. Shown on the policy screen.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: compliance
+    engine_reads: [agentic/workflow.py]
+  product:
+    part: A
+    title: Default product
+    purpose: The single product key kept for older code that expects one product.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: credit policy
+    engine_reads: []
+  products:
+    part: A
+    title: Products covered
+    purpose: The loan products this policy covers.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: credit policy
+    engine_reads: []
+  effective_from:
+    part: A
+    title: Effective date
+    purpose: The date the policy takes effect, as YYYY-MM-DD. Set it on approval.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: compliance
+    engine_reads: [agentic/workflow.py, governance/policy_versions.py]
+  decisions:
+    part: A
+    title: Decisions log
+    purpose: A numbered log of decisions taken on open items in the draft, each with its reason. It is the audit trail for why a value is what it is.
+    requirement: optional
+    company_defined_vocabulary: true
+    vocabulary_paths: ["."]
+    owner: credit policy
+    engine_reads: [agentic/workflow.py, governance/regulatory.py]
+
+  # ------------------------------------------------------------------ Part B
+  pricing_method:
+    part: B
+    title: Pricing method
+    purpose: Names how the final rate is built, for example grade base rate plus tenure adjustment.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: pricing
+    engine_reads: []
+  reference:
+    part: B
+    title: Reference rates
+    purpose: The reference lending rate and the card rate floor and ceiling. Every offer must sit between the floor and the ceiling.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: pricing
+    engine_reads: [agentic/book_checks.py, governance/policy_checks.py, ingestion/validator.py, intake/offers.py, knowledge/policy_indexer.py, models/stage1/predict.py, optimization/constraints.py, synthetic/generator.py, xai/counterfactual.py]
+    engine_read_keys: [card_rate_floor, card_rate_ceiling]
+  economics:
+    part: B
+    title: Unit economics
+    purpose: Funding, servicing, acquisition and capital costs, the processing fee and the discount rate. Used to value an offer.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: pricing
+    engine_reads: [analytics/manager_checks.py, analytics/portfolio.py, analytics/segment_view.py, governance/regulatory.py, intake/kfs.py, knowledge/policy_indexer.py, learning/outcome_capture.py, models/prepayment/predict.py, optimization/yield_calculator.py]
+    engine_read_keys: [funding_cost_pct, servicing_cost_pct, acquisition_cost_pct, processing_fee_pct, capital_charge_pct, discount_rate_pct, behavioural_horizon_years]
+  base_spread_bps:
+    part: B
+    title: Base spread by segment
+    purpose: The starting spread, in basis points, for each borrower segment.
+    requirement: required
+    company_defined_vocabulary: true
+    vocabulary_paths: ["."]
+    owner: pricing
+    engine_reads: [analytics/segment_view.py, knowledge/policy_indexer.py, optimization/constraints.py]
+  risk_grade_loading_bps:
+    part: B
+    title: Risk grade loading
+    purpose: The spread added over the card rate floor for each risk grade. A grade with no offer is null.
+    requirement: required
+    company_defined_vocabulary: true
+    vocabulary_paths: ["."]
+    owner: pricing
+    engine_reads: [agentic/book_checks.py, governance/policy_checks.py, knowledge/policy_indexer.py, optimization/constraints.py]
+  ltv_loading_bps:
+    part: B
+    title: LTV loading
+    purpose: Spread added by loan-to-value band. Use zero where LTV is already scored.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: pricing
+    engine_reads: [knowledge/policy_indexer.py, optimization/constraints.py]
+    engine_read_keys: [max_ltv, bps]
+  property_type_loading_bps:
+    part: B
+    title: Property type loading
+    purpose: Spread added by property or construction type.
+    requirement: required
+    company_defined_vocabulary: true
+    vocabulary_paths: ["."]
+    owner: pricing
+    engine_reads: [optimization/constraints.py]
+  tenure_loading_bps:
+    part: B
+    title: Tenure loading
+    purpose: Spread added by tenure band. It must agree with the tenure adjustment in the pricing section.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: pricing
+    engine_reads: [governance/policy_checks.py, optimization/constraints.py]
+    engine_read_keys: [max_months, bps]
+  deviation_loading_bps:
+    part: B
+    title: Deviation loading
+    purpose: Spread added per recorded deviation, and its cap.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: pricing
+    engine_reads: [optimization/constraints.py]
+    engine_read_keys: [per_deviation, max_total]
+  pricing:
+    part: B
+    title: Pricing matrix
+    purpose: The rate band, the base rate per grade, the tenure adjustments and the final rate matrix of grade by tenure band. The matrix rate is the most an offer may carry.
+    requirement: required
+    company_defined_vocabulary: true
+    vocabulary_paths: [grade_base_roi, matrix]
+    owner: pricing
+    engine_reads: [governance/policy_checks.py, optimization/constraints.py]
+    engine_read_keys: [roi_floor, roi_ceiling, grade_base_roi, tenure_adjustment.max_months, tenure_adjustment.add_pct, matrix]
+  stage1:
+    part: B
+    title: Indicative quote band
+    purpose: How the indicative rate band shown before full assessment is sized, rounded and capped.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: pricing
+    engine_reads: [agents/roster.py, features/stage1_features.py, models/stage1/predict.py, synthetic/generator.py]
+    engine_read_keys: [min_band_width_bps, max_band_width_bps, round_to_bps, eligibility_foir_cap]
+  optimizer:
+    part: B
+    title: Offer optimiser
+    purpose: How the engine searches for the best offer inside the permitted band, and the conversion and balance-transfer limits it respects.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: pricing
+    engine_reads: [knowledge/policy_indexer.py, optimization/price_optimizer.py, optimization/scenario_generator.py]
+    engine_read_keys: [step_bps, min_conversion_probability, max_bt_out_probability, ev_tolerance_pct]
+
+  # ------------------------------------------------------------------ Part C
+  constraints:
+    part: C
+    title: Hard limits
+    purpose: The loan-level limits no offer may break, such as maximum LTV, FOIR, tenure, amount, minimum score and the deepest discount.
+    requirement: required
+    company_defined_vocabulary: true
+    vocabulary_paths: [max_age_at_maturity]
+    owner: credit policy
+    engine_reads: [agentic/book_checks.py, analytics/manager_checks.py, features/stage2_features.py, governance/policy_checks.py, governance/regulatory.py, ingestion/validator.py, intake/offers.py, intake/readiness.py, knowledge/policy_indexer.py, optimization/constraints.py, synthetic/generator.py]
+    engine_read_keys: [max_ltv, max_foir, max_tenure_months, max_tenure_years, max_loan_amount, absolute_discount_floor_bps, new_to_credit_min_spread_bps]
+  models:
+    part: C
+    title: Scorecard models
+    purpose: The scorecard models the company runs, with a short description and the weight of each scorecard category in each model.
+    requirement: required
+    company_defined_vocabulary: true
+    vocabulary_paths: [".", "*.category_weights"]
+    owner: risk
+    engine_reads: [governance/policy_checks.py]
+    engine_read_keys: ["*.category_weights"]
+  model_variants_required:
+    part: C
+    title: Required model variants
+    purpose: The model variants that must exist before a file can be auto-sanctioned. Missing evidence means a hold, not a re-weighting.
+    requirement: optional
+    company_defined_vocabulary: true
+    owner: risk
+    engine_reads: []
+  scorecard:
+    part: C
+    title: Scorecard
+    purpose: Every scored measure by category, with its weight in each model and its score bands. Bands are tested top to bottom and end in an else.
+    requirement: required
+    company_defined_vocabulary: true
+    vocabulary_paths: [".", "*", "*.*.weight"]
+    owner: risk
+    engine_reads: [governance/policy_checks.py]
+  subscores:
+    part: C
+    title: Sub-scores
+    purpose: Sub-scores for employer, industry and builder quality, with factor weights that sum to 100.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: risk
+    engine_reads: [governance/policy_checks.py]
+    engine_read_keys: [employer.factors, builder.factors, industry.factors]
+  grades:
+    part: C
+    title: Grade bands
+    purpose: How the application score maps to a grade and a decision, the category floor and how grades are assigned in the meantime.
+    requirement: optional
+    company_defined_vocabulary: true
+    owner: risk
+    engine_reads: [governance/policy_checks.py]
+  eligibility_limits:
+    part: C
+    title: Eligibility limits by grade
+    purpose: Maximum FOIR, minimum DSCR and maximum LTV for each grade. A grade with no offer is null.
+    requirement: optional
+    company_defined_vocabulary: true
+    vocabulary_paths: ["."]
+    owner: credit policy
+    engine_reads: [optimization/constraints.py]
+  housing_regulatory_ltv:
+    part: C
+    title: Regulatory LTV slabs
+    purpose: The loan-to-value ceilings the housing regulator sets by loan amount. Housing loans only.
+    requirement: jurisdiction
+    company_defined_vocabulary: false
+    owner: compliance
+    engine_reads: []
+  effective_ltv:
+    part: C
+    title: Effective LTV rule
+    purpose: The formula that picks the LTV actually allowed, usually the lowest of the grade, regulatory and collateral ceilings.
+    requirement: jurisdiction
+    company_defined_vocabulary: false
+    owner: credit policy
+    engine_reads: []
+  affordability:
+    part: C
+    title: Affordability rules
+    purpose: How repayment capacity is measured for salaried and business borrowers (FOIR and DSCR rules), and how the recommended amount is derived.
+    requirement: jurisdiction
+    company_defined_vocabulary: false
+    owner: credit policy
+    engine_reads: []
+  mandatory_rules:
+    part: C
+    title: Mandatory rules
+    purpose: Rules that stop a file whatever its score, such as age, bureau minimum, KYC, sanctions and unresolved property defects.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: credit policy
+    engine_reads: [governance/policy_checks.py]
+  model_variant_routing:
+    part: C
+    title: Model variant routing
+    purpose: Which model or route handles special borrower types, such as thin-file borrowers or entities.
+    requirement: optional
+    company_defined_vocabulary: true
+    vocabulary_paths: ["."]
+    owner: risk
+    engine_reads: [governance/policy_checks.py]
+  decision_flow:
+    part: C
+    title: Decision flow
+    purpose: The ordered steps a file goes through, from intake to disbursement.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: credit policy
+    engine_reads: []
+  decision_priority:
+    part: C
+    title: Decision priority
+    purpose: The order in which outcomes are resolved. A later step never clears an earlier one.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: credit policy
+    engine_reads: []
+
+  # ------------------------------------------------------------------ Part D
+  approval_authority:
+    part: D
+    title: Approval authority
+    purpose: The approval levels, in order, with the deepest discount and any premium each level may approve.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: credit policy
+    engine_reads: [agents/orchestrator.py, api/override.py, governance/policy_checks.py, knowledge/policy_indexer.py, optimization/constraints.py, synthetic/generator.py]
+    engine_read_keys: [level, max_discount_bps, max_premium_bps]
+  override:
+    part: D
+    title: Override rules
+    purpose: The reasons a price may be overridden, which need evidence, the discount allowed without evidence, uplift rules and what must be recorded.
+    requirement: required
+    company_defined_vocabulary: false
+    owner: credit policy
+    engine_reads: [analytics/decision_support.py, api/override.py, customers/behaviour.py, intake/offers.py, intelligence/claim_score.py, knowledge/policy_indexer.py, learning/override_learning.py, optimization/constraints.py]
+    engine_read_keys: [allowed_reasons, evidence_required_reasons, max_unevidenced_discount_bps]
+  actions:
+    part: D
+    title: Action catalogue
+    purpose: Every outcome word the policy uses (reject, refer, hold and so on), what it means and who may clear it.
+    requirement: optional
+    company_defined_vocabulary: true
+    vocabulary_paths: ["."]
+    owner: credit policy
+    engine_reads: [governance/policy_checks.py]
+
+  # ------------------------------------------------------------------ Part E
+  guardrails:
+    part: E
+    title: Guardrails
+    purpose: Per-party and per-file rules written as pre, condition and post. They cover evidence states, parties, outcomes and the team that owns each finding.
+    requirement: optional
+    company_defined_vocabulary: true
+    vocabulary_paths: [rules, party_groups]
+    owner: compliance
+    engine_reads: [governance/policy_checks.py]
+  controls:
+    part: E
+    title: Operational controls
+    purpose: How fresh evidence must be, screening refresh before disbursement, tranche controls, separation of duties, approval sequence and monitoring.
+    requirement: optional
+    company_defined_vocabulary: true
+    vocabulary_paths: [evidence_freshness_days, separation_of_duties]
+    owner: compliance
+    engine_reads: []
+  fair_pricing:
+    part: E
+    title: Fair pricing and disclosure
+    purpose: Quote validity, review trigger for commercial uplift, prohibited credit factors, decline-reason style and key fact statement duty.
+    requirement: required
+    company_defined_vocabulary: true
+    vocabulary_paths: [risk_grade_scale]
+    owner: compliance
+    engine_reads: [agents/explanation_agent.py]
+    engine_read_keys: [commercial_uplift_review_bps, quote_validity_days]
+
+  # ------------------------------------------------------------------ Part F
+  decision_record:
+    part: F
+    title: Decision record
+    purpose: The fields every parameter, rule and final decision must record, the stages recorded and the model ids in use.
+    requirement: optional
+    company_defined_vocabulary: true
+    vocabulary_paths: [model_ids]
+    owner: technology
+    engine_reads: []
+  acceptance_criteria:
+    part: F
+    title: Acceptance criteria
+    purpose: Plain statements the policy team uses to accept a build of this policy.
+    requirement: optional
+    company_defined_vocabulary: false
+    owner: risk
+    engine_reads: []
+  reason_codes:
+    part: F
+    title: Reason codes
+    purpose: One customer-readable reason for each scored measure that can trigger an action.
+    requirement: optional
+    company_defined_vocabulary: true
+    vocabulary_paths: ["."]
+    owner: compliance
+    engine_reads: [governance/policy_checks.py]
+  invariants:
+    part: F
+    title: Policy invariants
+    purpose: Plain statements of the consistency rules the engine checks on the file. The checks live in code. This block is the readable copy.
+    requirement: optional
+    company_defined_vocabulary: true
+    vocabulary_paths: ["."]
+    owner: technology
+    engine_reads: []
