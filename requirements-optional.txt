@@ -1,0 +1,11 @@
+# Optional packages the deployed server runs with. Each one is detected at run time
+# and the platform falls back without it, so they are not in requirements.txt; but a
+# server built without them silently loses features it had:
+#
+#   pip install -r requirements.txt -r requirements-optional.txt
+#
+shap>=0.46             # SHAP attributions (else the ablation explainer); 0.46+ for NumPy 2
+xgboost>=2.0           # learner families for model selection and Stage-2
+lightgbm>=4.0
+catboost>=1.2
+anthropic>=1.0         # the AI-written loan explanation and competitor research (needs ANTHROPIC_API_KEY)

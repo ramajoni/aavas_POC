@@ -7,9 +7,11 @@ joblib>=1.3
 fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.6
+python-multipart>=0.0.9  # FastAPI form and file uploads (borrower documents); the API will not start without it
 pytest>=8.0
 
 # --- Optional: auto-detected at runtime, graceful fallback if absent ---
+# The ones the deployed server runs with are in requirements-optional.txt.
 # xgboost>=2.0          # Stage-2 learner; falls back to sklearn HistGradientBoosting
 # shap>=0.46            # SHAP attributions; falls back to built-in ablation explainer
 #                       # (0.46+ is the first that works with NumPy 2; older ones fall back silently)

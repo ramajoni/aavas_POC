@@ -16,6 +16,19 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.6.3] - 2026-11-19
+
+### Fixed
+- `requirements.txt` lacked `python-multipart`, which FastAPI needs for the borrower
+  document uploads: an environment built from the requirements alone could not start
+  the API. Found by running the test suite in a clean environment on the server.
+
+### Added
+- `requirements-optional.txt`: the optional packages the deployed server runs with
+  (shap, xgboost, lightgbm, catboost, anthropic). They were installed by hand on the
+  server and recorded nowhere, so a rebuild from the requirements would have dropped the
+  AI explanation, SHAP attributions and three learner families without an error.
+
 ## [0.6.2] - 2026-11-19
 
 ### Security
