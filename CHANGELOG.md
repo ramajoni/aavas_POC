@@ -16,6 +16,20 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.9.2] - 2026-11-21
+
+### Fixed
+- Two extended demo cases asked for rates below 13%, which the policy forbids
+  (`card_rate_floor`: no concession below 13%): E1 asked 12.75% and E2 12.70%. Both were A+
+  files recommended at exactly 13.00%, where no valid ask can exist (the RM may only ask more
+  than 25 bps under the recommendation). E1 is now a grade-B four-year file (ask 14.15%) and E2
+  a grade-A seven-year file (ask 13.62%); they keep their tenure bands and the decision each
+  shows. The 0.9.1 notes said every ask was inside the band; that was wrong for these two.
+
+### Added
+- `scripts/demo_scenarios.py` refuses any ask outside the policy band (`card_rate_floor` to
+  `card_rate_ceiling`, 13.00-17.00%) before it is sent, naming the scenario.
+
 ## [0.9.1] - 2026-11-21
 
 ### Added

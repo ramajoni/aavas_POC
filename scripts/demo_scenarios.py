@@ -32,8 +32,8 @@ The extended scenarios (--set extended). Grades come from the risk model, so eac
 to land in the grade named; "below floor" means the ask is under the policy floor, because the
 recommendation already sits at (or within 25 bps of) the floor and the RM may only send an ask
 more than 25 bps under the recommendation:
- E1.  A+, 4 years, card rate 13.00% = the floor   - no cut possible, whatever the letter says
- E2.  A+, 7 years, CA, letter equals our rate      - already matched: nothing to give
+ E1.  B, 4 years, letter under our floor          - best possible is the floor: counter or decline
+ E2.  A, 7 years, CA, letter equals our rate       - already matched: nothing to give
  E3.  A+, 10 years, informal pay, claim only       - small cut inside the room, verify first
  E4.  B, 7 years, shop owner, Shriram letter seen  - letter supports only the floor: counter
  E5.  C, 10 years, score 681, late EMIs, no offer  - credit head approval, no ground to cut
@@ -105,13 +105,13 @@ SCENARIOS = [
 ]
 
 EXTENDED_SCENARIOS = [
-    ('Neha Kulkarni', '9820012001', 'Nashik', 'salaried_formal', 'branch_walkin', 'resale_flat', 29, 120000, 5000,
-     1800000, 4, 2800000, 815, (12.8, 'Axis Bank', True), (118000, 2750000, 1800000, 4, 110, 0, 85, 0), (True, 2, False),
-     'Axis Bank letter at 12.80%; she wants us to match it. Our rate for a 4-year loan is already the lowest we can offer.',
+    ('Neha Kulkarni', '9820012001', 'Nashik', 'salaried_formal', 'branch_walkin', 'resale_flat', 29, 200000, 5000,
+     1800000, 4, 2800000, 740, (12.8, 'Axis Bank', True), (196000, 2750000, 1800000, 4, 60, 0, 70, 0), (True, 2, False),
+     'Axis Bank letter at 12.80%, under our lowest rate; she wants us to match it. The most we can do on a 4-year loan is the floor.',
      'floor', 'competitor_lower_rate', 2),
-    ('Sandeep Joshi', '9820012002', 'Surat', 'self_employed_professional', 'connector', 'builder_flat', 42, 150000, 10000,
-     3000000, 7, 6500000, 790, (13.0, 'ICICI Bank', True), (148000, 6400000, 3000000, 7, 100, 0, 92, 0), (True, 2, False),
-     'Chartered accountant. ICICI letter at 13.00% for 7 years, the same as our own rate; he asks for a little less.',
+    ('Sandeep Joshi', '9820012002', 'Rajkot', 'self_employed_professional', 'connector', 'builder_flat', 45, 160000, 0,
+     2800000, 7, 6000000, 800, (13.9, 'ICICI Bank', True), (158000, 5900000, 2800000, 7, 100, 0, 92, 0), (True, 1, True),
+     'Chartered accountant. ICICI letter at 13.90% for 7 years, the same as our own rate; he asks for a little less.',
      30, 'competitor_lower_rate', 3),
     ('Rukhsar Sheikh', '9820012003', 'Rajkot', 'salaried_informal', 'dsa', 'self_construction', 45, 105000, 10000,
      2500000, 10, 6250000, 800, (14.4, 'Bajaj Housing Finance', False), (103000, 6200000, 2500000, 10, 60, 0, 92, 0), (True, 1, True),
@@ -154,6 +154,15 @@ EXTENDED_SCENARIOS = [
      'PNB Housing letter at 14.80%; she is ready to walk away if we do not come close.',
      'deep', 'competitor_lower_rate', 4),
 ]
+
+
+def policy_reference() -> dict:
+    """The policy's reference block (13% floor, 17% ceiling); empty if the package is not importable."""
+    try:
+        from aavas.config import policy
+        return policy().get("reference") or {}
+    except Exception:  # noqa: BLE001 - fall back to the 13-17% band
+        return {}
 
 
 def call(base, method, path, body=None, token=None):
@@ -232,6 +241,10 @@ def main() -> None:
             rate = round(min(max(float(risk.get("breakeven_rate") or rec - 1) + 0.15, float(envelope["min_rate"])), rec - 0.30), 2)
         else:
             rate = round(rec - ask / 100, 2)
+        ref = policy_reference()
+        lo, hi = float(ref.get("card_rate_floor") or 13.0), float(ref.get("card_rate_ceiling") or 17.0)
+        if not lo <= rate <= hi:
+            raise SystemExit(f"scenario {name!r}: ask {rate:.2f}% is outside the policy band {lo:.2f}-{hi:.2f}%; fix the scenario")
         req = call(args.base, "POST", "/pricing/rate-requests", {"loan_id": loan_id, "rate": rate, "reason": reason}, rm)
         made.append((loan_id, req["request_id"], days))
         floor = float(envelope.get("min_rate") or 0)
