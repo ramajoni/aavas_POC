@@ -16,6 +16,16 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.8.2] - 2026-11-20
+
+### Fixed
+- After a restart, Milvus hands back existing collections "released", and refuses to read
+  or search them until they are loaded. The Milvus store never loaded them, so precedent
+  search failed on every start after the first ("Collection 'sales_notes__meta' is in state
+  'released'"). It now loads each collection once per process before reading it. Found while
+  building the index on the AWS server; the fake Milvus client in the tests now releases
+  collections on a simulated restart, and a real Milvus Lite test releases them too.
+
 ## [0.8.1] - 2026-11-20
 
 ### Fixed

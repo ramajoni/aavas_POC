@@ -262,9 +262,18 @@ class MilvusVectorStore(VectorStore):
         index.add_index(field_name="vector", index_type="AUTOINDEX", metric_type="COSINE")
         self.client.create_collection(self.name, schema=schema, index_params=index)
 
+    def _load(self, name: str) -> None:
+        """Milvus hands back a collection made by an earlier process 'released', and refuses
+        to read or search it until it is loaded. Load each one once per process."""
+        loaded = self.__dict__.setdefault("_loaded_names", set())
+        if name not in loaded:
+            self.client.load_collection(name)
+            loaded.add(name)
+
     def _stored_fingerprint(self) -> str | None:
         if not self.client.has_collection(self.meta_name):
             return None
+        self._load(self.meta_name)
         rows = self.client.get(self.meta_name, ids=["fingerprint"], output_fields=["text"])
         return rows[0].get("text") if rows else None
 
@@ -314,6 +323,7 @@ class MilvusVectorStore(VectorStore):
     def search(self, query: str, k: int = 5, filters: dict | None = None) -> list[SearchHit]:
         if not (query or "").strip() or not self.client.has_collection(self.name):
             return []
+        self._load(self.name)
         vector = self.embedder.embed([query])[0].tolist()
         found = self.client.search(
             self.name, data=[vector], limit=k, filter=milvus_filter(filters),

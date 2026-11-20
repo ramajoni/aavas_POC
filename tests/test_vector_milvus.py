@@ -63,15 +63,28 @@ class FakeMilvusClient:
 
     def __init__(self) -> None:
         self.collections: dict[str, dict[str, dict]] = {}
+        self.loaded: set[str] = set()
         self.upserts: list[tuple[str, int]] = []
         self.filters: list[str] = []
 
     def has_collection(self, name): return name in self.collections
-    def drop_collection(self, name): self.collections.pop(name, None)
+    def drop_collection(self, name): self.collections.pop(name, None); self.loaded.discard(name)
     def prepare_index_params(self): return FakeIndexParams()
 
     def create_collection(self, name, **kwargs):
         self.collections[name] = {}
+        self.loaded.add(name)                 # as in Milvus: a new collection is created loaded
+
+    def load_collection(self, name):
+        self.loaded.add(name)
+
+    def restart(self):
+        """What a new process sees: the collections are there, but released."""
+        self.loaded.clear()
+
+    def _require_loaded(self, name):
+        if name not in self.loaded:
+            raise RuntimeError(f"Collection '{name}' is in state 'released'; call load() before search/get/query")
 
     def upsert(self, name, data):
         self.upserts.append((name, len(data)))
@@ -79,12 +92,14 @@ class FakeMilvusClient:
             self.collections[name][row["id"]] = dict(row)
 
     def get(self, name, ids, output_fields=None):
+        self._require_loaded(name)
         return [self.collections[name][i] for i in ids if i in self.collections[name]]
 
     def get_collection_stats(self, name):
         return {"row_count": len(self.collections[name])}
 
     def search(self, name, data, limit, filter="", output_fields=None, search_params=None):
+        self._require_loaded(name)
         self.filters.append(filter)
         wanted = [(m.group(1), json.loads(m.group(2)) if m.group(2) not in ("true", "false") else m.group(2) == "true")
                   for m in re.finditer(r'metadata\["(\w+)"\] == ("(?:[^"\\]|\\.)*"|true|false|[-\d.eE+]+)', filter)]
@@ -168,9 +183,18 @@ def test_a_corpus_already_indexed_is_not_embedded_again(fake) -> None:
     again.add(CORPUS)
     assert again.reused and embedder.calls == first and len(again) == len(CORPUS)
 
+    # A restart: Milvus hands the collections back released. The store must load them
+    # before reading the fingerprint or searching (it failed here in production).
+    client_.restart()
+    after_restart = MilvusVectorStore("sales_notes", client=client_, embedder=embedder)
+    after_restart.add(CORPUS)
+    assert after_restart.reused and embedder.calls == first
+    assert after_restart.search("HDFC offered 9.1 percent match the rate", k=1)[0].document.doc_id == "n1"
+
+    spent = embedder.calls                                                    # the search above embedded one query
     changed = MilvusVectorStore("sales_notes", client=client_, embedder=embedder)
     changed.add(CORPUS[:3] + [Document("n4", "a different note entirely", {"loan_id": "L4", "city": "Jaipur"})])
-    assert not changed.reused and embedder.calls == first + len(CORPUS)      # rebuilt, not appended
+    assert not changed.reused and embedder.calls == spent + len(CORPUS)      # rebuilt, not appended
     assert len(changed) == 4
     assert "documents pending" not in {h.document.text for h in changed.search("documents pending", k=4)}
 
@@ -227,6 +251,14 @@ def test_milvus_lite_round_trip_and_reuse(tmp_path) -> None:
     spent = embedder.calls
     reopened.add(CORPUS)
     assert reopened.reused and embedder.calls == spent and len(reopened) == 4
+
+    # What a new process sees: both collections released. Reuse and search must still work.
+    for name in ("sales_notes", reopened.meta_name):
+        reopened.client.release_collection(name)
+    restarted = MilvusVectorStore("sales_notes", uri=uri, embedder=embedder)
+    restarted.add(CORPUS)
+    assert restarted.reused and embedder.calls == spent
+    assert restarted.search("HDFC offered 9.1 percent match the rate", k=1)[0].document.doc_id == "n1"
 
 
 # ------------------------------------------------------------- (d) the fallback
