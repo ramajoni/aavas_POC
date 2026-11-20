@@ -16,6 +16,14 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.8.1] - 2026-11-20
+
+### Fixed
+- `scripts/setup_xai_env.sh` compiled `hnswlib` from source on Linux, which needs a compiler
+  toolchain the production server does not have (and should not need). It now installs
+  `hnswlib` only as a prebuilt wheel, falling back to `chroma-hnswlib` (the same library,
+  prebuilt) on every platform, as it already did on Windows.
+
 ## [0.8.0] - 2026-11-20
 
 ### Added

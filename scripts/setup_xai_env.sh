@@ -40,18 +40,17 @@ echo "==> installing omnixai (no deps: its pins predate this repo's stack)"
 "$VPY" -m pip install --quiet --no-deps "omnixai==1.3.1"
 
 echo "==> installing the pinned explainability stack"
-if [ -x "$VENV/Scripts/python.exe" ]; then
-    # hnswlib publishes no Windows wheel and needs the MSVC build tools to compile.
-    # chroma-hnswlib is the same library (import name hnswlib) with prebuilt wheels;
-    # --no-deps so it cannot pull in a newer numpy.
-    REQS="$(mktemp)"
-    grep -v -E '^hnswlib\b' "$ROOT/requirements-xai.txt" > "$REQS"
-    "$VPY" -m pip install --quiet -r "$REQS"
-    "$VPY" -m pip install --quiet --no-deps --only-binary=:all: chroma-hnswlib
-    rm -f "$REQS"
-else
-    "$VPY" -m pip install --quiet -r "$ROOT/requirements-xai.txt"
-fi
+# hnswlib publishes no wheels, so installing it means compiling C++: MSVC build tools on
+# Windows, a compiler toolchain on Linux (which a production server should not need).
+# Install everything else, then hnswlib only as a prebuilt wheel, else chroma-hnswlib -
+# the same library (import name hnswlib) with prebuilt wheels. --no-deps keeps either
+# from pulling in a newer numpy.
+REQS="$(mktemp)"
+grep -v -E '^hnswlib\b' "$ROOT/requirements-xai.txt" > "$REQS"
+"$VPY" -m pip install --quiet -r "$REQS"
+rm -f "$REQS"
+"$VPY" -m pip install --quiet --no-deps --only-binary=:all: hnswlib 2>/dev/null \
+    || "$VPY" -m pip install --quiet --no-deps --only-binary=:all: chroma-hnswlib
 
 # hnswlib has no wheel, so pip builds it and drags the newest numpy in as a
 # dependency. That numpy would shadow the one the models were fitted under -
