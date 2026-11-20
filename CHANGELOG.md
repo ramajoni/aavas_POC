@@ -16,6 +16,16 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.9.3] - 2026-11-21
+
+### Removed
+- The "Further upsell room" tile on the area manager's request summary (Approvals). It
+  showed "No room" with "Fewer than 70% of customers like this accept even at the system
+  recommendation" on most files under HL-LAP-POLICY-2026.14, which told the manager nothing
+  they could act on. The summary now has three tiles: ask against recommendation, the upsell
+  by holding the recommendation, and the extra interest over the loan. The price-uplift line
+  in the decision panel still appears where customers like this accept a higher rate.
+
 ## [0.9.2] - 2026-11-21
 
 ### Fixed

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowClockwise, CheckCircle, Gavel, TrendUp, XCircle } from '@phosphor-icons/react';
 import { api, money, titleCase } from './api';
 import { Button, DataTable, Empty, InfoBox } from './components';
-import { AgingCell, noRoom, StatusBoard, StatusCell, useStatusBoard } from './Status';
+import { AgingCell, StatusBoard, StatusCell, useStatusBoard } from './Status';
 import './applications.css';
 import './price-offer.css';
 
@@ -109,7 +109,6 @@ export function RequestSummary({ request }) {
   const x = request.analysis || {};
   const ask = request.requested_rate, reco = request.recommended_rate;
   const upBps = Math.round((reco - ask) * 100);
-  const roomUp = x.headroom_rate != null && x.headroom_rate - reco > 0.005;
   const atAsk = x.acceptance_at_requested, atReco = x.acceptance_at_recommended;
   const drop = atAsk != null && atReco != null ? Math.round((atAsk - atReco) * 100) : null;
   const dropText = drop == null ? '' : drop <= 0 ? 'with no drop in acceptance' : `with ${drop <= 3 ? 'only ' : ''}${drop} point${drop === 1 ? '' : 's'} lower acceptance`;
@@ -127,7 +126,6 @@ export function RequestSummary({ request }) {
         </tbody></table></div>
       <div className="upsell"><small>Upsell by holding the system recommendation</small><b>+{upBps} bps</b><em>{dropText ? dropText.charAt(0).toUpperCase() + dropText.slice(1) : ''}</em></div>
       <div className="earn"><small>Extra interest over the full loan</small><b>{money(gain ?? x.cost_over_life)}</b><em>{x.tenure_years && x.emi_recommended != null ? `${x.tenure_years * 12} EMIs of ${money(x.emi_recommended - x.emi_requested)} more` : ''}</em></div>
-      <div><small>Further upsell room</small><b>{roomUp ? `Up to ${pct(x.headroom_rate)}` : 'No room'}</b><em>{roomUp ? `+${Math.round((x.headroom_rate - reco) * 100)} bps over the system recommendation; 70% of customers like this still accept${x.headroom_capped_by === 'quoted_range' ? ' (top of the range quoted to them)' : ''}` : noRoom(x.headroom_capped_by)}</em></div>
     </div>
     <div className="mgr-reason"><small>RM’s reason</small><span>{titleCase(request.reason)}{request.note ? ` · “${request.note}”` : ''}</span>
       {request.reason === 'competitor_lower_rate' && !request.evidence_verified && <small className="warn">Competitor quote not yet evidenced</small>}</div>

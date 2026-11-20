@@ -52,7 +52,7 @@
 /* Area manager: the request on the full analysis page, and her decision */
 .mgr-request{background:#fff;border:1px solid var(--border);border-radius:16px;padding:24px 28px;display:flex;flex-direction:column;gap:16px;margin-bottom:12px}
 .mgr-request h2{margin:0;font-size:22px;color:var(--ink);line-height:1.35}
-.mgr-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.mgr-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .mgr-tiles>div{border-radius:12px;padding:14px 16px;background:#EEF4FF;display:flex;flex-direction:column;gap:3px}
 .mgr-tiles>div.cost{background:#FFF7ED}
 .mgr-tiles small{font-size:13px;color:#556274}
