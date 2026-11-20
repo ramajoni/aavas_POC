@@ -10,6 +10,7 @@
     GET  /pricing/rate-requests/{request_id}/deep-dive   acceptance curve: floor, recommendation, ceiling
     GET  /pricing/rate-requests/{request_id}/scenarios   each rate: the model's prediction and this branch's
     GET  /pricing/rate-requests/{request_id}/history     the branch's upselling, competitors and sales notes
+    GET  /pricing/rate-requests/{request_id}/precedents  the past negotiations most like this file's conversation
     GET  /pricing/rate-requests/{request_id}/suggestion  a suggested decision and the facts behind it
     GET  /pricing/rate-requests/{request_id}/checklist   the manager's checks: alternatives, precedent, this month
     GET  /pricing/area/disbursements                     month to date against target, by RM
@@ -32,14 +33,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..analytics import (approval_briefing, area_performance, branch_history, branch_scenarios,
-                         decision_support, manager_checks, portfolio)
+                         decision_support, manager_checks, portfolio, precedents)
+from ..agents.manager_memory_agent import ManagerMemoryAgent
 from ..governance import decision_logger, model_registry
 from ..intake import applications as intake
 from ..intake import offers
 from ..logging_utils import get_logger
 from . import access
 from . import competitors as competitor_api
-from .deps import get_orchestrator
+from .deps import get_note_retriever, get_orchestrator
 from .security import Principal, current_principal
 
 router = APIRouter(prefix="/pricing", tags=["offers and approvals"])
@@ -368,6 +370,21 @@ def request_checklist(request_id: str, principal: Principal = Depends(current_pr
             summary="The branch's upselling, competitor strength and sales notes, and the file's own notes")
 def request_history(request_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
     _require(principal, AM, ADMIN)
+    row, applicant, grade = _history_context(request_id)
+    return competitor_api.clean(branch_history.history(
+        row, applicant, risk_grade=grade, retriever=get_note_retriever()))
+
+
+@router.get("/rate-requests/{request_id}/precedents",
+            summary="The past negotiations most similar to this file's conversation, with what happened")
+def request_precedents(request_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    """Context for the area manager only: it never changes the recommendation or a price."""
+    _require(principal, AM, ADMIN)
+    row, applicant, _ = _history_context(request_id)
+    return competitor_api.clean(precedents.similar_negotiations(row, applicant, get_note_retriever()))
+
+
+def _history_context(request_id: str) -> tuple[dict[str, Any], dict[str, Any], str | None]:
     row = offers.request(request_id)
     if row is None:
         raise HTTPException(404, "no such request")
@@ -376,8 +393,7 @@ def request_history(request_id: str, principal: Principal = Depends(current_prin
     stored = intake.get(row["loan_id"])
     # The stored file for its notes and sales context; the priced snapshot fills what it lacks.
     applicant = {**(payload.get("application_snapshot") or {}), **((stored or {}).get("applicant") or {})}
-    return competitor_api.clean(branch_history.history(
-        row, applicant, risk_grade=(payload.get("risk") or {}).get("risk_grade")))
+    return row, applicant, (payload.get("risk") or {}).get("risk_grade")
 
 
 def _rms(only: str | None = None) -> list[dict[str, Any]]:
@@ -439,18 +455,79 @@ def briefing(request_id: str, principal: Principal = Depends(current_principal))
     return competitor_api.clean(out)
 
 
+def _memory_inputs(request_id: str, principal: Principal) -> tuple[dict[str, Any], dict[str, Any],
+                                                                   dict[str, Any], dict | None, dict | None]:
+    """The request and what the decision-support screen reads for it: the decision it was
+    priced on, the file, the manager's checklist and the branch briefing."""
+    row = offers.request(request_id)
+    if row is None:
+        raise HTTPException(404, "no such request")
+    decision = decision_logger.get_decision(row["decision_id"]) if row.get("decision_id") else None
+    payload = (decision or {}).get("payload") or {}
+    stored = intake.get(row["loan_id"])
+    applicant = {**(payload.get("application_snapshot") or {}), **((stored or {}).get("applicant") or {})}
+    try:
+        checklist = request_checklist(request_id, principal)
+    except HTTPException:
+        checklist = None
+    try:
+        brief = briefing(request_id, principal)
+    except HTTPException:
+        brief = None
+    return row, payload, applicant, checklist, brief
+
+
+@router.get("/rate-requests/{request_id}/memory",
+            summary="The factors and their signals, and how you decided requests like this before")
+def request_memory(request_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    _require(principal, AM, ADMIN)
+    agent = ManagerMemoryAgent()
+    seen = agent.observe(*_memory_inputs(request_id, principal))
+    try:
+        memory = {"available": True, **agent.recall(seen, manager=principal.name, request_id=request_id)}
+    except Exception as exc:                        # noqa: BLE001 - the factors still serve the screen
+        log.warning("decision memory unavailable for %s: %s", request_id, exc)
+        memory = {"available": False, "reason": "Decision memory could not be read on this server."}
+    return competitor_api.clean({"request_id": request_id, "factors": seen["factors"], "lean": seen["lean"],
+                                 "suggestion": seen["suggestion"], "memory": memory})
+
+
 @router.post("/rate-requests/{request_id}/decide", summary="Approve, decline or uplift a requested rate")
 def decide(request_id: str, body: DecisionIn, principal: Principal = Depends(current_principal),
            orchestrator=Depends(get_orchestrator)) -> dict[str, Any]:
     _require(principal, AM, ADMIN)
+    # What the manager is deciding on, frozen before the decision changes it: the factors,
+    # the suggestion and the past cases memory put in front of them. Memory never stands
+    # between a manager and a decision, so a failure here is recorded, not raised.
+    pending = offers.request(request_id)
+    seen, unavailable, recalled = None, None, []
+    if pending and pending.get("status") == "pending":
+        agent = ManagerMemoryAgent()
+        try:
+            seen = agent.observe(*_memory_inputs(request_id, principal))
+        except Exception as exc:                    # noqa: BLE001
+            unavailable = f"the factors could not be read when the decision was taken ({exc})"
+            log.warning("decision memory for %s: %s", request_id, unavailable)
+        if seen is not None:
+            try:
+                recalled = agent.recalled_ids(agent.recall(seen, manager=principal.name, request_id=request_id))
+            except Exception as exc:                # noqa: BLE001
+                log.warning("decision memory recall for %s failed: %s", request_id, exc)
     try:
-        return offers.decide(request_id, approve=body.approve, rate=body.rate, reason=body.reason,
-                             note=body.note, decided_by=principal.name,
-                             rate_authority=principal.rate_authority or "regional_manager",
-                             am_bps=_limit(AM, "approve_below_recommendation_bps"),
-                             capture_override=orchestrator.capture_override, uplift=body.uplift)
+        result = offers.decide(request_id, approve=body.approve, rate=body.rate, reason=body.reason,
+                               note=body.note, decided_by=principal.name,
+                               rate_authority=principal.rate_authority or "regional_manager",
+                               am_bps=_limit(AM, "approve_below_recommendation_bps"),
+                               capture_override=orchestrator.capture_override, uplift=body.uplift)
     except offers.OfferError as exc:
         raise _fail(exc) from exc
+    try:
+        memory = orchestrator.remember_manager_decision(request=pending, decided=result, observation=seen,
+                                                        unavailable=unavailable, recalled=recalled)
+    except Exception as exc:                        # noqa: BLE001 - the decision is already taken
+        log.warning("decision %s stands but was not remembered: %s", request_id, exc)
+        memory = {"recorded": False, "reason": "The decision stands, but it could not be added to memory."}
+    return {**result, "memory": memory}
 
 
 # ------------------------------------------------ Fair Practices Code documents

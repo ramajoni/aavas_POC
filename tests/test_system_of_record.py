@@ -36,10 +36,19 @@ def test_an_absent_registry_is_named_rather_than_omitted(index: dict) -> None:
     """A catalogue that lists only what exists describes a more complete system
     than the one running."""
     absent = [r for r in index["registries"] if r["kind"] == "absent"]
-    assert absent, "nothing is absent? check the audit is still honest"
     for registry in absent:
         assert not registry["versioned"] and not registry["queryable_as_of"]
         assert len(registry["note"]) > 40, f"{registry['key']} gives no reason"
+
+
+def test_memory_is_a_registry_only_because_a_table_backs_it(index: dict) -> None:
+    """Memory was the last absent registry. It may claim to answer about the past only
+    because decided requests are kept, append-only and dated, in decision_memory."""
+    from aavas.governance import store
+    memory = next(r for r in index["registries"] if r["key"] == "memory")
+    assert memory["kind"] == "registry" and memory["queryable_as_of"]
+    assert "decision_memory" in memory["backing"]
+    assert memory["entries"] == store.count("decision_memory")
 
 
 def test_only_a_real_registry_claims_to_answer_about_the_past(index: dict) -> None:

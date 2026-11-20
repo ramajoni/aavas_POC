@@ -43,3 +43,6 @@ backups/
 reports/agentic_runs/
 # Drift runs and the alerts OpenObserve sent (regenerate: python scripts/run_drift.py)
 reports/drift/
+
+# Milvus Lite database and the embedding model cache
+data/vector/

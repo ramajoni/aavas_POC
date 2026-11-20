@@ -82,6 +82,41 @@ function Section({ id, title, items, children }) {
       <div className="an-head"><span>Factor</span><span>Figure</span><span>What it means</span><span>Signal</span></div>{children}</div></section>;
 }
 
+// Decision memory: how this manager decided requests like this one, and what the
+// customers did. It sits beside the suggestion and never changes it.
+const DID = { approve: 'Approved the ask', counter: 'Approved a smaller cut', hold: 'Held the rate', uplift: 'Priced higher' };
+const SUGGESTED = { approve: 'Approve', counter: 'Counter-offer', hold: 'Hold', uplift: 'Uplift' };
+const OUTCOME = { accepted: 'good', not_accepted: 'bad' };
+const day = s => s ? new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+
+function Recalled({ cases, others }) {
+  return <div className="mem-scroll"><table className="sc-table ck-table mem-table">
+    <thead><tr><th>Decided</th>{others && <th>By</th>}<th>The ask</th><th>Suggested</th><th>Decision</th><th>What happened</th><th>Why it is like this one</th></tr></thead>
+    <tbody>{cases.map(c => <tr key={c.episode_id}>
+      <td>{day(c.decided_at)}</td>{others && <td>{c.manager}</td>}
+      <td>{pct(c.requested_rate)}<small>against {pct(c.recommended_rate)}</small></td>
+      <td>{c.suggested?.action ? `${SUGGESTED[c.suggested.action] || c.suggested.action}${c.suggested.rate != null && c.suggested.action !== 'hold' ? ` ${pct(c.suggested.rate)}` : ''}` : <small>Not recorded</small>}</td>
+      <td><b>{DID[c.decided.action] || c.decided.action}</b>{c.decided.action !== 'hold' && c.decided.rate != null ? ` ${pct(c.decided.rate)}` : ''}{c.note && <small>“{c.note}”</small>}</td>
+      <td className={`mem-out ${OUTCOME[c.outcome?.state] || ''}`}>{c.outcome?.text || '—'}</td>
+      <td><small>{(c.matched || []).join(', ') || '—'}</small></td></tr>)}</tbody></table></div>;
+}
+
+function Memory({ m }) {
+  if (!m) return null;
+  if (!m.available) return <section className="rv-card an-memory"><h2>Your decision memory</h2><p className="rv-muted">{m.reason}</p></section>;
+  const mine = m.yours?.cases || [], theirs = m.others?.cases || [], lines = m.profile?.lines || [];
+  return <section className="rv-card an-memory" aria-labelledby="mem-title">
+    <div className="an-section-head"><h2 id="mem-title">Your decision memory</h2>
+      <small className="mem-count">{m.your_episodes} of your decisions remembered · {m.episodes} in all</small></div>
+    {m.consistency && <p className={`mem-consistency ${m.consistency.tone}`}>{m.consistency.text}</p>}
+    {lines.length > 0 && <ul className="mem-lines">{lines.map(l => <li key={l}>{l}</li>)}</ul>}
+    <h3>Your decisions most like this one</h3>
+    {mine.length ? <Recalled cases={mine}/> : <p className="rv-muted">{m.yours?.empty}</p>}
+    {theirs.length > 0 && <details className="mem-others"><summary>Other managers’ decisions like this one ({theirs.length})</summary><Recalled cases={theirs} others/></details>}
+    <p className="rv-note">{m.method}</p>
+  </section>;
+}
+
 export function DecisionSupport({ request, a, final, go, onUse }) {
   const id = encodeURIComponent(request.request_id);
   const [d, setD] = useState({});
@@ -103,12 +138,15 @@ export function DecisionSupport({ request, a, final, go, onUse }) {
     apiOnce(`/pricing/rate-requests/${id}/suggestion`).then(put('s')).catch(() => put('s')(null));
     apiOnce(`/pricing/rate-requests/${id}/briefing`).then(put('b')).catch(() => put('b')(null));
     apiOnce(`/pricing/rate-requests/${id}/history`).then(put('h')).catch(() => put('h')(null));
+    apiOnce(`/pricing/rate-requests/${id}/memory`).then(put('m')).catch(() => put('m')(null));
     return () => { live = false; };
   }, [id]);
   if (error) return <InfoBox warning><span role="alert">{error}</span></InfoBox>;
   const { c, b, h } = d;
   if (!c) return <section className="rv-card"><p className="rv-muted"><CircleNotch className="spin" size={16}/> Analysing the request…</p></section>;
   const suggestion = d.s || c.suggestion;
+  // The signal on each row is decided once, on the server, so the screen shows what memory records.
+  const server = Object.fromEntries((d.m?.factors || []).map(f => [f.key, f.signal]));
 
   const x = request.analysis || {}, ask = request.requested_rate, rec = request.recommended_rate;
   const sc = a.sales_context || {}, r = final?.risk || {}, pol = final?.policy || {};
@@ -184,7 +222,7 @@ export function DecisionSupport({ request, a, final, go, onUse }) {
       rm ? `The RM usually asks for ${pct((rm.avg_requested_discount_bps || 0) / 100)} below the system recommendation. ${rm.offers_accepted} of ${rm.offers_sent} offers were taken by customers.` : 'No past requests.', ['branch', 'summary']],
     ['branch', 'relationship', (c.relationship || []).includes('Existing customer') ? 'for' : 'info', 'Relationship', (c.relationship || [])[0] || '—',
       (c.relationship || []).includes('Existing customer') ? 'Already an Aavas customer: worth keeping.' : (c.relationship || []).slice(1).join(' · ') || 'A new customer with no other link to Aavas.'],
-  ].map(([group, key, status, label, value, reading, target, extra]) => ({ group, key, signal: FROM[status], label, value, reading, target, extra }));
+  ].map(([group, key, status, label, value, reading, target, extra]) => ({ group, key, signal: server[key] || FROM[status], label, value, reading, target, extra }));
 
   const tally = items.reduce((t, i) => ({ ...t, [i.signal]: (t[i.signal] || 0) + 1 }), {});
   const of = k => items.filter(i => i.signal === k);
@@ -220,6 +258,8 @@ export function DecisionSupport({ request, a, final, go, onUse }) {
         {ORDER.map(k => tally[k] ? <i key={k} className={k} style={{ flex: tally[k] }}/> : null)}</div>
       <div className="an-tally">{ORDER.map(k => <span key={k} className={k}><i/>{tally[k] || 0} {SIGNAL[k].toLowerCase()}</span>)}</div>
     </section>
+
+    <Memory m={d.m?.memory}/>
 
     <div className="an-toolbar">
       <div className="an-filters" role="tablist" aria-label="Show factors">{FILTERS.map(([k, label, test]) =>

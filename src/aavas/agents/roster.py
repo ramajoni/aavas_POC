@@ -88,13 +88,14 @@ AGENTS: list[dict[str, Any]] = [
      "decides": "Reason codes in basis points, the commercial-versus-risk split, and whether "
                 "the file needs a fair-pricing review."},
     {"name": "learning", "cls": "LearningAgent", "module": "aavas.agents.learning_agent",
-     "wired": True, "stages": ["override", "outcome"], "models": ["uplift"],
+     "wired": True, "stages": ["override", "outcome", "manager_decision"], "models": ["uplift"],
      "tools": ["store.governance", "procedure.outcome_capture",
                "procedure.override_learning", "procedure.retraining_assessment",
-               "model.uplift"],
+               "procedure.decision_memory", "model.uplift"],
      "skills": ["drift_detection"],
-     "decides": "What happens after the decision: the human override and the eventual "
-                "outcome, captured so the next model can be fitted on them."},
+     "decides": "What happens after the decision: the human override, the area manager's "
+                "decision with the factors they saw, and the eventual outcome - captured so the "
+                "next model can be fitted on them and the next decision can recall them."},
 
     # ------------------------------------------------------------- on request
     # Runs, but not in the pricing pipeline: a person's screen calls it.
@@ -110,6 +111,18 @@ AGENTS: list[dict[str, Any]] = [
              "quote; findings are reused per lender for a week. Outside the priced path: an "
              "internet search never moves a recommendation, it says how far a quote can "
              "justify a discount."},
+    {"name": "manager_memory", "cls": "ManagerMemoryAgent",
+     "module": "aavas.agents.manager_memory_agent", "wired": False, "on_demand": True,
+     "stages": ["rate_request"], "models": [],
+     "tools": ["procedure.decision_memory"],
+     "skills": ["decision_factors", "decision_recall"],
+     "decides": "Nothing. It recalls: the area manager's own past decisions most like the "
+                "request in front of them, other managers' too, what each customer then did, "
+                "and how this manager tends to decide - which factors move them and whether "
+                "today's suggestion matches their usual decision.",
+     "runs": "When an area manager opens a lower-rate request, and again when they decide, so the "
+             "decision records which past cases were in front of them. Reads memory only; the "
+             "learning agent writes it. It never moves the suggestion."},
 
     # ---------------------------------------------------------------- dormant
     {"name": "feature_discovery", "cls": "FeatureDiscoveryAgent",

@@ -74,6 +74,9 @@ def version(name: str, entry: dict[str, Any], cards: dict[str, dict[str, Any]]) 
     if source == "agentic_os":
         aga = (load("agentic_os").get("training") or {}).get("autogluon_assistant") or {}
         return f"{load('agentic_os').get('agentic_os_config_version')} / {aga.get('model', '?')}"
+    if source == "embedding":
+        from ..knowledge import vector_store
+        return vector_store.EMBED_MODEL
     if source in ("market_research", "narrative"):
         from ..agents import market_research_agent
         from ..xai import narrative

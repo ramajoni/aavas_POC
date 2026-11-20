@@ -14,6 +14,10 @@ actually win files stand out from the ones that are only mentioned.
 
 **Notes.** The sales and conversation notes from the branch's past files, newest
 first, with what then happened; the ones naming this file's lender first.
+
+**Similar negotiations.** The past notes, from any branch, closest in meaning to
+this file's conversation (``precedents``): context for the area manager, never an
+input to a price.
 """
 
 from __future__ import annotations
@@ -23,7 +27,7 @@ from typing import Any
 import pandas as pd
 
 from ..ingestion import loader
-from . import portfolio
+from . import portfolio, precedents
 from .approval_briefing import scope
 
 MIN_N = 20
@@ -107,7 +111,8 @@ def notes(branch_files: pd.DataFrame, city: str | None, lender: str | None) -> d
     }
 
 
-def history(request: dict[str, Any], applicant: dict[str, Any], *, risk_grade: str | None) -> dict[str, Any]:
+def history(request: dict[str, Any], applicant: dict[str, Any], *, risk_grade: str | None,
+            retriever: Any = None) -> dict[str, Any]:
     everyone = portfolio.frame()
     city = applicant.get("city")
     branch, where = scope(everyone, city)
@@ -124,6 +129,7 @@ def history(request: dict[str, Any], applicant: dict[str, Any], *, risk_grade: s
                        "rm_reason": request.get("reason"),
                        "competitor": {"name": lender, "rate": sales.get("competitor_rate"),
                                       "evidence": bool(sales.get("competitor_evidence_verified"))}},
+        "similar_negotiations": precedents.similar_negotiations(request, applicant, retriever),
         "note": ("From the loan book the pricing models learn from, and the sales notes written on "
                  f"those files. Rates on fewer than {MIN_N} files are withheld."),
     }

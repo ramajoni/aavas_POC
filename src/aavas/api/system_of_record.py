@@ -22,7 +22,9 @@ One distinction the audit turns on, because it decides what a registry is worth:
   describes the system as it is now. Asking it what an agent looked like at the
   time of a decision returns today's answer with no way to know it differs.
 
-Three of the twelve are absent outright, and saying so is the point.
+A registry that does not exist is reported as absent rather than left out; saying so
+is the point. Memory was the last of them, until the area manager's decisions began to
+be remembered.
 """
 
 from __future__ import annotations
@@ -46,6 +48,13 @@ RESOLVED, PARTIAL, BROKEN = "resolved", "partial", "broken"
 
 
 # ------------------------------------------------------------ the registries
+
+
+def _memory_count() -> int:
+    try:
+        return store.count("decision_memory")
+    except Exception:                                           # noqa: BLE001
+        return 0
 
 
 def _registries() -> list[dict[str, Any]]:
@@ -116,11 +125,14 @@ def _registries() -> list[dict[str, Any]]:
          "note": f"Version {v['policy_version']}, recorded on every decision. It "
                  f"reconstructs as long as that version of the file still exists; the file "
                  f"itself is not stored with the decision."},
-        {"key": "memory", "title": "Memory registry", "kind": "absent",
-         "backing": None, "entries": 0, "versioned": False, "queryable_as_of": False,
-         "note": "Nothing. No agent carries state between decisions, which is why there is "
-                 "none to register - an accurate description of the system rather than a "
-                 "gap that needs filling before anything else works."},
+        {"key": "memory", "title": "Memory registry", "kind": "registry",
+         "backing": "governance store, decision_memory table", "entries": _memory_count(),
+         "versioned": True, "queryable_as_of": True,
+         "note": "The area managers' decisions on lower-rate requests: one episode each, written "
+                 "once when the manager decides, with the factors as they stood, the suggestion "
+                 "shown and the past cases recalled for them. Append-only and dated, so what memory "
+                 "held at any moment can be read back. No pricing agent carries memory: the price "
+                 "is computed fresh for every file, and memory never moves it."},
         {"key": "feature", "title": "Feature registry", "kind": "versioned config",
          "backing": "config/feature_config.yaml", "entries": 1,
          "versioned": True, "queryable_as_of": False,

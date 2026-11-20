@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from ..governance import audit, decision_logger, store
-from ..learning import drift_detection, outcome_capture, override_learning, retraining
+from ..learning import decision_memory, drift_detection, outcome_capture, override_learning, retraining
 from ..logging_utils import get_logger
 
 log = get_logger(__name__)
@@ -37,6 +37,13 @@ class LearningAgent:
 
     def capture_outcome(self, loan_id: str, **kwargs: Any) -> dict:
         return outcome_capture.capture(loan_id, **kwargs)
+
+    def remember_manager_decision(self, *, request: dict, decided: dict, observation: dict | None,
+                                  unavailable: str | None = None, recalled: list[str] | None = None) -> dict:
+        """The area manager's decision on a lower-rate request, kept as an episode in
+        decision memory with the factors they saw and the suggestion they were shown."""
+        return decision_memory.remember(request=request, decided=decided, observation=observation,
+                                        unavailable=unavailable, recalled=recalled)
 
     # ------------------------------------------------------------ analysis
     def review_overrides(self, df: pd.DataFrame) -> dict:

@@ -401,6 +401,37 @@ CREATE TABLE IF NOT EXISTS model_registry (
     card            TEXT NOT NULL,
     PRIMARY KEY (name, version)
 );
+
+-- Decision memory: one episode per decided lower-rate request, written once by the
+-- learning agent when the area manager decides (learning/decision_memory.py).
+-- The factors are frozen as the manager saw them; the outcome is joined when read.
+CREATE TABLE IF NOT EXISTS decision_memory (
+    episode_id          TEXT PRIMARY KEY,
+    request_id          TEXT NOT NULL UNIQUE,
+    loan_id             TEXT NOT NULL,
+    decision_id         TEXT,
+    manager             TEXT NOT NULL,
+    decided_at          TEXT NOT NULL,
+    action              TEXT NOT NULL,
+    requested_rate      REAL NOT NULL,
+    recommended_rate    REAL NOT NULL,
+    decided_rate        REAL,
+    reason              TEXT,
+    note                TEXT,
+    requested_by        TEXT,
+    request_reason      TEXT,
+    suggested_action    TEXT,
+    suggested_rate      REAL,
+    followed_suggestion INTEGER,
+    lean                TEXT,
+    case_features       TEXT NOT NULL,
+    factors             TEXT,
+    factors_unavailable TEXT,
+    recalled            TEXT,
+    format              TEXT NOT NULL,
+    recorded_at         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_decision_memory_manager ON decision_memory(manager);
 """
 
 
@@ -484,6 +515,15 @@ def insert(table: str, row: dict[str, Any]) -> None:
         )
 
 
+def append(table: str, row: dict[str, Any]) -> None:
+    """Insert a row that must never replace another. Unlike ``insert``, a duplicate key
+    raises ``sqlite3.IntegrityError`` instead of silently overwriting the first row."""
+    payload = {k: _encode(v) for k, v in row.items()}
+    with connect() as conn:
+        conn.execute(f"INSERT INTO {table} ({', '.join(payload)}) VALUES ({', '.join('?' for _ in payload)})",
+                     list(payload.values()))
+
+
 def query(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
     with connect() as conn:
         return [dict(row) for row in conn.execute(sql, params).fetchall()]
@@ -509,7 +549,8 @@ def reset() -> None:
                       "feature_proposals", "applications", "application_documents",
                       "loan_book", "datasets", "config_changes", "borrower_accounts",
                       "offers", "rate_requests", "market_rate_research", "customer_logins",
-                      "customer_nudges", "kfs_statements", "model_validations"):
+                      "customer_nudges", "kfs_statements", "model_validations",
+                      "decision_memory"):
             conn.execute(f"DROP TABLE IF EXISTS {table}")
         conn.executescript(SCHEMA)
     log.info("governance store reset (%s)", database_path())

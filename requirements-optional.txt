@@ -10,3 +10,7 @@ lightgbm>=4.0         # on Linux it needs the OpenMP runtime: apt install libgom
                       # cannot load, and model selection falls back to other learners)
 catboost>=1.2
 anthropic>=1.0         # the AI-written loan explanation and competitor research (needs ANTHROPIC_API_KEY)
+pymilvus>=2.5          # Milvus client for the area manager's precedents (AAVAS_VECTOR_BACKEND=milvus)
+milvus-lite>=2.4; sys_platform != "win32"   # embedded Milvus; pymilvus 3.x no longer installs it.
+                       # No Windows build: on Windows the app falls back to in-memory TF-IDF search
+fastembed>=0.4        # bge-small-en-v1.5 embeddings (ONNX, CPU, no PyTorch); ~130 MB model downloaded on first use

@@ -100,6 +100,7 @@
 .hs-notelist p{margin:4px 0 0;font-size:14px;color:var(--ink);line-height:1.5}
 .hs-note-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--muted)}
 .hs-note-meta .took{color:#15803D;font-weight:500}.hs-note-meta .lost{color:#B42318;font-weight:500}
+.hs-note-meta .hs-sim{color:var(--ink);font-weight:600}
 @media(max-width:1100px){.hs-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.hs-notes-file div{grid-template-columns:1fr}}
 /* Decision support: one line per signal, the detail a click away. */
 .rv-quick{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
@@ -259,3 +260,15 @@
 .an-balance i.verify,.an-tally .verify i{background:#60A5FA}
 .an-chips .verify{background:#DBEAFE;color:#1D4ED8}
 .an-points li.verify i{background:#2563EB}
+
+/* Decision memory */
+.an-memory{display:flex;flex-direction:column;gap:10px}
+.an-memory h3{margin:6px 0 0;font-size:14px;color:#082268}
+.mem-count{font-size:12px;color:var(--muted)}
+.mem-consistency{margin:0;padding:10px 14px;border-radius:6px;font-size:14px;line-height:1.5;background:#F1F5F9;color:#1e293b}
+.mem-consistency.warn{background:#FEF3C7;color:#78350F;border-left:4px solid #D97706}
+.mem-lines{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.5;color:#1e293b}
+.mem-scroll{overflow-x:auto}
+.mem-table td{vertical-align:top}
+.mem-out.good{color:#15803D;font-weight:500}.mem-out.bad{color:#B42318;font-weight:500}
+.mem-others summary{cursor:pointer;font-size:13px;color:var(--blue);padding:4px 0}

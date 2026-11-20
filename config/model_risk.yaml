@@ -15,7 +15,7 @@
 # developers = who build it; validators = platform roles allowed to validate it,
 # which must not overlap the developers or the owner (MRM 7(8), 15).
 # Dates left null have not happened: the checks report them as open, not as done.
-model_risk_config_version: MRM-2026.11
+model_risk_config_version: MRM-2026.12
 
 framework:
   board_approved_on: null           # MRM 9-11: the MRMF is approved by the Board outside the platform
@@ -217,6 +217,23 @@ models:
     downstream: []
     kill_switch: null               # no switch: it stops only when the API key is removed
     fallback: "The explanation page without the narrative."
+
+  embedding_bge_small:
+    <<: *ml
+    title: "Precedent-note embeddings (BAAI bge-small-en-v1.5)"
+    kind: embedding
+    version_from: embedding
+    intended_use: "Retrieving precedent notes for a person, never pricing: finds the past negotiations most like a file's conversation for the area manager to read."
+    materiality: Low
+    complexity: Medium
+    autonomy: Low
+    consumer_facing: false
+    third_party: "BAAI bge-small-en-v1.5 (open source) via fastembed"
+    owner: area_sales
+    upstream: []
+    downstream: []
+    kill_switch: "AAVAS_VECTOR_BACKEND=memory"
+    fallback: "in-memory TF-IDF search"
 
   autogluon_assistant:
     <<: *ml

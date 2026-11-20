@@ -298,6 +298,25 @@ The file's acceptance `curve` from below break-even to the policy ceiling, the `
 (`ceiling_capped_by` the quoted range or policy), the floor `build_up` (cost of funds, operating
 cost, capital charge, expected credit loss) and the reasons behind the price.
 
+### GET /pricing/rate-requests/{request_id}/memory (area manager)
+Decision memory for the request in front of the manager, from the manager memory agent.
+`factors`: the fifteen factors on the decision-support screen, each `{group, key, label, value,
+signal}` with `signal` one of `for`, `clear`, `verify`, `caution`, `against`, `neutral`. The screen
+takes its signals from here, so what memory records is what the manager saw. `lean` and
+`suggestion` as the screen shows them. `memory`: `yours.cases` and `others.cases` are the most
+similar past decisions (up to five each), each with `similarity`, `matched` (why it is alike),
+what was `suggested`, what was `decided`, the manager's `note` and the `outcome` the customer gave
+afterwards; `profile` is how this manager decides (cut, hold or price higher; how often the
+suggestion was taken; the factors that move them, as counts); `consistency` says when today's
+suggestion differs from their usual decision in like cases. `moves_suggestion` is always `false`.
+`memory.available: false` with a `reason` when the store cannot be read; the factors still return.
+
+### POST /pricing/rate-requests/{request_id}/decide — `memory`
+The decision response now carries `memory`: `{recorded, episode_id, action, followed_suggestion,
+factors_recorded}`. The learning agent writes one episode per decided request, append-only, with
+the factors as they stood, the suggestion and the past cases recalled. `recorded: false` with a
+`reason` when the episode could not be written; the decision itself stands either way.
+
 ### GET /pricing/area/disbursements · GET /pricing/my/disbursements
 Month to date: accepted offers at their assessed loan amount against each RM's
 `monthly_disbursement_target_inr` (`config/access.yaml`), pace through the month, and each RM's

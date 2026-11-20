@@ -106,7 +106,9 @@ def tools() -> dict[str, Any]:
     bundle = model_registry.load_bundle()
     loaded = {n for n in bundle.versions() if n not in (bundle.missing or [])}
 
-    rows = agent_capabilities.tools(loaded, connectors)
+    from .deps import live_index_backends
+
+    rows = agent_capabilities.tools(loaded, connectors, live_index_backends())
     return {
         "tools": rows,
         "summary": agent_capabilities.summary(),

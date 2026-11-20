@@ -106,7 +106,7 @@ def _register(store: VectorStore) -> str | None:
 
 
 def build_index(store: VectorStore | None = None) -> VectorStore:
-    store = store or get_store()
+    store = store or get_store(name="policy_clauses")
     documents = build_documents()
     store.add(documents)
     log.info("indexed %s policy clauses (%s)", len(documents), policy()["policy_version"])

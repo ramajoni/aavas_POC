@@ -267,6 +267,9 @@ class PricingOrchestrator:
     def capture_outcome(self, loan_id: str, **kwargs: Any) -> dict:
         return self.learning.capture_outcome(loan_id, **kwargs)
 
+    def remember_manager_decision(self, **kwargs: Any) -> dict:
+        return self.learning.remember_manager_decision(**kwargs)
+
 
 def _within_authority(approved_by: str | None, required: str) -> bool | None:
     """``approved_by`` is expected as '<name>:<level>' or just a level."""

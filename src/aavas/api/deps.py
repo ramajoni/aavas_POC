@@ -71,6 +71,25 @@ def get_narrator() -> LoanNarrator:
     return LoanNarrator()
 
 
+def live_index_backends() -> dict[str, dict | None]:
+    """The vector backend serving each index right now, without building one: an
+    index not yet built reports None rather than starting a first-run embedding."""
+    from ..config import env
+
+    requested = (env("AAVAS_VECTOR_BACKEND", "memory") or "memory").lower()
+
+    def describe(store) -> dict | None:
+        if store is None:
+            return None
+        return {"backend": getattr(store, "backend_name", None), "requested": requested,
+                "fallback_reason": getattr(store, "fallback_reason", None)}
+
+    notes = _build_note_retriever() if _build_note_retriever.cache_info().currsize else None
+    policy = get_policy_retriever() if get_policy_retriever.cache_info().currsize else None
+    return {"index.sales_notes": describe(getattr(notes, "store", None)),
+            "index.policy": describe(getattr(policy, "store", None))}
+
+
 def reset() -> None:
     _build_note_retriever.cache_clear()
     get_orchestrator.cache_clear()

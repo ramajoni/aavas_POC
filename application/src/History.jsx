@@ -100,6 +100,7 @@ export function FileNotes({ h }) {
         <div><dt>Conversation notes</dt><dd>{f.conversation || 'None recorded when the application was entered.'}</dd></div>
       </dl>
     </Card>
+    <Precedents p={h.similar_negotiations}/>
     {lender && h.notes.naming_lender > 0
       ? <Card title={`Past conversations naming ${lender} in ${h.where.city}`} sub={`${h.notes.naming_lender} notes in the branch’s history name ${lender}; the newest are below.`}><NoteList notes={past}/></Card>
       : <Card title={`Recent negotiations in ${h.where.city || 'the branch'}`} sub={lender ? `No past note in ${h.where.city || 'this branch'} names ${lender}; the branch’s newest negotiation notes are below.` : 'The branch’s newest negotiation notes.'}>
@@ -132,6 +133,27 @@ export function CompetitorStrength({ h }) {
         <td>{r.files}<small>{share(r.share)}</small></td><td>{pct(r.median_quote)}</td><td>{bps(r.median_gap_bps)}</td>
         <td>{share(r.documented)}</td><td>{share(r.we_won)}</td><td className={r.they_won != null && r.they_won > 0.4 ? 'late' : ''}>{share(r.they_won)}</td></tr>)}</tbody></table></div>
     <p className="rv-note">“We lost” counts every file naming the lender that did not take our loan, whatever the reason. A minus means the lender quoted under the rate we sanctioned. {h.note}</p>
+  </Card>;
+}
+
+const PRICED = { up: 'Priced above the system recommendation', down: 'Price cut below the system recommendation', at_recommendation: 'Held at the system recommendation' };
+
+// The past notes closest in meaning to this file's conversation, and what happened on each.
+// Context for the area manager; it never changes the recommendation.
+function Precedents({ p }) {
+  if (!p) return null;
+  if (!p.available) return <Card title="Most similar past negotiations" sub={p.unavailable ? `Not available: ${p.unavailable}.` : 'Not available.'}/>;
+  const where = p.scope === 'city' ? `in ${p.city}` : 'across every branch';
+  return <Card title="Most similar past negotiations" sub={`The ${p.precedents.length} past notes closest in meaning to this file’s conversation, ${where}, most similar first.`}>
+    {!p.precedents.length ? <p className="rv-muted">No similar past note was found.</p>
+      : <ul className="hs-notelist">{p.precedents.map(n => <li key={n.note_id} className="lender">
+        <div className="hs-note-meta"><span className="hs-sim">{Math.round(n.similarity * 100)}% similar</span>
+          {n.date && <span>{n.date}</span>}{n.city && <span>{n.city}</span>}
+          {n.lender && <span>{n.lender}{n.quote ? ` · quoted ${pct(n.quote)}` : ''}</span>}
+          {n.took != null && <span className={n.took ? 'took' : 'lost'}>{n.took ? `Took our loan${n.rate ? ` at ${pct(n.rate)}` : ''}` : 'Did not take our loan'}</span>}
+          {n.priced && <span>{PRICED[n.priced]}</span>}</div>
+        <p>{n.text}</p></li>)}</ul>}
+    <p className="rv-note">Found by {p.backend || 'text search'}{p.fallback_reason ? ' (the semantic index is unavailable, so this is keyword matching)' : ''}. {p.note}</p>
   </Card>;
 }
 

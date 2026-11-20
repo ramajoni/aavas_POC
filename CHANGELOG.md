@@ -16,6 +16,41 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.8.0] - 2026-11-20
+
+### Added
+- **Decision memory for the area manager.** Every decision on a lower-rate request is
+  remembered as an episode: the fifteen factors with their signals as the manager saw them,
+  the suggestion shown, the decision, the rate and the note, and which past cases were
+  recalled at the time. The learning agent writes it (still the only agent that writes the
+  governance store); the episode is never edited, and what the customer did is joined when
+  memory is read.
+- **Manager memory agent** (on request, outside the priced path). When an area manager opens a
+  request it recalls their own most similar past decisions and other managers', each with
+  why it is alike and what the customer did; how this manager tends to decide (cut, hold or
+  price higher, how often they take the suggestion, which factors move them, as counts); and
+  whether today's suggestion differs from their usual decision. It never moves the suggestion.
+- `GET /pricing/rate-requests/{request_id}/memory`; `POST .../decide` returns `memory`.
+- A "Your decision memory" panel on the decision-support screen. The screen's factor signals
+  now come from the server (`analytics/decision_factors.py`), so the screen and memory read one
+  set of rules.
+- The `decision_memory` table. The memory registry in the system of record is now a registry,
+  not absent.
+- **Milvus for the area manager's precedents.** A Milvus vector store (Milvus Lite, embedded,
+  one file on the server) with local BAAI bge-small-en-v1.5 embeddings via fastembed. When a
+  manager reviews a lower-rate request, "Most similar past negotiations" lists the eight past
+  notes closest in meaning to this file's conversation, competitor and reason, same city
+  first, with what happened in each (took the loan or not, at what rate, priced up or down).
+  Context for a person only: it never changes a price.
+- `GET /pricing/rate-requests/{request_id}/precedents`; `/history` returns `similar_negotiations`.
+- `AAVAS_VECTOR_BACKEND=milvus` (with `AAVAS_MILVUS_URI`, `AAVAS_EMBED_CACHE`) turns it on; the
+  index is rebuilt only when the notes change. Milvus Lite has no Windows build, so there, or if
+  Milvus fails, the app falls back to the in-memory TF-IDF search and says which one answered.
+- The embedding model is in the model-risk inventory (`embedding_bge_small`, MRM-2026.12) as a
+  third-party model with a kill switch and the TF-IDF fallback.
+- `pymilvus`, `milvus-lite` (Linux and macOS only; pymilvus 3.x no longer installs it) and
+  `fastembed` in `requirements-optional.txt`.
+
 ## [0.7.1] - 2026-11-19
 
 ### Fixed

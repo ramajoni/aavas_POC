@@ -30,7 +30,7 @@ class SalesNoteRetriever:
     def __init__(self, store: VectorStore | None = None):
         # Not `store or get_store()`: an empty store is falsy (it has __len__),
         # so a caller's fresh store would be silently swapped for a new one.
-        self.store = store if store is not None else get_store()
+        self.store = store if store is not None else get_store(name="sales_notes")
         self._outcomes: pd.DataFrame | None = None
         self._extractor = None
 

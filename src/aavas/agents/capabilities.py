@@ -93,11 +93,14 @@ TOOLS: list[dict[str, Any]] = [
                  "/health reports decisions_recorded as -1"},
     {"name": "index.policy", "kind": "index", "module": "aavas.knowledge.policy_indexer",
      "provides": "Clause retrieval behind /pricing/policy/explain.",
-     "unavailable_when": "pgvector is not configured",
+     "unavailable_when": "AAVAS_VECTOR_BACKEND=milvus but pymilvus / milvus-lite or the bge-small model "
+                         "cannot start (always so on Windows), or pgvector is not configured",
      "fallback": "in-memory TF-IDF over the policy file"},
     {"name": "index.sales_notes", "kind": "index", "module": "aavas.knowledge.sales_note_retriever",
-     "provides": "Comparable past negotiations for the acceptance sources.",
-     "unavailable_when": "pgvector is not configured",
+     "provides": "Comparable past negotiations for the acceptance sources, and the area manager's "
+                 "\"most similar past negotiations\" panel.",
+     "unavailable_when": "AAVAS_VECTOR_BACKEND=milvus but pymilvus / milvus-lite or the bge-small model "
+                         "cannot start (always so on Windows), or pgvector is not configured",
      "fallback": "in-memory TF-IDF over the training notes"},
 
     # --- optional libraries --------------------------------------------------
@@ -147,6 +150,14 @@ TOOLS: list[dict[str, Any]] = [
      "unavailable_when": "the governance store cannot be read - the decision count is one "
                          "of the four triggers",
      "fallback": "the assessment runs on the drift triggers alone and says so"},
+    {"name": "procedure.decision_memory", "kind": "procedure",
+     "module": "aavas.learning.decision_memory",
+     "provides": "Area managers' past decisions on lower-rate requests: the factors as they "
+                 "stood, the suggestion shown, the decision and note, and what the customer did.",
+     "unavailable_when": "the governance store cannot be read or written",
+     "fallback": "the manager decides without recalled cases and the screen says memory is "
+                 "unavailable; a decision whose episode cannot be written still stands, and its "
+                 "response says it was not remembered"},
     {"name": "llm.web_research", "kind": "llm", "module": "aavas.agents.market_research_agent",
      "provides": "The home-loan rates a lender advertises online today, each tied to a page the "
                  "search actually returned.",
@@ -210,6 +221,14 @@ SKILLS: list[dict[str, Any]] = [
              "the quote against what the lender advertises, and whether the customer could "
              "get its best rate; and how far the quote can justify a discount.",
      "governed_by": "config/market_research.yaml (claim_scoring)"},
+    {"name": "decision_factors", "module": "aavas.analytics.decision_factors",
+     "does": "The factors an area manager weighs on a lower-rate request, each with its signal "
+             "for or against the ask, and the request reduced to the fields that make two alike.",
+     "governed_by": "thresholds fixed in the module; the decision-support screen reads the same signals"},
+    {"name": "decision_recall", "module": "aavas.analytics.decision_recall",
+     "does": "Which remembered decisions are like this one and why, how a manager tends to "
+             "decide, and whether the suggestion matches their usual decision.",
+     "governed_by": "weights and evidence thresholds fixed in the module"},
 ]
 
 # ---------------------------------------------------------------- permissions
@@ -250,8 +269,12 @@ PERMISSIONS: dict[str, dict[str, Any]] = {
                  "procedure.outcome_capture": [READ, WRITE],
                  "procedure.override_learning": [READ],
                  "procedure.retraining_assessment": [READ],
+                 # Writes the area manager's decision into memory, once, when it is taken.
+                 "procedure.decision_memory": [READ, WRITE],
                  # Read at the override stage: what the proposed discount buys.
                  "model.uplift": [READ]},
+    # On request, outside the priced path: recalls past decisions, writes nothing.
+    "manager_memory": {"procedure.decision_memory": [READ]},
     # Dormant. Declared so that wiring them in is a permission decision taken in
     # daylight rather than a side effect of flipping `wired`.
     "extraction": {"llm.claude": [READ], "connector.mcp": [READ], "source.registry": [READ]},
@@ -305,12 +328,16 @@ def summary() -> dict[str, Any]:
 
 
 def tools(loaded_models: set[str] | None = None,
-          connector_status: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+          connector_status: dict[str, Any] | None = None,
+          index_backends: dict[str, dict[str, Any] | None] | None = None) -> list[dict[str, Any]]:
     """The tools, each annotated with whether it is available right now.
 
     Only model artefacts and connectors can be answered from here; the rest
     report ``unknown`` rather than a guess, because a tool this module has not
     probed is not a tool this module can call healthy.
+
+    ``index_backends`` maps an index tool to the vector backend actually serving it
+    (``backend``, ``requested``, ``fallback_reason``), or None while it is unbuilt.
     """
     out = []
     for tool in TOOLS:
@@ -319,7 +346,14 @@ def tools(loaded_models: set[str] | None = None,
             available = tool["name"].split(".", 1)[1] in loaded_models
         elif tool["kind"] == "connector" and connector_status is not None:
             available = bool(connector_status.get("ready"))
-        out.append({**tool, "available": available,
+        extra: dict[str, Any] = {}
+        if tool["kind"] == "index" and index_backends is not None and tool["name"] in index_backends:
+            live = index_backends[tool["name"]]
+            available = True if live else None
+            extra = {"backend": (live or {}).get("backend"),
+                     "requested_backend": (live or {}).get("requested"),
+                     "fallback_reason": (live or {}).get("fallback_reason")}
+        out.append({**tool, **extra, "available": available,
                     "status": "ready" if available else
                               "unavailable" if available is False else "unknown"})
     return out
