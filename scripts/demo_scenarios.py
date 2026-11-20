@@ -6,9 +6,17 @@ figures and the customer interaction, the risk-adjusted price, then the RM's req
 for a lower rate. Nothing is written around the service except the dates: each file
 is set back a few days so the worklists show aging.
 
-    python scripts/demo_scenarios.py --base http://127.0.0.1:8000
+    python scripts/demo_scenarios.py --base http://127.0.0.1:8000                  # the ten core files
+    python scripts/demo_scenarios.py --base http://127.0.0.1:8000 --set extended   # twelve more: other grades, tenures, situations
+    python scripts/demo_scenarios.py --base http://127.0.0.1:8000 --set all        # both sets
 
-The scenarios, and the decision each is built to show:
+--set core is the default and is what the script always did. The core set is skewed to grade A,
+ten-year housing loans. The extended set spreads the queue over the kinds of decision the live
+policy (HL-LAP-POLICY-2026.14) allows. Under it no rate may sit above the matrix (card) rate and
+the floor is card - 60 bps (never below 13.00%), so the policy floor always binds before the area
+manager's own 100 bps limit; no case is built "beyond her authority".
+
+The core scenarios, and the decision each is built to show:
  1. Real competitor offer, letter seen          - a fair case to approve or counter
  2. No competitor, not bargaining                - little reason to cut: hold
  3. Competitor claimed, letter not seen          - verify before approving
@@ -19,6 +27,26 @@ The scenarios, and the decision each is built to show:
  8. Self-employed, notes about the EMI           - a longer tenure may do instead
  9. Deep cut close to break-even                 - thin margin: concern
 10. Large loan, PSU bank offer, letter seen      - big money either way
+
+The extended scenarios (--set extended). Grades come from the risk model, so each file was sized
+to land in the grade named; "below floor" means the ask is under the policy floor, because the
+recommendation already sits at (or within 25 bps of) the floor and the RM may only send an ask
+more than 25 bps under the recommendation:
+ E1.  A+, 4 years, card rate 13.00% = the floor   - no cut possible, whatever the letter says
+ E2.  A+, 7 years, CA, letter equals our rate      - already matched: nothing to give
+ E3.  A+, 10 years, informal pay, claim only       - small cut inside the room, verify first
+ E4.  B, 7 years, shop owner, Shriram letter seen  - letter supports only the floor: counter
+ E5.  C, 10 years, score 681, late EMIs, no offer  - credit head approval, no ground to cut
+ E6.  A+, 10 years, balance transfer, letter seen  - ask exactly at the floor; rate already below the letter
+ E7.  New to credit, no bureau score               - policy sends it to manual review (credit head)
+ E8.  A, month-end target, nothing from customer   - decline: no evidence for a cut
+ E9.  A+, price-insensitive existing customer      - hold: uplift cannot go above the matrix
+ E10. A, Rs 74 lakh loan, near the Rs 75 lakh cap  - big money, SBI letter seen
+ E11. A, Rs 28 lakh at 89% LTV, near the 90% cap   - thin collateral cushion, little reason to cut
+ E12. B, deep cut close to break-even              - thin margin: concern
+Not covered: LAP residential / commercial (the intake API accepts only the four housing property
+types), a D grade (declined before it reaches the area manager) and an ask beyond the area
+manager's 100 bps (the policy floor always binds first).
 """
 
 from __future__ import annotations
@@ -40,7 +68,9 @@ PRE_KEYS = ("loan_id", "segment", "city", "channel", "property_type", "declared_
 # name, mobile, city, segment, channel, property, age, income, other EMIs, loan, years, property value,
 # score, competitor (rate, lender, letter seen), verified (income, appraised, loan, years, history months,
 # missed payments, banking, deviations), interaction (negotiating, rounds, existing), notes,
-# the ask (bps below the system recommendation, or "floor" to go below the policy floor), reason, days waiting
+# the ask (bps below the system recommendation, "floor" to go 25 bps below the policy floor, "at_floor" to ask
+# exactly the policy floor, or "deep" for a cut close to break-even), reason, days waiting.
+# A bureau score below zero means new to credit.
 SCENARIOS = [
     ('Ananya Iyer', '9820011001', 'Pune', 'salaried_formal', 'branch_walkin', 'resale_flat', 33, 165000, 12000,
      3500000, 10, 5200000, 792, (13.4, 'HDFC', True), (163000, 5100000, 3500000, 10, 96, 0, 82, 0), (True, 2, False),
@@ -72,6 +102,57 @@ SCENARIOS = [
     ('Kavitha Reddy', '9820011010', 'Bhopal', 'salaried_formal', 'branch_walkin', 'resale_flat', 42, 360000, 40000,
      7000000, 10, 9500000, 820, (13.3, 'Bank of Baroda', True), (354000, 9400000, 7000000, 10, 180, 0, 92, 0), (True, 2, True),
      'Bank of Baroda offer at 13.30% with the letter; large ticket, long-standing customer.', 50, 'competitor_lower_rate', 1),
+]
+
+EXTENDED_SCENARIOS = [
+    ('Neha Kulkarni', '9820012001', 'Nashik', 'salaried_formal', 'branch_walkin', 'resale_flat', 29, 120000, 5000,
+     1800000, 4, 2800000, 815, (12.8, 'Axis Bank', True), (118000, 2750000, 1800000, 4, 110, 0, 85, 0), (True, 2, False),
+     'Axis Bank letter at 12.80%; she wants us to match it. Our rate for a 4-year loan is already the lowest we can offer.',
+     'floor', 'competitor_lower_rate', 2),
+    ('Sandeep Joshi', '9820012002', 'Surat', 'self_employed_professional', 'connector', 'builder_flat', 42, 150000, 10000,
+     3000000, 7, 6500000, 790, (13.0, 'ICICI Bank', True), (148000, 6400000, 3000000, 7, 100, 0, 92, 0), (True, 2, False),
+     'Chartered accountant. ICICI letter at 13.00% for 7 years, the same as our own rate; he asks for a little less.',
+     30, 'competitor_lower_rate', 3),
+    ('Rukhsar Sheikh', '9820012003', 'Rajkot', 'salaried_informal', 'dsa', 'self_construction', 45, 105000, 10000,
+     2500000, 10, 6250000, 800, (14.4, 'Bajaj Housing Finance', False), (103000, 6200000, 2500000, 10, 60, 0, 92, 0), (True, 1, True),
+     'Paid partly in cash by a small firm. Says Bajaj quoted 14.40%; the letter is yet to come. Has a savings account with us.',
+     30, 'competitor_lower_rate', 4),
+    ('Mukesh Agarwal', '9820012004', 'Agra', 'self_employed_non_professional', 'connector', 'resale_flat', 45, 250000, 15000,
+     3500000, 7, 5600000, 770, (14.9, 'Shriram Housing Finance', True), (245000, 5500000, 3500000, 7, 96, 0, 80, 0), (True, 2, False),
+     'Runs a hardware wholesale shop. Has a Shriram Housing letter at 14.90%; asking us to come down a little.',
+     30, 'competitor_lower_rate', 5),
+    ('Hitesh Patel', '9820012005', 'Surat', 'self_employed_non_professional', 'dsa', 'self_construction', 50, 260000, 25000,
+     2600000, 10, 4200000, 681, None, (255000, 4100000, 2600000, 10, 48, 2, 52, 2), (True, 2, False),
+     'Textile trader building a house on his own plot; two late EMIs last year. Wants a lower rate, no other offer.',
+     30, 'strong_negotiation', 6),
+    ('Priyanka Deshmukh', '9820012006', 'Alwar', 'self_employed_professional', 'dsa', 'resale_flat', 45, 135000, 10000,
+     3000000, 10, 5450000, 820, (14.3, 'Kotak Mahindra Bank', True), (133000, 5400000, 3000000, 10, 160, 0, 92, 0), (True, 3, True),
+     'Architect moving her loan to Kotak at 14.30% unless we match; the Kotak letter is attached. Our rate is already below it.',
+     'at_floor', 'customer_threatening_bt', 2),
+    ('Aditya Verma', '9820012007', 'Lucknow', 'salaried_formal', 'branch_walkin', 'resale_flat', 26, 70000, 0,
+     1500000, 10, 2400000, -1, None, (68000, 2350000, 1500000, 10, 0, 0, 55, 0), (True, 1, False),
+     'First job, no loan or credit card before, so no bureau score. Asks for a lower rate.',
+     30, 'strong_negotiation', 1),
+    ('Gaurav Saxena', '9820012008', 'Pune', 'salaried_formal', 'branch_walkin', 'resale_flat', 32, 120000, 0,
+     3000000, 10, 5000000, 700, None, (118000, 4900000, 3000000, 10, 100, 0, 92, 0), (False, 0, True),
+     'No other offer and no complaint about the rate. The branch is short of the month-end target and wants it closed this week.',
+     30, 'month_end_target', 1),
+    ('Rohan Bhatt', '9820012009', 'Surat', 'salaried_formal', 'branch_walkin', 'builder_flat', 38, 80000, 0,
+     2500000, 10, 5000000, 760, None, (79000, 4900000, 2500000, 10, 100, 0, 75, 0), (False, 0, True),
+     'Existing Aavas customer. Says the EMI is fine; he only wants it sanctioned before the possession date.',
+     30, 'relationship_value', 0),
+    ('Surendra Rathi', '9820012010', 'Surat', 'salaried_formal', 'branch_walkin', 'resale_flat', 45, 260000, 0,
+     7400000, 10, 14800000, 760, (13.8, 'State Bank of India', True), (257000, 14600000, 7400000, 10, 100, 0, 92, 0), (True, 2, True),
+     'Near the largest loan we make. SBI letter at 13.80%; long-standing Aavas customer.',
+     40, 'competitor_lower_rate', 3),
+    ('Pallavi Chauhan', '9820012011', 'Alwar', 'salaried_formal', 'dsa', 'builder_flat', 28, 120000, 4000,
+     2800000, 10, 3150000, 800, None, (118000, 3150000, 2800000, 10, 72, 0, 78, 0), (True, 1, False),
+     'Young buyer putting down only 11%; asks if the rate can be lower to ease the EMI.',
+     30, 'improve_s2d_conversion', 2),
+    ('Jyoti Rawat', '9820012012', 'Jaipur', 'salaried_formal', 'branch_walkin', 'resale_flat', 39, 190000, 10000,
+     3000000, 10, 4500000, 735, (14.8, 'PNB Housing Finance', True), (187000, 4400000, 3000000, 10, 80, 0, 70, 0), (True, 3, False),
+     'PNB Housing letter at 14.80%; she is ready to walk away if we do not come close.',
+     'deep', 'competitor_lower_rate', 4),
 ]
 
 
@@ -108,19 +189,22 @@ def main() -> None:
     ap.add_argument("--rm", default="rohit:Rohit@2026")
     ap.add_argument("--am", default="meera:Meera@2026")
     ap.add_argument("--no-backdate", action="store_true")
+    ap.add_argument("--set", choices=("core", "extended", "all"), default="core",
+                    help="which scenarios to create (default core: the original ten)")
     args = ap.parse_args()
+    scenarios = {"core": SCENARIOS, "extended": EXTENDED_SCENARIOS, "all": SCENARIOS + EXTENDED_SCENARIOS}[args.set]
     rm = login(args.base, *args.rm.split(":", 1))
     am = login(args.base, *args.am.split(":", 1))
     made = []
     for n, (name, mobile, city, segment, channel, prop, age, income, emis, loan, years, value, score, comp,
-            verified, interaction, notes, ask, reason, days) in enumerate(SCENARIOS, 1):
+            verified, interaction, notes, ask, reason, days) in enumerate(scenarios, 1):
         loan_id = f"APP{int(time.time() * 1000) % 10**13:013d}"
         time.sleep(0.01)
         sales = {"competitor_rate": comp[0], "competitor_name": comp[1], "competitor_evidence_verified": comp[2]} if comp else {}
         applicant = {"loan_id": loan_id, "name": name, "mobile": mobile, "email": "", "segment": segment, "city": city,
                      "channel": channel, "property_type": prop, "applicant_age": age, "declared_monthly_income": income,
                      "declared_obligations": emis, "requested_loan_amount": loan, "requested_tenure_years": years,
-                     "estimated_property_value": value, "bureau_score": score, "new_to_credit": False, "sales_context": sales}
+                     "estimated_property_value": value, "bureau_score": score, "new_to_credit": score < 0, "sales_context": sales}
         call(args.base, "POST", "/pricing/pre-assessment", {k: applicant[k] for k in PRE_KEYS}, rm)
         call(args.base, "POST", "/applications", {"loan_id": loan_id, "applicant": applicant}, rm)
         for kind in DOCS:
@@ -142,14 +226,18 @@ def main() -> None:
         envelope, risk = full.get("envelope") or {}, full.get("risk") or {}
         if ask == "floor":
             rate = round(float(envelope["min_rate"]) - 0.25, 2)
+        elif ask == "at_floor":
+            rate = round(float(envelope["min_rate"]), 2)
         elif ask == "deep":
             rate = round(min(max(float(risk.get("breakeven_rate") or rec - 1) + 0.15, float(envelope["min_rate"])), rec - 0.30), 2)
         else:
             rate = round(rec - ask / 100, 2)
         req = call(args.base, "POST", "/pricing/rate-requests", {"loan_id": loan_id, "rate": rate, "reason": reason}, rm)
         made.append((loan_id, req["request_id"], days))
-        print(f"{n:2}. {name:20} {city:10} rec {rec:.2f}% ask {rate:.2f}% grade {risk.get('risk_grade')} "
-              f"floor {envelope.get('min_rate')} break-even {risk.get('breakeven_rate')}")
+        floor = float(envelope.get("min_rate") or 0)
+        position = "below floor" if rate < floor - 0.004 else "at floor" if rate < floor + 0.004 else "within room"
+        print(f"{n:2}. {name:20} {city:10} grade {risk.get('risk_grade')} card {envelope.get('max_rate')} floor {envelope.get('min_rate')} "
+              f"rec {rec:.2f}% ask {rate:.2f}% ({position}) break-even {risk.get('breakeven_rate')}")
     if not args.no_backdate:
         backdate(made)
 

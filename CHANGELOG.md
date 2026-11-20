@@ -16,6 +16,24 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.9.1] - 2026-11-21
+
+### Added
+- `scripts/demo_scenarios.py --set core|extended|all`. The extended set adds twelve
+  area-manager cases that cover the decisions HL-LAP-POLICY-2026.14 allows: grades A+, A, B
+  and C; tenures in all three bands (36-60, 61-84, 85-120 months); all four segments;
+  verified, unverified and no competitor evidence; a bureau score near the 675 minimum; a new
+  to credit applicant sent to manual review; a month-end-target request with no customer
+  evidence; a price-insensitive existing customer; tickets near the Rs 75 lakh and 90% LTV
+  caps; and asks within the room, exactly at the floor and below it. `core` (the original ten)
+  stays the default.
+- An `at_floor` ask kind (asks exactly the policy floor). Each created request now prints its
+  card, floor, recommendation, ask and where the ask sits (within room, at floor, below floor).
+
+### Fixed
+- `scripts/demo_scenarios.py` always sent `new_to_credit: false`. A scenario without a bureau
+  score (a score below zero) is now sent as new to credit.
+
 ## [0.9.0] - 2026-11-21
 
 ### Added
