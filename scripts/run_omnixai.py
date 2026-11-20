@@ -7,6 +7,7 @@ the OmniXAI dashboard for each model.
     python scripts/run_omnixai.py --models stage2 risk # a subset
     python scripts/run_omnixai.py --no-ui              # reports only, no server
     python scripts/run_omnixai.py --fast               # smaller samples, no counterfactuals
+    python scripts/run_omnixai.py --public-base /omnixai --port-base 8765   # behind nginx
 
 OmniXAI's dashboard keeps its state in a module-level singleton, so one process
 can only ever show one model. Each dashboard therefore gets its own process and
@@ -55,7 +56,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                              "capped at --max-dashboards)")
     parser.add_argument("--max-dashboards", type=int, default=DEFAULT_MAX_DASHBOARDS)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="first port; one per model")
+    parser.add_argument("--port", "--port-base", dest="port", type=int, default=DEFAULT_PORT,
+                        help="first port; one per model (alias: --port-base)")
+    parser.add_argument("--public-base", default="",
+                        help="URL prefix the dashboards are published under behind a reverse proxy "
+                             "that strips it, e.g. /omnixai: each is then served at <base>/<port>/")
     parser.add_argument("--instances", type=int, default=7,
                         help="files explained in detail: both predicted tails, the median, "
                              "both ends of the credit score, then random")
@@ -118,9 +123,32 @@ def run_one(name: str, args: argparse.Namespace):
     return analysis, oa.console_summary(analysis), directory
 
 
+def public_prefix(public_base: str, port: int) -> str | None:
+    """The Dash requests_pathname_prefix for a dashboard behind the proxy, or None."""
+    base = (public_base or "").strip().strip("/")
+    return f"/{base}/{port}/" if base else None
+
+
+def child_environment(public_base: str, port: int, environ: dict | None = None) -> dict:
+    """The environment the dashboard child runs with.
+
+    Dash reads DASH_REQUESTS_PATHNAME_PREFIX when the app is created (at import of
+    omnixai.visualization.dashboard), so it must be set before that import. Routes
+    stay at "/" because the proxy strips the prefix.
+    """
+    env = dict(os.environ if environ is None else environ)
+    prefix = public_prefix(public_base, port)
+    if prefix:
+        env["DASH_REQUESTS_PATHNAME_PREFIX"] = prefix
+    else:
+        env.pop("DASH_REQUESTS_PATHNAME_PREFIX", None)
+    return env
+
+
 def serve(name: str, args: argparse.Namespace, port: int, queue, siblings: int) -> None:
     """Child process: analyse, write the report, then hold the dashboard open."""
     try:
+        os.environ.update(child_environment(getattr(args, "public_base", ""), port))
         limit_threads(siblings + 1)          # the other children, plus the parent
         analysis, summary, directory = run_one(name, args)
         queue.put(("ready", name, port, summary, str(directory)))
@@ -143,7 +171,8 @@ def serve(name: str, args: argparse.Namespace, port: int, queue, siblings: int) 
         queue.put(("failed", name, port, f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}", ""))
 
 
-def write_manifest(ports: dict[str, int], host: str, report_dir: str) -> Path | None:
+def write_manifest(ports: dict[str, int], host: str, report_dir: str,
+                   public_base: str = "") -> Path | None:
     """Record which model is served on which port.
 
     A Dash process does not advertise what it holds, so without this the admin
@@ -161,7 +190,8 @@ def write_manifest(ports: dict[str, int], host: str, report_dir: str) -> Path | 
     payload = {"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                "pid": os.getpid(),
                "dashboards": [{"model": name, "port": port,
-                               "url": f"http://{host}:{port}"}
+                               "url": f"http://{host}:{port}",
+                               "public_url": public_prefix(public_base, port) or f"http://{host}:{port}"}
                               for name, port in sorted(ports.items(), key=lambda kv: kv[1])]}
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2)
@@ -199,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
             ui_models = ui_models[:args.max_dashboards]
 
     ports = {name: args.port + i for i, name in enumerate(ui_models)}
-    manifest = write_manifest(ports, args.host, args.report_dir)
+    manifest = write_manifest(ports, args.host, args.report_dir, args.public_base)
     queue, children = None, []
     if ui_models:
         # spawn, not fork: the parent has sklearn/OpenMP thread pools live, and

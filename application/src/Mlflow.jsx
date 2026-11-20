@@ -45,7 +45,7 @@ export function Mlflow({navigate:go}){
    </div>
 
    <div className="actions end">
-    {mlflow&&<span className="server-pill">MLflow <code>{mlflow.url}</code> <StatusBadge up={mlflow.reachable}/></span>}
+    {mlflow&&<span className="server-pill">MLflow <code>{mlflow.public_url||mlflow.url}</code>{mlflow.public_url&&mlflow.public_url!==mlflow.url&&<small className="muted"> (probe {mlflow.url})</small>} <StatusBadge up={mlflow.reachable}/></span>}
     <Button busy={loading} onClick={load}><ArrowClockwise/> Refresh</Button>
    </div>
 

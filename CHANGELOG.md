@@ -16,6 +16,20 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.9.0] - 2026-11-21
+
+### Added
+- The model tools work behind a proxy. MLflow and each OmniXAI dashboard now have a probe
+  address, which the API checks from the server, and a public address, which the browser opens
+  (`AAVAS_MLFLOW_PUBLIC_URL`; `run_omnixai.py --public-base`, which serves each Dash dashboard
+  under `<base>/<port>/`). The MLflow and XAI Dashboard pages link and embed the public address.
+  On AWS they are served at `/api/tools/mlflow/` and `/api/tools/omnixai/<port>/`, behind a
+  password.
+- `AAVAS_MLZERO_CLI` and a single resolver for the AutoGluon Assistant command: the configured
+  Windows path (`Scripts/mlzero.exe`) also finds the Linux one (`bin/mlzero`). Readiness reports
+  whether it is installed and, separately, whether it is allowed on this host; the Agentic OS
+  screen says "installed, but not allowed on this host" instead of "not found".
+
 ## [0.8.2] - 2026-11-20
 
 ### Fixed

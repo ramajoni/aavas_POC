@@ -137,6 +137,7 @@ function cautions(c,readiness){
  const out=[];const t=c?.training||{};
  if(t.engine==='sagemaker'&&readiness?.boto3&&!readiness.boto3.ok)out.push('boto3 is not installed on this server, so a SageMaker run cannot start a training job.');
  if(t.engine==='autogluon_assistant'&&readiness?.autogluon_assistant&&!readiness.autogluon_assistant.ok)out.push(`The AutoGluon Assistant command line was not found at ${readiness.autogluon_assistant.cli}.`);
+ if(t.engine==='autogluon_assistant'&&readiness?.autogluon_assistant?.ok&&readiness.autogluon_assistant.allowed===false)out.push('The AutoGluon Assistant is installed, but it is not allowed on this host (training.autogluon_assistant.allow_unsandboxed is false), so a run with it will be refused.');
  if(c?.policy&&(!c.policy.require_consistency_checks||!c.policy.require_sample_cases))out.push('A policy check is switched off, so the run can train on a policy that fails it.');
  if(c?.serving?.promote_on_success)out.push('Results are promoted automatically: a passing local run replaces the champions with no separate approval.');
  if(t.register_as==='champion')out.push('Models are registered as champion as soon as training finishes.');
@@ -530,6 +531,7 @@ function TrainingStep({c,update,errors,readiness}){
    <span className="small-copy">On this server:</span>
    <Chip ok={readiness?.boto3?.ok}>boto3 {readiness?.boto3?.ok?'installed':'not installed'}</Chip>
    <Chip ok={readiness?.autogluon_assistant?.ok}>AutoGluon Assistant {readiness?.autogluon_assistant?.ok?'found':'not found'}</Chip>
+   {readiness?.autogluon_assistant?.ok&&<Chip ok={readiness.autogluon_assistant.allowed}>AutoGluon Assistant {readiness.autogluon_assistant.allowed?'allowed':'not allowed on this host'}</Chip>}
    <Chip ok={readiness?.bash?.ok}>bash {readiness?.bash?.ok?'found':'not found'}</Chip>
   </div>
 

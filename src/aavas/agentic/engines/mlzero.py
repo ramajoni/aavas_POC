@@ -37,6 +37,44 @@ TARGETS = {
 }
 
 
+def resolve_cli(configured: str | None) -> Path | None:
+    """The MLZero command line on this host, or None if it is not installed.
+
+    ``AAVAS_MLZERO_CLI`` (an absolute path) wins. Otherwise the configured path
+    (relative to the repo root); if that is missing, the other platform's layout
+    (``Scripts/mlzero.exe`` on Windows, ``bin/mlzero`` on Linux).
+    """
+    override = (os.environ.get("AAVAS_MLZERO_CLI") or "").strip()
+    if override:
+        path = Path(override)
+        return path if path.is_absolute() and path.exists() else None
+    if not configured:
+        return None
+    path = Path(configured)
+    path = path if path.is_absolute() else ROOT / path
+    if path.exists():
+        return path
+    parts = path.parts
+    for i, part in enumerate(parts[:-1]):
+        if part == "Scripts" and parts[-1].lower() in ("mlzero.exe", "mlzero"):
+            alt = Path(*parts[:i], "bin", "mlzero")
+        elif part == "bin" and parts[-1] in ("mlzero", "mlzero.exe"):
+            alt = Path(*parts[:i], "Scripts", "mlzero.exe")
+        else:
+            continue
+        if alt.exists():
+            return alt
+    return None
+
+
+def find_python(cli: Path) -> Path | None:
+    """The interpreter that sits next to the CLI (python.exe or python)."""
+    for name in ("python.exe", "python"):
+        if (cli.parent / name).exists():
+            return cli.parent / name
+    return None
+
+
 def _dataset(run: runs.Run, target: str):
     spec = TARGETS[target]
     files = {"raw": run.workspace / "data" / "home_loan_data.csv",
@@ -60,10 +98,9 @@ def train(run: runs.Run, env: dict[str, str]) -> dict:
     target = cfg.get("target", "stage2")
     if target not in TARGETS:
         raise StepError(f"AutoGluon Assistant target must be one of {sorted(TARGETS)}")
-    cli_python = ROOT / Path(cfg["cli"]).parent / "python.exe"
-    if not cli_python.exists():
-        cli_python = ROOT / Path(cfg["cli"]).parent / "python"
-    if not cli_python.exists():
+    cli = resolve_cli(cfg["cli"])
+    python = find_python(cli) if cli else None
+    if python is None:
         raise StepError(f"AutoGluon Assistant is not installed at {cfg['cli']}")
 
     spec, columns, missing, train_df, test_df = _dataset(run, target)
@@ -91,7 +128,7 @@ def train(run: runs.Run, env: dict[str, str]) -> dict:
     # The agent's LLM: every role on the configured Bedrock model.
     default = ROOT / ".venv-mlzero" / "Lib" / "site-packages" / "autogluon" / "assistant" / "configs" / "default.yaml"
     if not default.exists():
-        found = list((ROOT / Path(cfg["cli"]).parent.parent).rglob("assistant/configs/default.yaml"))
+        found = list(cli.parent.parent.rglob("assistant/configs/default.yaml"))
         default = found[0] if found else None
     if default is None:
         raise StepError("could not find the AutoGluon Assistant default config")
@@ -102,11 +139,11 @@ def train(run: runs.Run, env: dict[str, str]) -> dict:
             value.update(provider=cfg["provider"], model=cfg["model"])
     (work / "config.yaml").write_text(yaml.safe_dump(conf, sort_keys=False), encoding="utf-8")
 
-    agent_env = agent_environment(env, cfg, cli_python)
+    agent_env = agent_environment(env, cfg, python)
     instruction = (cfg.get("instructions") or "").strip() + (
         f" Use AutoGluon TabularPredictor with time_limit={max(60, int(cfg['time_limit_minutes']) * 60 // 2)} "
         f"seconds. Save results.csv in the output folder.")
-    run_logged(run, [str(cli_python), str(ROOT / "deploy" / "mlzero" / "launch.py"), "-i", str(inp),
+    run_logged(run, [str(python), str(ROOT / "deploy" / "mlzero" / "launch.py"), "-i", str(inp),
                      "-o", str(out), "-c", str(work / "config.yaml"), "-n", str(int(cfg["max_iterations"])),
                      "-t", instruction, "-v", "1"],
                agent_env, cwd=out, timeout=int(cfg["time_limit_minutes"]) * 60 * max(1, int(cfg["max_iterations"])) + 900)

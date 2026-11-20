@@ -77,6 +77,8 @@ def _store_dir() -> Path | None:
     path = uri[len("file:"):] if uri.startswith("file:") else uri
     if path.startswith("//"):                   # file:///abs/path, file://host/abs
         path = "/" + path.lstrip("/")
+    if len(path) > 2 and path[0] == "/" and path[2] == ":":   # file:///C:/x on Windows
+        path = path[1:]
     directory = Path(path) if path.startswith("/") else resolve(path)
     if directory.exists():
         return directory
@@ -225,6 +227,16 @@ def _mlflow_ui_url() -> str:
     return uri.rstrip("/") if uri.startswith(("http://", "https://")) else MLFLOW_UI_DEFAULT
 
 
+def _mlflow_public_url() -> str:
+    """What the browser opens: AAVAS_MLFLOW_PUBLIC_URL (e.g. ``/mlflow/``), else the probe URL.
+
+    On a server the API probes ``http://127.0.0.1:5000`` but the browser can only
+    reach MLflow through the site's own origin, so the two must be separable.
+    """
+    configured = (env("AAVAS_MLFLOW_PUBLIC_URL") or "").strip()
+    return configured or _mlflow_ui_url()
+
+
 def _omnixai_targets() -> list[dict[str, Any]]:
     """Which dashboard is on which port.
 
@@ -238,27 +250,32 @@ def _omnixai_targets() -> list[dict[str, Any]]:
         try:
             with open(DASHBOARD_MANIFEST, "r", encoding="utf-8") as fh:
                 manifest = json.load(fh)
-            entries = [{"model": d.get("model"), "url": d.get("url")}
+            entries = [{"model": d.get("model"), "url": d.get("url"),
+                        "public_url": d.get("public_url") or d.get("url")}
                        for d in manifest.get("dashboards", []) if d.get("url")]
             if entries:
                 return entries
         except (OSError, ValueError) as exc:                    # noqa: BLE001
             log.debug("tracking: unreadable dashboard manifest (%s)", exc)
     # No manifest: the ports are still worth probing, just not nameable.
-    return [{"model": None, "url": f"http://127.0.0.1:{OMNIXAI_BASE_PORT + i}"}
+    return [{"model": None, "url": f"http://127.0.0.1:{OMNIXAI_BASE_PORT + i}",
+             "public_url": f"http://127.0.0.1:{OMNIXAI_BASE_PORT + i}"}
             for i in range(OMNIXAI_PORT_SPAN)]
 
 
 def _services() -> list[dict[str, Any]]:
     targets = [{"name": "MLflow", "kind": "mlflow", "model": None,
-                "url": _mlflow_ui_url(), "start": MLFLOW_START,
+                "url": _mlflow_ui_url(), "public_url": _mlflow_public_url(),
+                "start": MLFLOW_START,
                 "what": "Every AutoML search, its candidates, parameters and metrics."}]
     named = False
     for entry in _omnixai_targets():
         named = named or entry["model"] is not None
         label = f"OmniXAI · {entry['model']}" if entry["model"] else f"OmniXAI · {entry['url'].rsplit(':', 1)[-1]}"
         targets.append({"name": label, "kind": "omnixai", "model": entry["model"],
-                        "url": entry["url"], "start": OMNIXAI_START,
+                        "url": entry["url"],
+                        "public_url": entry.get("public_url") or entry["url"],
+                        "start": OMNIXAI_START,
                         "what": "Data, local, global, prediction and what-if tabs for one model."})
 
     with ThreadPoolExecutor(max_workers=8) as pool:

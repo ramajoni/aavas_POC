@@ -24,6 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..agentic import runs, workflow
+from ..agentic.engines import mlzero
 from ..config import load
 from ..governance import audit
 from ..models import base as model_base
@@ -69,8 +70,10 @@ def _readiness(cfg: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:                                         # noqa: BLE001 - reported, not raised
         out["policy"] = {"ok": False, "error": str(exc)}
     out["boto3"] = {"ok": importlib.util.find_spec("boto3") is not None}
-    cli = ROOT / cfg["training"]["autogluon_assistant"]["cli"]
-    out["autogluon_assistant"] = {"ok": cli.exists(), "cli": str(cfg["training"]["autogluon_assistant"]["cli"])}
+    ag = cfg["training"]["autogluon_assistant"]
+    cli = mlzero.resolve_cli(ag["cli"])
+    out["autogluon_assistant"] = {"ok": cli is not None, "cli": str(cli or ag["cli"]),
+                                  "allowed": ag.get("allow_unsandboxed") is True}
     out["bash"] = {"ok": shutil.which("bash") is not None}
     return out
 

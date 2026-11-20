@@ -39,7 +39,7 @@ export function XaiDashboard({navigate:go}){
        ? <button className={`link-button${current&&s.url===current.url?' active':''}`}
            onClick={()=>setPicked(s.url)}>{titleCase(s.model)}</button>
        : <span className="muted">unnamed (port {s.url.split(':').pop()})</span>},
-     {label:'Address',render:s=><code>{s.url}</code>},
+     {label:'Address',render:s=><><code>{s.public_url||s.url}</code>{s.public_url&&s.public_url!==s.url&&<small className="muted"> (probe {s.url})</small>}</>},
      {label:'Status',render:s=><StatusBadge up={s.reachable}/>},
    ]} rows={dashboards}/>
    <p className="small-copy">Status is a TCP probe <b>from the API host</b>, not from this browser — the two
