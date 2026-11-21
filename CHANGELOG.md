@@ -16,6 +16,22 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.9.6] - 2026-11-21
+
+### Fixed
+- `trim` could leave a special situation out of the 10 (on AWS it missed the new-to-credit
+  case) because the greedy pick spent a slot on a grade-and-band pair. A swap pass now
+  exchanges a kept request for one left out whenever that covers more single values (every
+  grade, band, ask position, evidence type, reason, segment and special situation), and only
+  then more weighted pairs.
+
+### Security
+- `trim` removed each file's upload folder at `upload_dir()/<loan_id>` with the id read from
+  the store. An id such as `../x` stored through an endpoint that only checks its length could
+  have pointed outside the upload root. The folder is now removed only when the id is a plain
+  loan id (`^[A-Za-z0-9-]{3,40}$`) that resolves directly under the upload root; anything
+  else is skipped and reported.
+
 ## [0.9.5] - 2026-11-21
 
 ### Added

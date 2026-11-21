@@ -1131,6 +1131,17 @@ def is_hand_written(f: dict) -> bool:
     return f["mobile"].startswith(HAND_WRITTEN_PREFIXES)
 
 
+def upload_folder(loan_id) -> Path | None:
+    """The upload folder of a loan, or None when the id is not a plain loan id or would resolve
+    anywhere but directly under the upload root: a stored id is data, never a path to trust."""
+    from aavas.intake import applications
+    if not applications.LOAN_ID.match(str(loan_id or "")):
+        return None
+    root = applications.upload_dir().resolve()
+    folder = (root / str(loan_id)).resolve()
+    return folder if folder.parent == root else None
+
+
 def select_scenes(features: list[dict], keep: int) -> list[dict]:
     """Greedy weighted set cover over the pending requests; deterministic. Ties prefer the
     hand-written scenarios, then the older request, then the request id."""
@@ -1144,7 +1155,39 @@ def select_scenes(features: list[dict], keep: int) -> list[dict]:
         chosen.append(best)
         covered |= best["elements"]
         pool.remove(best)
-    return chosen
+    return improve_by_swaps(chosen, pool)
+
+
+def _coverage_score(chosen: list[dict]) -> tuple[int, int]:
+    """Single values covered first (every grade, band, position, evidence, reason, segment,
+    special situation), then the weighted total, pairs included."""
+    covered = set().union(*(f["elements"] for f in chosen)) if chosen else set()
+    return sum(1 for dim, _ in covered if dim != "pair"), sum(WEIGHT[dim] for dim, _ in covered)
+
+
+def improve_by_swaps(chosen: list[dict], pool: list[dict]) -> list[dict]:
+    """Greedy can spend a slot on a pair and leave a single value out. Swap a kept request for
+    one left in the pool while the score strictly rises; deterministic, with the same
+    preferences as the greedy step for the incoming request."""
+    chosen, pool = list(chosen), list(pool)
+    while True:
+        base = _coverage_score(chosen)
+        best = None
+        for i in range(len(chosen)):
+            for c in pool:
+                trial = chosen[:i] + [c] + chosen[i + 1:]
+                score = _coverage_score(trial)
+                if score <= base:
+                    continue
+                key = (tuple(-s for s in score), 0 if is_hand_written(c) else 1, c["requested_at"], c["request_id"], i)
+                if best is None or key < best[0]:
+                    best = (key, i, c)
+        if best is None:
+            return chosen
+        _, i, c = best
+        pool.append(chosen[i])
+        pool.remove(c)
+        chosen[i] = c
 
 
 def coverage_table(features: list[dict], kept: list[dict], lo_allowed: list[str]) -> list[tuple[str, list, list]]:
@@ -1242,7 +1285,10 @@ def run_trim(args) -> None:
     print(f"\nWould remove {len(remove)} loan files (every other file with a rate request):")
     for t, n in sorted(counts.items()):
         print(f"  {t:24} {n}")
-    print(f"  {'upload folders':24} {sum((applications.upload_dir() / l).exists() for l in remove)}")
+    print(f"  {'upload folders':24} {sum(1 for l in remove if (upload_folder(l) or Path('/nonexistent')).exists())}")
+    unsafe = [l for l in remove if upload_folder(l) is None]
+    if unsafe:
+        print(f"  upload folders skipped, loan id not a plain id: {unsafe}")
     print(f"  not touched: requests ({requests_before} rows), audit_log ({audit_before} rows), loan_book, files with no rate request")
     if not args.apply:
         print("\nDry run: nothing written. Add --apply to back up the store and remove.")
@@ -1263,8 +1309,8 @@ def run_trim(args) -> None:
             removed[table] = conn.execute(f"DELETE FROM {table} WHERE {where}", params).rowcount
     folders = 0
     for loan_id in remove:
-        folder = applications.upload_dir() / loan_id
-        if folder.exists():
+        folder = upload_folder(loan_id)          # None for anything but a plain id directly under the upload root
+        if folder is not None and folder.exists():
             shutil.rmtree(folder)
             folders += 1
     audit.record("demo_trim", "trimmed_rate_requests", "store", "demo",

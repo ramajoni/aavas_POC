@@ -387,6 +387,21 @@ def test_trim_keeps_only_pending_and_prefers_hand_written_on_ties(tmp_path, monk
     assert dc.select_scenes(twins, 1)[0]["request_id"] == "RRQ-T2"                              # hand-written beats older
 
 
+def test_swaps_recover_a_single_value_greedy_spent_on_pairs():
+    def scene(rid, elements, mobile="9820013000"):
+        return {"request_id": rid, "status": "pending", "requested_at": rid, "mobile": mobile, "elements": set(elements)}
+    # Greedy takes A (most weight: two pairs), then B; with two slots it never reaches C,
+    # the only request with new to credit. Swapping A for C keeps every single value and adds one.
+    a = scene("RRQ-A", {("grade", "A"), ("pair", "p1"), ("pair", "p2"), ("pair", "p3"), ("pair", "p4"), ("pair", "p5")})
+    b = scene("RRQ-B", {("grade", "A"), ("grade", "B")})
+    c = scene("RRQ-C", {("grade", "A"), ("special", "new_to_credit")})
+    kept = dc.select_scenes([a, b, c], 2)
+    singles = set().union(*(f["elements"] for f in kept))
+    assert ("special", "new_to_credit") in singles and ("grade", "B") in singles
+    assert {f["request_id"] for f in kept} == {"RRQ-B", "RRQ-C"}
+    assert [f["request_id"] for f in dc.select_scenes([c, b, a], 2)] == [f["request_id"] for f in kept]
+
+
 def test_trim_labels_the_scenes(tmp_path, monkeypatch):
     feats = _features(tmp_path, monkeypatch)
     for f in dc.select_scenes(feats, 10):
@@ -465,3 +480,12 @@ def test_trim_backs_up_before_removing_anything(tmp_path, monkeypatch):
     backup = _counts(seen["backups"][0])
     assert backup["rate_requests"] == 16 and backup["applications"] == 17            # the backup holds everything
     assert _counts(tmp_path / "store.db")["rate_requests"] == 10
+
+
+def test_trim_never_resolves_an_upload_folder_outside_the_upload_root(tmp_path, monkeypatch):
+    _seed(tmp_path, monkeypatch)
+    from aavas.intake import applications
+    root = applications.upload_dir().resolve()
+    assert dc.upload_folder("APP1234567890123") == root / "APP1234567890123"
+    for bad in ("../outside", "..", "a/b", "..\\x", "", None, "x" * 41, "/etc"):
+        assert dc.upload_folder(bad) is None, bad
