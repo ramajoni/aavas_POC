@@ -16,6 +16,20 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.9.5] - 2026-11-21
+
+### Added
+- `scripts/demo_catalogue.py trim --keep N`: cut the area manager's approval list to N
+  pending requests that between them still show every kind of situation. A deterministic
+  coverage search picks them from the requests a store already holds: every grade, tenure
+  band, ask position, evidence type, request reason and segment at least once, then the
+  special situations (new to credit, balance-transfer threat, month-end target, large
+  ticket, LTV, FOIR and age near their limits, late EMIs, a score near 675); the
+  hand-written scenarios win ties. A dry run is the default. `--apply` backs up the store,
+  then removes every other file that reached the area manager (its rows in every loan table,
+  its uploads and its decision-memory entries). The API's request log, the loan book and the
+  audit trail are never trimmed, and files that never reached the area manager are left alone.
+
 ## [0.9.4] - 2026-11-21
 
 ### Added

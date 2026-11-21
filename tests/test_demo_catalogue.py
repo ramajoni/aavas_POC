@@ -279,3 +279,189 @@ def test_a_cell_with_room_to_spare_is_not_found_not_impossible():
     assert status == "not_found" and "more than 0 bps" in why
     status, _ = dc.explain_unreachable(("A+", "36-60", "below_floor", "none"), {}, 13.0)
     assert status == "impossible"
+
+
+# ---------------------------------------------------------------- trim (a temp sqlite store)
+import argparse  # noqa: E402
+import random  # noqa: E402
+import shutil  # noqa: E402
+import sqlite3  # noqa: E402
+
+REASONS = list(policy()["override"]["allowed_reasons"])
+
+
+def _seed(tmp_path, monkeypatch, files: int = 16):
+    """A temp store with `files` loan files that each have a rate request (every fourth decided), one
+    file with no rate request, upload folders for all, and some API request-log and audit rows."""
+    monkeypatch.setenv("AAVAS_STORE_URL", f"sqlite:///{tmp_path / 'store.db'}")
+    monkeypatch.setenv("AAVAS_UPLOAD_DIR", str(tmp_path / "uploads"))
+    from aavas.governance import audit, store
+    loans = []
+    for i in range(files + 1):
+        loan = f"APP{i:013d}"
+        has_request = i < files
+        grade, position, evidence = dc.GRADES[i % 4], dc.POSITIONS[i % 3], dc.EVIDENCE[i % 5]
+        years = (4, 7, 10)[i % 3]
+        card = dc.MATRIX[grade][i % 3]
+        floor = dc.floor_of(card)
+        ask = {"within_room": card - 0.30, "at_floor": floor, "below_floor": floor - 0.25}[position]
+        comp = {"below_floor": (floor - 0.3, True), "between": (floor + 0.2, True), "at_or_above_rec": (card + 0.2, True),
+                "claimed": (floor + 0.1, False), "none": None}[evidence]
+        sales = ({"competitor_rate": comp[0], "competitor_name": "SBI", "competitor_evidence_verified": comp[1]}
+                 if comp else {})
+        mobile = ("9820011" if i % 5 == 0 else "9820013") + f"{i:03d}"
+        applicant = {"name": f"Customer {i}", "mobile": mobile, "segment": dc.SEGMENTS[i % 4], "tenure_years": years,
+                     "sanctioned_loan_amount": 7_200_000 if i == 3 else 2_000_000, "appraised_property_value": 12_000_000,
+                     "verified_monthly_income": 300_000, "declared_obligations": 0, "applicant_age": 35,
+                     "bureau_score": -1 if i == 5 else 760, "sales_context": {**sales, "customer_negotiating": True}}
+        stamp = "2026-11-01T00:00:00+00:00"
+        store.insert("applications", {"loan_id": loan, "owner": mobile, "applicant_name": f"Customer {i}",
+                                      "applicant": applicant, "created_at": stamp, "updated_at": stamp})
+        store.insert("decisions", {"decision_id": f"DEC-{i}", "loan_id": loan, "stage": "post_assessment", "created_at": stamp,
+                                   "card_rate": card, "min_rate": floor, "recommended_rate": card,
+                                   "payload": {"risk": {"risk_grade": grade}}})
+        store.insert("application_documents", {"document_id": f"DOC-{i}", "loan_id": loan, "document_type": "income_proof",
+                                               "filename": "a.pdf", "content_type": "application/pdf", "size_bytes": 5,
+                                               "sha256": "x", "uploaded_by": "rohit", "uploaded_at": stamp})
+        folder = tmp_path / "uploads" / loan
+        folder.mkdir(parents=True)
+        (folder / f"DOC-{i}").write_bytes(b"%PDF")
+        store.insert("customer_logins", {"username": mobile, "issued_by": "rohit", "loan_id": loan, "issued_at": stamp})
+        store.insert("borrower_accounts", {"username": mobile, "name": f"Customer {i}", "mobile": mobile, "password": "x",
+                                           "created_at": stamp})
+        if has_request:
+            decided = i % 4 == 3
+            store.insert("rate_requests", {"request_id": f"RRQ-{i:03d}", "loan_id": loan, "decision_id": f"DEC-{i}",
+                                           "requested_rate": ask, "recommended_rate": card,
+                                           "reason": REASONS[i % len(REASONS)], "requested_by": "rohit",
+                                           "requested_at": f"2026-11-{1 + i:02d}T00:00:00+00:00",
+                                           "status": "approved" if decided else "pending"})
+            store.insert("offers", {"offer_id": f"OFR-{i}", "loan_id": loan, "decision_id": f"DEC-{i}", "rate": ask,
+                                    "recommended_rate": card, "route": "manager_approved", "sent_by": "meera",
+                                    "sent_at": stamp, "status": "sent", "request_id": f"RRQ-{i:03d}"})
+            store.insert("decision_memory", {"episode_id": f"MEM-{i}", "request_id": f"RRQ-{i:03d}", "loan_id": loan,
+                                             "manager": "meera", "decided_at": stamp, "action": "approve",
+                                             "requested_rate": ask, "recommended_rate": card, "case_features": {},
+                                             "format": "MEM-1", "recorded_at": stamp})
+            store.insert("requests", {"request_id": f"REQ-{i}", "route": "/x", "method": "POST", "started_at": "t",
+                                      "loan_id": loan})
+        loans.append(loan)
+    audit.record("test", "seeded", "store", "x", {})
+    return loans
+
+
+def _counts(path) -> dict:
+    conn = sqlite3.connect(path)
+    names = [t for (t,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+    out = {t: conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in names}
+    conn.close()
+    return out
+
+
+def _features(tmp_path, monkeypatch):
+    from aavas.governance import store
+    _seed(tmp_path, monkeypatch)
+    with store.connect() as conn:
+        return dc.load_request_features(conn, policy()["eligibility_limits"], 13.0)
+
+
+def test_trim_selection_is_deterministic_and_covers_every_value(tmp_path, monkeypatch):
+    feats = _features(tmp_path, monkeypatch)
+    first = [f["request_id"] for f in dc.select_scenes(feats, 10)]
+    shuffled = list(feats)
+    random.Random(1).shuffle(shuffled)
+    assert [f["request_id"] for f in dc.select_scenes(shuffled, 10)] == first
+    assert len(first) == 10
+    kept = [f for f in feats if f["request_id"] in first]
+    for dim, have, missed in dc.coverage_table(feats, kept, REASONS):
+        assert not missed, (dim, missed)
+
+
+def test_trim_keeps_only_pending_and_prefers_hand_written_on_ties(tmp_path, monkeypatch):
+    feats = _features(tmp_path, monkeypatch)
+    assert any(f["status"] != "pending" for f in feats)
+    assert all(f["status"] == "pending" for f in dc.select_scenes(feats, 10))
+    assert len(dc.select_scenes(feats, 500)) == sum(f["status"] == "pending" for f in feats)   # fewer pending than asked
+    twins = [{**feats[0], "request_id": "RRQ-T1", "status": "pending", "mobile": "9820013999", "requested_at": "a"},
+             {**feats[0], "request_id": "RRQ-T2", "status": "pending", "mobile": "9820011999", "requested_at": "z"}]
+    assert dc.select_scenes(twins, 1)[0]["request_id"] == "RRQ-T2"                              # hand-written beats older
+
+
+def test_trim_labels_the_scenes(tmp_path, monkeypatch):
+    feats = _features(tmp_path, monkeypatch)
+    for f in dc.select_scenes(feats, 10):
+        label = dc.scene_label(f)
+        assert label.startswith(f["grade"]) and f"{f['years']}y" in label and ": " in label
+    assert any("new to credit" in dc.scene_label(f) for f in feats)
+    assert any("Rs 70 lakh" in dc.scene_label(f) for f in feats)
+
+
+def test_trim_dry_run_writes_nothing(tmp_path, monkeypatch):
+    _seed(tmp_path, monkeypatch)
+    before = _counts(tmp_path / "store.db")
+    folders = sorted(p.name for p in (tmp_path / "uploads").iterdir())
+    dc.run_trim(argparse.Namespace(keep=10, apply=False))
+    assert _counts(tmp_path / "store.db") == before
+    assert sorted(p.name for p in (tmp_path / "uploads").iterdir()) == folders
+    assert not list(tmp_path.glob("*before-trim*"))
+
+
+def test_trim_apply_removes_the_others_from_every_loan_table_but_requests(tmp_path, monkeypatch):
+    loans = _seed(tmp_path, monkeypatch)
+    before = _counts(tmp_path / "store.db")
+    dc.run_trim(argparse.Namespace(keep=10, apply=True))
+    after = _counts(tmp_path / "store.db")
+    conn = sqlite3.connect(tmp_path / "store.db")
+    kept = {r[0] for r in conn.execute("SELECT loan_id FROM rate_requests")}
+    assert len(kept) == 10 and all(r[0] == "pending" for r in conn.execute("SELECT status FROM rate_requests"))
+    removed = [loan for loan in loans[:-1] if loan not in kept]
+    assert len(removed) == 6
+    for table in ("applications", "application_documents", "rate_requests", "decisions", "offers", "decision_memory",
+                  "customer_logins"):
+        for loan in removed:
+            assert conn.execute(f"SELECT COUNT(*) FROM {table} WHERE loan_id = ?", (loan,)).fetchone()[0] == 0, (table, loan)
+    assert after["borrower_accounts"] == before["borrower_accounts"] - 6
+    assert after["requests"] == before["requests"]                                  # the API request log keeps every row
+    assert after["audit_log"] >= before["audit_log"]                                # nothing removed from the audit log
+    assert after["decision_memory"] == before["decision_memory"] - 6
+    conn.close()
+
+
+def test_trim_leaves_files_without_a_rate_request_alone(tmp_path, monkeypatch):
+    loans = _seed(tmp_path, monkeypatch)
+    bystander = loans[-1]
+    dc.run_trim(argparse.Namespace(keep=3, apply=True))
+    conn = sqlite3.connect(tmp_path / "store.db")
+    owner = conn.execute("SELECT owner FROM applications WHERE loan_id = ?", (bystander,)).fetchone()[0]
+    for table, col, value in (("applications", "loan_id", bystander), ("decisions", "loan_id", bystander),
+                              ("application_documents", "loan_id", bystander), ("customer_logins", "loan_id", bystander),
+                              ("borrower_accounts", "username", owner)):
+        assert conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {col} = ?", (value,)).fetchone()[0] == 1, table
+    assert (tmp_path / "uploads" / bystander).exists()
+    conn.close()
+
+
+def test_trim_deletes_upload_folders_of_removed_files_only(tmp_path, monkeypatch):
+    loans = _seed(tmp_path, monkeypatch)
+    dc.run_trim(argparse.Namespace(keep=10, apply=True))
+    conn = sqlite3.connect(tmp_path / "store.db")
+    kept = {r[0] for r in conn.execute("SELECT loan_id FROM rate_requests")}
+    conn.close()
+    assert {p.name for p in (tmp_path / "uploads").iterdir()} == kept | {loans[-1]}
+
+
+def test_trim_backs_up_before_removing_anything(tmp_path, monkeypatch):
+    _seed(tmp_path, monkeypatch)
+    seen = {}
+    real = shutil.rmtree
+
+    def spy(path, *a, **k):
+        seen.setdefault("backups", list(tmp_path.glob("store.before-trim-*.db")))
+        return real(path, *a, **k)
+
+    monkeypatch.setattr(shutil, "rmtree", spy)
+    dc.run_trim(argparse.Namespace(keep=10, apply=True))
+    assert len(seen["backups"]) == 1                                                  # present when the first folder went
+    backup = _counts(seen["backups"][0])
+    assert backup["rate_requests"] == 16 and backup["applications"] == 17            # the backup holds everything
+    assert _counts(tmp_path / "store.db")["rate_requests"] == 10

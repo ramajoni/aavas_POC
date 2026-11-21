@@ -13,6 +13,11 @@ probing the engine instead, then builds them through the real API.
     # 3. Write the coverage matrix to docs/demo/area_manager_cases.md
     python scripts/demo_catalogue.py report
 
+    # 4. Cut the area manager's list to 10 pending requests that still show every scene
+    #    (works on the store named by AAVAS_STORE_URL; dry run unless --apply, which backs the store up first)
+    PYTHONPATH=src python scripts/demo_catalogue.py trim --keep 10
+    PYTHONPATH=src python scripts/demo_catalogue.py trim --keep 10 --apply
+
 probe prices a few hundred applicant profiles (pre-assessment and full pricing, the same calls
 the RM makes), records grade, tenure band, card, floor, recommendation and flags for each, then
 picks one profile per cell and writes scripts/demo_catalogue.json. The primary cells are
@@ -994,7 +999,10 @@ def render_report(data: dict) -> str:
               "PYTHONPATH=src python scripts/demo_catalogue.py probe --base http://127.0.0.1:8011 --scratch", "",
               "# 2. Create the pending cases on a server", "PYTHONPATH=src python scripts/demo_catalogue.py create --base http://127.0.0.1:8000", "",
               "# 2b. Also create and decide the history cases", "PYTHONPATH=src python scripts/demo_catalogue.py create --base http://127.0.0.1:8000 --decide-history", "",
-              "# 3. Rewrite this page from the catalogue", "python scripts/demo_catalogue.py report", "```", "",
+              "# 3. Rewrite this page from the catalogue", "python scripts/demo_catalogue.py report", "",
+              "# 4. Cut the area manager's list to 10 pending requests that still show every scene (store in AAVAS_STORE_URL)",
+              "PYTHONPATH=src python scripts/demo_catalogue.py trim --keep 10            # dry run",
+              "PYTHONPATH=src python scripts/demo_catalogue.py trim --keep 10 --apply    # backs the store up, then removes", "```", "",
               "### Probing on another machine (the server's models differ from a laptop's)", "",
               "Recommendations move a little between model sets, so probe where the cases will live, writing a separate "
               "catalogue, then create from it:", "",
@@ -1015,6 +1023,263 @@ def run_report(args=None) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_report(load_catalogue(getattr(args, "catalogue", None))), encoding="utf-8", newline="\n")
     print("wrote", out)
+
+
+# ---------------------------------------------------------------------------------------- trim
+# Cut the area manager's list to N pending requests that between them still show every scene.
+HAND_WRITTEN_PREFIXES = ("9820011", "9820012")   # demo_scenarios.py core and extended; the catalogue is 9820013xxx
+LOAN_TABLES_NEVER_TRIMMED = ("requests", "loan_book", "audit_log")   # the API request log, the history book, the audit log
+WEIGHT = {"grade": 4, "band": 4, "position": 4, "evidence": 4, "reason": 3, "segment": 3, "special": 3, "pair": 1}
+SCENE_SPECIALS = {
+    "new_to_credit": "new to credit, manual review", "balance_transfer": "balance-transfer threat",
+    "month_end_no_evidence": "month-end target, nothing from the customer", "price_insensitive_existing": "price-insensitive existing customer",
+    "large_ticket": "ticket of Rs 70 lakh or more", "ltv_near_cap": "LTV near its cap", "foir_near_cap": "EMI burden near its cap",
+    "age_near_limit": "age at maturity near the limit", "score_675_685": "bureau score just above 675",
+    "late_or_deviations": "late EMIs or deviations",
+}
+EVIDENCE_PHRASE = {"below_floor": "verified letter under our floor", "between": "verified letter between floor and recommendation",
+                   "at_or_above_rec": "verified letter at or above our rate", "claimed": "claim, letter not seen",
+                   "none": "no competitor"}
+POSITION_PHRASE = {"within_room": "asks within the room", "at_floor": "asks the floor", "below_floor": "asks below the floor"}
+
+
+def _json(value):
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return {}
+    return value or {}
+
+
+def request_features(req: dict, decision: dict, applicant: dict, limits: dict, lo: float = 13.0) -> dict | None:
+    """What a rate request shows: its grade, band, ask position, evidence, reason, segment and special
+    situations, read from the stored request, its priced decision and the applicant record."""
+    payload = _json(decision.get("payload"))
+    grade = (payload.get("risk") or {}).get("risk_grade")
+    card = decision.get("card_rate")
+    if grade not in GRADES or card is None:
+        return None
+    a = applicant or {}
+    sc = a.get("sales_context") or {}
+    floor, rec, ask = floor_of(float(card), lo), float(req["recommended_rate"]), float(req["requested_rate"])
+    years = int(a.get("tenure_years") or a.get("requested_tenure_years") or 10)
+    comp = ((float(sc["competitor_rate"]), sc.get("competitor_name"), bool(sc.get("competitor_evidence_verified")))
+            if sc.get("competitor_rate") is not None else None)
+    evidence, position = evidence_class(comp, floor, rec), position_of(ask, floor)
+    loan = float(a.get("sanctioned_loan_amount") or a.get("requested_loan_amount") or 0)
+    value = float(a.get("appraised_property_value") or a.get("estimated_property_value") or 0)
+    income = float(a.get("verified_monthly_income") or a.get("declared_monthly_income") or 0)
+    score = a.get("bureau_score")
+    segment = a.get("segment")
+    limit = 60 if str(segment).startswith("salaried") else 70
+    foir_cap = (limits.get(grade) or {}).get("foir_max")
+    foir = stressed_foir(float(card), years, loan, income, float(a.get("declared_obligations") or 0)) if loan and income else None
+    special = set()
+    if a.get("new_to_credit") or (score is not None and float(score) < 0):
+        special.add("new_to_credit")
+    if req.get("reason") == "customer_threatening_bt":
+        special.add("balance_transfer")
+    if req.get("reason") == "month_end_target" and comp is None:
+        special.add("month_end_no_evidence")
+    if (comp is None and sc.get("customer_negotiating") is False and sc.get("existing_relationship")
+            and "insensitive" in str((payload.get("price_sensitivity") or {}).get("sensitivity_label") or "")):
+        special.add("price_insensitive_existing")
+    if loan >= 7_000_000:
+        special.add("large_ticket")
+    if loan and value:
+        cap = eff_ltv_cap(grade, loan, limits)
+        if cap - 0.02 - 1e-9 <= loan / value <= cap + 1e-9:
+            special.add("ltv_near_cap")
+    if foir is not None and foir_cap and float(foir_cap) - 0.04 <= foir <= float(foir_cap) - 0.002:
+        special.add("foir_near_cap")
+    if a.get("applicant_age") and limit - 2 <= int(a["applicant_age"]) + years <= limit:
+        special.add("age_near_limit")
+    if score is not None and 675 <= float(score) <= 685:
+        special.add("score_675_685")
+    if int(a.get("delinquency_count_24m") or 0) >= 1 or int(a.get("deviation_count") or 0) >= 1:
+        special.add("late_or_deviations")
+    elements = {("grade", grade), ("band", band_of(years)), ("position", position), ("evidence", evidence),
+                ("reason", req.get("reason")), ("segment", segment)}
+    elements |= {("special", s) for s in special}
+    elements |= {("pair", f"grade-band:{grade}|{band_of(years)}"), ("pair", f"grade-position:{grade}|{position}"),
+                 ("pair", f"grade-evidence:{grade}|{evidence}")}
+    return {"request_id": req["request_id"], "loan_id": req["loan_id"], "status": req["status"],
+            "requested_at": req.get("requested_at") or "", "mobile": str(a.get("mobile") or ""),
+            "name": a.get("name") or req.get("applicant_name"), "grade": grade, "years": years, "band": band_of(years),
+            "evidence": evidence, "position": position, "reason": req.get("reason"), "segment": segment,
+            "special": sorted(special), "elements": elements, "ask": ask, "rec": rec, "floor": floor}
+
+
+def scene_label(f: dict) -> str:
+    """A short human label of the scene a request shows."""
+    parts = [f["grade"], f"{f['years']}y", EVIDENCE_PHRASE[f["evidence"]], POSITION_PHRASE[f["position"]]]
+    if f["special"]:
+        scene = "; ".join(SCENE_SPECIALS[s] for s in f["special"][:2])
+    elif f["position"] == "below_floor":
+        scene = "counter at the floor" if f["rec"] > f["floor"] + TOL else "nothing to give, hold the recommendation"
+    elif f["evidence"] in ("none",):
+        scene = "no evidence for a cut, hold" if f["position"] == "within_room" else "approve only at the floor"
+    elif f["evidence"] == "claimed":
+        scene = "verify the letter first"
+    else:
+        scene = "approve if the letter holds" if f["position"] == "within_room" else "approve at the floor"
+    return f"{', '.join(parts)}: {scene}"
+
+
+def is_hand_written(f: dict) -> bool:
+    return f["mobile"].startswith(HAND_WRITTEN_PREFIXES)
+
+
+def select_scenes(features: list[dict], keep: int) -> list[dict]:
+    """Greedy weighted set cover over the pending requests; deterministic. Ties prefer the
+    hand-written scenarios, then the older request, then the request id."""
+    pool = sorted((f for f in features if f["status"] == "pending"), key=lambda f: (f["requested_at"], f["request_id"]))
+    covered: set = set()
+    chosen: list[dict] = []
+    while pool and len(chosen) < keep:
+        def gain(f):
+            return sum(WEIGHT[dim] for dim, _ in f["elements"] - covered)
+        best = min(pool, key=lambda f: (-gain(f), 0 if is_hand_written(f) else 1, f["requested_at"], f["request_id"]))
+        chosen.append(best)
+        covered |= best["elements"]
+        pool.remove(best)
+    return chosen
+
+
+def coverage_table(features: list[dict], kept: list[dict], lo_allowed: list[str]) -> list[tuple[str, list, list]]:
+    """(dimension, covered values, missed values) for values present among the pending requests."""
+    pending = [f for f in features if f["status"] == "pending"]
+    universe = {"grade": GRADES, "band": BANDS, "position": POSITIONS, "evidence": EVIDENCE,
+                "reason": lo_allowed, "segment": SEGMENTS, "special": tuple(SCENE_SPECIALS)}
+    rows = []
+    for dim, values in universe.items():
+        present = {v for f in pending for d, v in f["elements"] if d == dim}
+        have = {v for f in kept for d, v in f["elements"] if d == dim}
+        rows.append((dim, [v for v in values if v in have],
+                     [v for v in values if v in present and v not in have]))
+    return rows
+
+
+def load_request_features(conn, limits: dict, lo: float) -> list[dict]:
+    out = []
+    for req in conn.execute("SELECT * FROM rate_requests").fetchall():
+        req = dict(req)
+        dec = conn.execute("SELECT * FROM decisions WHERE decision_id = ?", (req["decision_id"],)).fetchone()
+        app = conn.execute("SELECT applicant FROM applications WHERE loan_id = ?", (req["loan_id"],)).fetchone()
+        if dec is None or app is None:
+            continue
+        f = request_features(req, dict(dec), _json(app["applicant"]), limits, lo)
+        if f:
+            out.append(f)
+    return out
+
+
+def _tables(conn) -> dict[str, list[str]]:
+    return {t: [r[1] for r in conn.execute(f'PRAGMA table_info("{t}")')]
+            for (t,) in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")}
+
+
+def removal_plan(conn, loan_ids: list[str]) -> dict[str, tuple[str, list]]:
+    """For each table with rows to remove: the WHERE clause and its parameters. A table is trimmed when it
+    has a loan_id (or request_id / decision_id) column; the API request log, the history book and the audit log never are."""
+    if not loan_ids:
+        return {}
+    ph = ",".join("?" for _ in loan_ids)
+    req_ids = [r[0] for r in conn.execute(f"SELECT request_id FROM rate_requests WHERE loan_id IN ({ph})", loan_ids)]
+    dec_ids = [r[0] for r in conn.execute(f"SELECT decision_id FROM decisions WHERE loan_id IN ({ph})", loan_ids)]
+    plan: dict[str, tuple[str, list]] = {}
+    for table, cols in _tables(conn).items():
+        if table in LOAN_TABLES_NEVER_TRIMMED:
+            continue
+        if "loan_id" in cols:
+            plan[table] = (f"loan_id IN ({ph})", list(loan_ids))
+        elif "request_id" in cols and req_ids:
+            plan[table] = (f"request_id IN ({','.join('?' for _ in req_ids)})", req_ids)
+        elif "decision_id" in cols and dec_ids:
+            plan[table] = (f"decision_id IN ({','.join('?' for _ in dec_ids)})", dec_ids)
+    # a borrower account goes with its files, unless a file that stays still belongs to it
+    gone = {r[0] for r in conn.execute(f"SELECT owner FROM applications WHERE loan_id IN ({ph})", loan_ids)}
+    gone |= {r[0] for r in conn.execute(f"SELECT username FROM customer_logins WHERE loan_id IN ({ph})", loan_ids)}
+    stay = {r[0] for r in conn.execute(f"SELECT owner FROM applications WHERE loan_id NOT IN ({ph})", loan_ids)}
+    stay |= {r[0] for r in conn.execute(f"SELECT username FROM customer_logins WHERE loan_id NOT IN ({ph})", loan_ids)}
+    accounts = sorted(u for u in gone - stay if u)
+    if accounts:
+        plan["borrower_accounts"] = (f"username IN ({','.join('?' for _ in accounts)})", accounts)
+    return plan
+
+
+def run_trim(args) -> None:
+    import shutil
+    import sqlite3
+    from aavas.config import policy
+    from aavas.governance import audit, store
+    from aavas.intake import applications
+    lo, _ = policy_band()
+    limits = policy().get("eligibility_limits") or {}
+    allowed = list((policy().get("override") or {}).get("allowed_reasons") or [])
+    with store.connect() as conn:
+        features = load_request_features(conn, limits, lo)
+        total_requests = conn.execute("SELECT COUNT(*) FROM rate_requests").fetchone()[0]
+        kept = select_scenes(features, args.keep)
+        kept_loans = {f["loan_id"] for f in kept}
+        every_loan = [r[0] for r in conn.execute("SELECT DISTINCT loan_id FROM rate_requests")]
+        remove = sorted(set(every_loan) - kept_loans)
+        plan = removal_plan(conn, remove)
+        counts = {t: conn.execute(f"SELECT COUNT(*) FROM {t} WHERE {w}", p).fetchone()[0] for t, (w, p) in plan.items()}
+        audit_before = conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+        requests_before = conn.execute("SELECT COUNT(*) FROM requests").fetchone()[0]
+    pending = sum(f["status"] == "pending" for f in features)
+    print(f"{total_requests} rate requests ({pending} pending, {total_requests - pending} decided); keeping {len(kept)} of the pending")
+    print("\nKept:")
+    for n, f in enumerate(kept, 1):
+        origin = "hand-written" if is_hand_written(f) else "catalogue" if f["mobile"].startswith("9820013") else "other"
+        print(f"{n:3}. {f['request_id']} {f['loan_id']} {str(f['name'])[:22]:22} [{origin}] {scene_label(f)}")
+    print("\nCoverage (values present among the pending requests):")
+    for dim, have, miss in coverage_table(features, kept, allowed):
+        print(f"  {dim:9} covered {len(have)}: {', '.join(map(str, have)) or '-'}")
+        print(f"  {'':9} missed  {len(miss)}: {', '.join(map(str, miss)) or '-'}")
+    print(f"\nWould remove {len(remove)} loan files (every other file with a rate request):")
+    for t, n in sorted(counts.items()):
+        print(f"  {t:24} {n}")
+    print(f"  {'upload folders':24} {sum((applications.upload_dir() / l).exists() for l in remove)}")
+    print(f"  not touched: requests ({requests_before} rows), audit_log ({audit_before} rows), loan_book, files with no rate request")
+    if not args.apply:
+        print("\nDry run: nothing written. Add --apply to back up the store and remove.")
+        return
+    path = store.database_path()
+    backup = path.with_name(f"{path.stem}.before-trim-{time.strftime('%Y%m%d%H%M%S')}{path.suffix}")
+    source, target = sqlite3.connect(path), sqlite3.connect(backup)
+    source.backup(target)
+    target.close()
+    source.close()
+    if not backup.exists():
+        raise SystemExit("the backup was not written; nothing removed")
+    print(f"\nbacked up to {backup}")
+    removed = {}
+    with store.connect() as conn:
+        plan = removal_plan(conn, remove)          # re-read inside the transaction we delete in
+        for table, (where, params) in plan.items():
+            removed[table] = conn.execute(f"DELETE FROM {table} WHERE {where}", params).rowcount
+    folders = 0
+    for loan_id in remove:
+        folder = applications.upload_dir() / loan_id
+        if folder.exists():
+            shutil.rmtree(folder)
+            folders += 1
+    audit.record("demo_trim", "trimmed_rate_requests", "store", "demo",
+                 {"kept": [f["request_id"] for f in kept], "removed_files": len(remove), "removed": removed})
+    with store.connect() as conn:
+        audit_after = conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+        requests_after = conn.execute("SELECT COUNT(*) FROM requests").fetchone()[0]
+        left = conn.execute("SELECT COUNT(*) FROM rate_requests").fetchone()[0]
+    print("removed:")
+    for t, n in sorted(removed.items()):
+        print(f"  {t:24} {n}")
+    print(f"  {'upload folders':24} {folders}")
+    print(f"rate requests left: {left}. requests log: {requests_before} -> {requests_after} rows (untouched). "
+          f"audit_log: {audit_before} -> {audit_after} rows (nothing removed; the trim itself is recorded)")
+    print("decision memory is read from the sqlite table on every request, so no restart or index rebuild is needed")
 
 
 def main() -> None:
@@ -1041,6 +1306,9 @@ def main() -> None:
     cr.add_argument("--decide-history", action="store_true")
     cr.add_argument("--no-backdate", action="store_true")
     cr.add_argument("--only", help="comma list of kinds: matrix, special, history")
+    tr = sub.add_parser("trim", help="cut the area manager's list to N pending requests that still show every scene")
+    tr.add_argument("--keep", type=int, default=10)
+    tr.add_argument("--apply", action="store_true", help="back up the store, then remove (default is a dry run)")
     rp = sub.add_parser("report")
     rp.add_argument("--catalogue", help="catalogue JSON to read (default scripts/demo_catalogue.json)")
     rp.add_argument("--out", help="write the page here instead of docs/demo/area_manager_cases.md")
@@ -1054,6 +1322,8 @@ def main() -> None:
         run_probe(args)
     elif args.cmd == "create":
         run_create(args)
+    elif args.cmd == "trim":
+        run_trim(args)
     else:
         run_report(args)
 

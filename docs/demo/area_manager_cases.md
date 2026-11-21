@@ -276,6 +276,10 @@ PYTHONPATH=src python scripts/demo_catalogue.py create --base http://127.0.0.1:8
 
 # 3. Rewrite this page from the catalogue
 python scripts/demo_catalogue.py report
+
+# 4. Cut the area manager's list to 10 pending requests that still show every scene (store in AAVAS_STORE_URL)
+PYTHONPATH=src python scripts/demo_catalogue.py trim --keep 10            # dry run
+PYTHONPATH=src python scripts/demo_catalogue.py trim --keep 10 --apply    # backs the store up, then removes
 ```
 
 ### Probing on another machine (the server's models differ from a laptop's)
