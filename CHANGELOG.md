@@ -16,6 +16,27 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.9.4] - 2026-11-21
+
+### Added
+- `scripts/demo_catalogue.py`: every area-manager case the policy and the engine allow,
+  found by probing the engine rather than tuned by hand. `probe` prices several hundred
+  applicant profiles on a throwaway copy of the store (it refuses the live port) and picks one
+  per cell of grade (A+ to C) x tenure band x ask position (within room, at the floor, below it)
+  x competitor evidence (five kinds); `create` posts them to a server and checks each lands in
+  its cell, labelling it by what it observes if not; `report` writes the coverage page
+  `docs/demo/area_manager_cases.md`. The catalogue holds 92 cases for the area manager to
+  decide (82 cells and 10 special situations: new to credit, a score near 675, LTV, ticket,
+  FOIR and age near their limits, late EMIs, a balance-transfer threat, a month-end target
+  with no evidence, a customer not bargaining on price) and, with `--decide-history`, 9 cases
+  the area manager has already decided: approve as asked, approve at the floor, counter,
+  decline and uplift. Every rate is checked against the 13-17% band before it is sent.
+- Every cell without a case says why: 20 are impossible under the policy (for example A+ up
+  to 60 months, whose card rate is already the 13% floor); 78 were not found by the probe,
+  most because the engine always recommends the floor for grade C and for B over 84 months.
+- `scripts/scratch_api.py`: start and stop a throwaway API over a copy of the store, for
+  probing on any machine, including the AWS server (whose models differ from a laptop's).
+
 ## [0.9.3] - 2026-11-21
 
 ### Removed
