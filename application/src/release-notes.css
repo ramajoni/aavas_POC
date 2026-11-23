@@ -1,0 +1,59 @@
+/* Release notes: the list of releases and the notes rendered by markdown.jsx. */
+.rn{max-width:980px}
+.rn-head .rn-running{color:var(--ink);font-size:14px}
+.rn-filter{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:9px;padding:0 12px;height:40px;margin-bottom:14px;color:var(--muted)}
+.rn-filter input[type=search]{flex:1;min-width:0;height:auto;padding:0;border:0;border-radius:0;outline:0;box-shadow:none;background:transparent;font:inherit;font-size:14px;color:var(--ink)}
+.rn-filter:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px #0756ff22}
+.rn-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.rn-item{background:#ffffffd9;border:1px solid var(--border);border-radius:9px;min-width:0}
+.rn-item.current{border-color:#9db9f2}
+.rn-row{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:12px 14px;font:inherit;text-align:left;color:var(--ink);cursor:pointer;min-width:0}
+.rn-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px;border-radius:9px}
+.rn-chip{flex:none;background:#e5efff;color:#0045bf;border-radius:14px;padding:3px 10px;font-size:12.5px;font-weight:600}
+.rn-date{flex:none;color:var(--muted);font-size:12.5px}
+.rn-now{flex:none;background:#e3f7ec;color:#146746;border:1px solid #acd9c4;border-radius:14px;padding:2px 8px;font-size:11px;font-weight:500;white-space:nowrap}
+.rn-summary{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rn-caret{flex:none;color:var(--muted);transition:transform .15s}
+.rn-item.open .rn-caret{transform:rotate(180deg)}
+.rn-body{border-top:1px solid var(--border);padding:6px 18px 16px;min-width:0}
+.rn-sub{margin:12px 0 0;font-size:12px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+.rn-more{margin-top:10px;background:none;border:1px solid var(--border);border-radius:8px;padding:7px 12px;font:inherit;font-size:13px;font-weight:500;color:#0045bf;cursor:pointer}
+.rn-more:hover{background:#eef4ff}
+.rn-status{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.rn-status.error{color:#b83232}
+.rn-spin{animation:rn-spin 1s linear infinite}
+@keyframes rn-spin{to{transform:rotate(360deg)}}
+
+/* The rendered markdown */
+.md{font-size:14px;line-height:1.6;color:#27406e;overflow-wrap:anywhere;min-width:0}
+.md h2,.md h3,.md h4,.md h5{color:var(--ink);line-height:1.3;margin:18px 0 6px}
+.md h2{font-size:19px}
+.md h3{font-size:16px}
+.md h4{font-size:14.5px}
+.md h5{font-size:13.5px}
+.md p{margin:8px 0}
+.md ul,.md ol{margin:6px 0;padding-left:22px}
+.md li{margin:4px 0}
+.md li>ul,.md li>ol{margin:2px 0}
+.md code{background:#eef3fb;border-radius:4px;padding:1px 5px;font-family:Consolas,Menlo,monospace;font-size:12.5px;overflow-wrap:anywhere}
+.md pre{background:#0f2342;color:#e6eefc;border-radius:8px;padding:12px 14px;overflow-x:auto;font-size:12.5px;line-height:1.5}
+.md pre code{background:none;padding:0;color:inherit;overflow-wrap:normal}
+.md a{color:#0045bf;text-underline-offset:2px}
+.md-table-scroll{overflow-x:auto;max-width:100%;margin:10px 0;border:1px solid var(--border);border-radius:8px}
+.md table{border-collapse:collapse;font-size:13px;min-width:100%}
+.md th{background:#f1f6fd;text-align:left;font-weight:600;color:var(--ink)}
+.md th,.md td{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;overflow-wrap:normal;white-space:nowrap}
+.md td:last-child:not(:first-child){white-space:normal;min-width:180px}
+.md tr:last-child td{border-bottom:0}
+
+/* Footer: the app version, with a dot when this release has not been opened yet */
+.footer .rn-footer-link{color:#fff;font-weight:600;text-decoration:underline;text-underline-offset:3px;position:relative}
+.footer .rn-new{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ff8a3d;margin-left:5px;vertical-align:middle}
+
+@media(max-width:560px){
+  .rn-row{flex-wrap:wrap;row-gap:4px;padding:11px 12px}
+  .rn-summary{flex:1 1 100%;order:5;white-space:normal}
+  .rn-caret{margin-left:auto}
+  .rn-body{padding:4px 12px 14px}
+  .md{font-size:13.5px}
+}

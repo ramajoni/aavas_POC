@@ -16,6 +16,22 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.11.0] - 2026-11-23
+
+### Added
+- **Release notes in the application.** Staff (relationship manager, area manager, model
+  validation, administrator; never the borrower) open them from the footer, which now shows
+  "App v<version>" beside the policy and model versions, with a small "New" dot after an
+  upgrade until they have looked. The page lists every release newest first with its date
+  and a one-line summary, opens the running release at its highlights, shows any release's
+  full notes (tables and nested lists included) and filters by text.
+- `GET /releases` and `GET /releases/{version}`, read from `CHANGELOG.md` and
+  `docs/releases/`. The version is checked strictly (ASCII digits only) and used only as a
+  lookup key; notes are rendered without raw HTML.
+
+### Changed
+- `config/access.yaml` ACCESS-2026.12: the Release notes page and route for the staff roles.
+
 ## [0.10.1] - 2026-11-23
 
 ### Fixed

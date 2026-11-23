@@ -8,7 +8,7 @@
 # PBKDF2-SHA256 hashes; make a new one with `python -m aavas.api.access`. These
 # are synthetic personas for the POC; production replaces the users table with
 # SSO and roles from the directory.
-version: ACCESS-2026.11
+version: ACCESS-2026.12
 
 # Borrowers may create their own account from the sign-in screen. Such accounts
 # are stored in the database and can only ever be borrowers.
@@ -39,7 +39,7 @@ roles:
   relationship_manager:
     label: "Relationship manager"
     landing: applications
-    pages: [applications, status, new-application, application, policy]
+    pages: [applications, status, new-application, application, policy, releases]
     rate_authority: sales_officer
     # Matches the sales_officer level in pricing_policy.yaml approval_authority.
     offer_below_recommendation_bps: 25
@@ -48,7 +48,7 @@ roles:
   area_manager:
     label: "Area manager"
     landing: approvals
-    pages: [approvals, status, disbursements, application, dashboard, learning, audit, policy, competitors]
+    pages: [approvals, status, disbursements, application, dashboard, learning, audit, policy, competitors, releases]
     rate_authority: regional_manager
     # Matches the regional_manager level in pricing_policy.yaml approval_authority.
     approve_below_recommendation_bps: 100
@@ -57,7 +57,7 @@ roles:
     landing: models
     console: true
     pages: [models, xai, credit-score, xai-dash, mlflow, features, runtime, record,
-            governance, control-tower, agents, agentic-os, learning, learning-proof, audit, regulatory, policy, config]
+            governance, control-tower, agents, agentic-os, learning, learning-proof, audit, regulatory, policy, config, releases]
   administrator:
     label: "Platform administrator"
     landing: dashboard
@@ -139,6 +139,8 @@ routes:
   - {path: /pricing/decision, methods: [GET], roles: [area_manager, model_validation]}
   - {path: /pricing/audit, methods: [GET], roles: [area_manager, model_validation]}
   - {path: /pricing/policy/explain, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
+  # Release notes: every staff role; a borrower has no rule and is denied.
+  - {path: /releases, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
   # Any policy version a decision was priced under, readable by everyone who sees that version.
   - {path: /pricing/policy/versions, methods: [GET], roles: [relationship_manager, area_manager, model_validation]}
   # The analysis behind a price - model drivers, the written explanation, uplift,

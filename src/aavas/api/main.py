@@ -22,7 +22,7 @@ from ..governance import model_registry, request_log, store
 from ..logging_utils import get_logger
 from . import (access, agentic, agents, monitoring, applications, auth, competitors, customers, learning, market_check, offers, configuration, connectors, control_tower,
                explain, features, governance, outcome, override, portfolio, security, stage1,
-               system_of_record, stage2, tracking, xai)
+               system_of_record, stage2, tracking, xai, releases)
 from .contracts import HealthResponse
 
 log = get_logger(__name__)
@@ -191,6 +191,7 @@ app.include_router(portfolio.router)
 app.include_router(learning.router)
 app.include_router(market_check.router)
 app.include_router(competitors.router)
+app.include_router(releases.router)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["operations"])
