@@ -131,6 +131,10 @@ def scenarios(request: dict[str, Any], payload: dict[str, Any], *, ceiling: floa
     table_rates = np.round(np.arange(min(asked, rec) - 0.20, top + 1e-9, step), 2)
     table_rates = np.unique(np.concatenate([table_rates, [asked, rec]]))
     table_rates = table_rates[(table_rates >= lo - 1e-9) & (table_rates <= hi + 1e-9)]
+    # The ask and the recommendation are always scored, even when policy does not allow the rate
+    # (an ask below the floor is the usual case): the summary and the table need both.
+    table_rates = np.unique(np.concatenate([table_rates, [asked, rec]]))
+    env_lo, env_hi = float(env.get("min_rate") or 0), float(env.get("max_rate") or 99)
 
     def rows(rates: np.ndarray) -> list[dict[str, Any]]:
         scored = _score(payload, rates)
@@ -147,7 +151,8 @@ def scenarios(request: dict[str, Any], payload: dict[str, Any], *, ceiling: floa
                         "value_branch_inr": round(float(p_branch[i] * booked[i])),
                         "net_margin_pct": round(float(scored["net_margin_pct"].iloc[i]), 3),
                         "interest_given_up_inr": round((emi_rec - emi) * years * 12) if emi and emi_rec else None,
-                        "mark": "requested" if abs(r - asked) < 0.005 else "recommended" if abs(r - rec) < 0.005 else None})
+                        "mark": "requested" if abs(r - asked) < 0.005 else "recommended" if abs(r - rec) < 0.005 else None,
+                        "outside_policy": bool(r < env_lo - 1e-9 or r > env_hi + 1e-9)})
         return out
 
     table = rows(table_rates)

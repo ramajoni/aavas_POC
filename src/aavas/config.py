@@ -31,6 +31,7 @@ _FILES = {
     "monitoring": "monitoring.yaml",
     "fair_practices": "fair_practices.yaml",
     "model_risk": "model_risk.yaml",
+    "best_offer": "best_offer.yaml",
 }
 
 
@@ -66,6 +67,10 @@ def federated_config() -> dict[str, Any]:
 
 def acceptance_config() -> dict[str, Any]:
     return load("acceptance")
+
+
+def best_offer_config() -> dict[str, Any]:
+    return load("best_offer")
 
 
 def automl_config() -> dict[str, Any]:

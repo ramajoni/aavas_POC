@@ -4,6 +4,8 @@ import { api, money, apiOnce } from './api';
 import { InfoBox } from './components';
 import { Fold } from './Fold';
 import { DeepDiveContent } from './DeepDive';
+import { RiskPricing } from './RiskPricing';
+import { BestOffer } from './BestOffer';
 
 const pct = r => r == null ? '—' : `${Number(r).toFixed(2)}%`;
 const share = v => v == null ? '—' : `${Math.round(v * 100)}%`;
@@ -101,7 +103,7 @@ export function ScenarioAnalysis({ requestId, curve = true, part = 'all' }) {
         <thead><tr><th rowSpan="2">Rate</th><th rowSpan="2">EMI</th><th colSpan="3">Likely to accept</th><th colSpan="2">Expected value</th><th rowSpan="2">Net margin</th><th rowSpan="2">Interest given up over the loan</th></tr>
           <tr><th>Model</th><th>This branch</th><th>Difference</th><th>Model</th><th>This branch</th></tr></thead>
         <tbody>{d.table.map(r => <tr key={r.rate} className={r.mark || ''}>
-          <td><b>{pct(r.rate)}</b>{r.mark && <small>{r.mark === 'requested' ? 'RM asks' : 'Recommended'}</small>}</td>
+          <td><b>{pct(r.rate)}</b>{r.mark && <small>{r.mark === 'requested' ? 'RM asks' : 'Recommended'}</small>}{r.outside_policy && <small className="sc-out">outside policy</small>}</td>
           <td>{money(r.emi)}</td><td>{share(r.acceptance_model)}</td><td>{share(r.acceptance_branch)}</td>
           <td>{pts((r.acceptance_branch - r.acceptance_model) * 100)}</td>
           <td>{money(r.value_model_inr)}</td><td>{money(r.value_branch_inr)}</td>
@@ -112,12 +114,14 @@ export function ScenarioAnalysis({ requestId, curve = true, part = 'all' }) {
 }
 
 // Price, acceptance and scenarios on one tab: how the prediction is made and how this
-// branch differs from the model first, then the floor, the ask, the recommendation
+// branch differs from the model first, then the best offer and the risk-aware pricing behind it, then the floor, the ask, the recommendation
 // and the ceiling on one curve for every branch and this branch, how the floor is
 // built, and every rate in between. Both scenario parts share one cached request.
 export function PriceScenarios({ requestId }) {
   return <div className="rv-stack">
     <ScenarioAnalysis requestId={requestId} curve={false} part="how"/>
+    <BestOffer requestId={requestId}/>
+    <RiskPricing requestId={requestId}/>
     <DeepDiveContent requestId={requestId} title="Price and acceptance: every branch against this branch"/>
     <ScenarioAnalysis requestId={requestId} curve={false} part="rates"/>
   </div>;

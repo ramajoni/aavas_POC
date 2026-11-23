@@ -46,8 +46,10 @@ def suggest(request: dict[str, Any], scen: dict[str, Any], *, floor_rate: float,
             uplift_ceiling: float | None = None) -> dict[str, Any]:
     ask, rec = float(request["requested_rate"]), float(scen["recommended_rate"])
     reason = request.get("reason")
+    # A row the table shows only for reference (the ask below the floor) is looked at, never chosen.
+    options = [r for r in scen["table"] if not r.get("outside_policy")]
     rows = {round(r["rate"], 2): r for r in scen["table"]}
-    allowed = [r for r in scen["table"] if max(ask, floor_rate) - 1e-9 <= r["rate"] <= rec + 1e-9]
+    allowed = [r for r in options if max(ask, floor_rate) - 1e-9 <= r["rate"] <= rec + 1e-9]
     at_ask, at_rec = rows.get(round(ask, 2)), rows.get(round(rec, 2))
     best = max(allowed, key=lambda r: r["value_branch_inr"]) if allowed else at_rec
 
@@ -68,7 +70,7 @@ def suggest(request: dict[str, Any], scen: dict[str, Any], *, floor_rate: float,
     if action == "hold" and at_rec and uplift_ceiling is not None and uplift_ceiling > rec + 0.005:
         drop = float(up_cfg.get("max_acceptance_drop_pts", 3)) / 100
         gain = float(up_cfg.get("min_value_gain_pct", 0.5)) / 100
-        above = [r for r in scen["table"] if rec + 0.005 < r["rate"] <= uplift_ceiling + 1e-9
+        above = [r for r in options if rec + 0.005 < r["rate"] <= uplift_ceiling + 1e-9
                  and r["acceptance_model"] >= at_rec["acceptance_model"] - drop]
         up_best = max(above, key=lambda r: r["value_branch_inr"]) if above else None
         if up_best and up_best["value_branch_inr"] > at_rec["value_branch_inr"] * (1 + gain):

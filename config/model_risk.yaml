@@ -15,7 +15,7 @@
 # developers = who build it; validators = platform roles allowed to validate it,
 # which must not overlap the developers or the owner (MRM 7(8), 15).
 # Dates left null have not happened: the checks report them as open, not as done.
-model_risk_config_version: MRM-2026.12
+model_risk_config_version: MRM-2026.13
 
 framework:
   board_approved_on: null           # MRM 9-11: the MRMF is approved by the Board outside the platform
@@ -67,7 +67,7 @@ models:
     title: "Probability of default and risk grade"
     kind: ml
     card: risk
-    intended_use: "Estimates the 12-month probability of default; the grade cut-offs turn it into the A+ to D grade that drives the rate and the decline."
+    intended_use: "Estimates the 12-month probability of default; the grade cut-offs turn it into the A+ to D grade that drives the rate and the decline. Also rescored at each candidate rate, amount and tenure in the area manager's risk-aware pricing analysis (Pricing intelligence tab): decision support only, it never sets the price, the floor or the band."
     materiality: High
     complexity: Medium
     autonomy: High
@@ -108,7 +108,7 @@ models:
     title: "Offer acceptance probability"
     kind: ml
     card: conversion
-    intended_use: "Probability the customer accepts at a given rate; used to weigh a lower rate against the value given up."
+    intended_use: "Probability the customer accepts at a given rate; used to weigh a lower rate against the value given up. Also scores offers that vary the loan amount, tenure and processing fee in the best-offer analysis (decision support only; the fee is scored as an assumed all-in APR, not learned)."
     materiality: Medium
     complexity: Medium
     autonomy: Low
@@ -121,7 +121,7 @@ models:
     title: "Prepayment probability and expected life"
     kind: ml
     card: prepayment
-    intended_use: "Expected life of the loan in the value of a priced file; early exit is priced as risk, never charged."
+    intended_use: "Expected life of the loan in the value of a priced file; early exit is priced as risk, never charged. Also scores offers that vary the loan amount and tenure in the best-offer analysis (decision support only)."
     materiality: Medium
     complexity: Medium
     autonomy: Low

@@ -16,6 +16,64 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+
+## [0.10.0] - 2026-11-23
+
+### Added
+- **Best offer** on the area manager's Pricing intelligence tab
+  (`GET /pricing/rate-requests/{id}/best-offer`). Pricing intelligence looked only at the
+  interest rate; best offer weighs all four levers of an offer: the rate, the loan amount
+  sanctioned, the tenure and the processing fee.
+  - It tries a few hundred offers per file. Each gets its own grade, card rate and floor
+    (a longer tenure or a different amount can move both), the policy checks (stressed FOIR,
+    LTV, age at maturity, loan cap, tenure, the 13-17% band) and an EMI comfort limit (never
+    more than 10% above what the customer asked for).
+  - It picks three: **most value** (highest risk-adjusted value, at least as likely to accept
+    as the recommendation), **most likely to close** (highest acceptance, earning at least what
+    the recommendation earns) and **the cheapest way to match the ask** (reaches the acceptance
+    the RM's cut would buy, at the highest value). Ties go to the offer that changes fewer
+    levers.
+  - "Compare the offers": the RM's ask, the recommendation and the three best offers side by
+    side, likely to accept and risk-adjusted value, each row naming what changed. A table
+    gives every lever, EMI, APR, grade and default risk; "what each lever buys on its own"
+    shows one change at a time; every eligible offer can be opened as a chart.
+  - Offers that need a smaller loan or a different tenure are marked: the acceptance model
+    has not seen customers offered less, or a different tenure, than they asked for. The fee
+    is in no model; its effect on acceptance is scored through the all-in cost (APR).
+  - Decision support only: the area manager's decision still changes only the rate.
+- **Risk-aware pricing** on the same tab (`GET /pricing/rate-requests/{id}/risk-pricing`):
+  - the file's risk score (grade, annual and lifetime PD, LGD, expected loss a year and in
+    rupees, break-even rate) and where the PD sits inside its grade band, flagged near a
+    boundary, with what one grade up or down does to the card rate;
+  - the five factors that move this borrower's default risk most against a typical borrower;
+  - every candidate rate with EMI, FOIR, stressed FOIR against the grade cap, expected loss,
+    margin over risk cost, acceptance and risk-adjusted value;
+  - peers by grade from the loan book (typical rates, realised defaults, where the ask and the
+    recommendation fall among same-grade loans) and a plain verdict.
+- A four-lever offer engine (`src/aavas/analytics/offer_evaluator.py`) shared by both, and
+  `config/best_offer.yaml` (OFFER-2026.11) for the ranges it searches and how "best" is
+  chosen; a bad edit to it through the configuration screen is rejected.
+
+### Changed
+- "How the prediction is made" and the table of every rate now include the RM's ask when it
+  is below the floor (marked outside policy); before, both showed a dash for most requests.
+  The decision suggestion now states the ask's acceptance and value, and still never picks
+  an option outside policy.
+- `config/model_risk.yaml` MRM-2026.13: the risk, conversion and prepayment models' intended
+  use covers this analysis.
+- The deep dive's one-line grade sentence is replaced by the risk score tiles.
+
+### Security
+- Loan ids are checked for their form (`^[A-Za-z0-9-]{3,40}$`) on every pricing, offer and
+  rate-request input and query, not only on new applications, so an id can never carry a
+  path.
+
+### Notes
+- Every figure on the tab uses the pipeline's own FOIR for the models, so the new sections
+  agree with the decision and with each other. That FOIR is worked out at a fixed rate
+  before pricing, so default risk does not move with the rate; 0.11.0 replaces it with a
+  policy assessment rate.
+
 ## [0.9.6] - 2026-11-21
 
 ### Fixed

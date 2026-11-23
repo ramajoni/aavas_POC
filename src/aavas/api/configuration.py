@@ -68,6 +68,9 @@ DESCRIPTIONS = {
     "model_risk": "Model risk management: the model inventory with owners, validators, risk tier, "
                   "dependencies, oversight and fallback, and the framework's review and validation "
                   "intervals (RBI draft MRM guidance 2026, FREE-AI).",
+    "best_offer": "Best offer: the ranges the search tries for the four levers (rate, loan amount, "
+                  "tenure, processing fee) and the objectives that pick the best offers. Decision "
+                  "support: it only bounds a search inside the pricing policy.",
     "agentic_os": "The agentic model-building workflow: where the data comes from, the policy "
                   "checks it must pass, the training engine (local, SageMaker, AutoGluon "
                   "Assistant) and how the result is served.",
@@ -106,7 +109,8 @@ VERSION_KEYS = ("policy_version", "model_config_version", "feature_config_versio
                 "governance_config_version", "competitors_config_version",
                 "intake_config_version", "market_research_config_version",
                 "agentic_os_config_version", "monitoring_config_version",
-                "fair_practices_config_version", "model_risk_config_version")
+                "fair_practices_config_version", "model_risk_config_version",
+                "best_offer_config_version")
 
 
 def _path(name: str):
@@ -182,9 +186,13 @@ def _reload() -> None:
     from ..intelligence import registry
     from . import deps
 
+    from ..analytics import best_offer, risk_pricing
+
     config_module.reload()
     registry.reset()
     deps.reset()
+    best_offer.clear_caches()          # built from the policy and the best-offer settings
+    risk_pricing.clear_caches()
 
 
 def _smoke() -> None:
@@ -193,8 +201,11 @@ def _smoke() -> None:
     from .deps import get_orchestrator
     from .examples import FINAL_ASSESSMENT, PRE_ASSESSMENT
 
+    from ..analytics import best_offer
+
     for name in _FILES:
         load(name)
+    best_offer.validate_config(load("best_offer"))
     orchestrator = get_orchestrator()
     orchestrator.pre_assessment(Stage1Request(**{**PRE_ASSESSMENT, "loan_id": "CONFIG-CHECK"}).to_row(),
                                 persist=False)

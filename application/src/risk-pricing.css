@@ -1,0 +1,31 @@
+/* Risk-aware pricing section of the Pricing intelligence tab. */
+.rk-verdict{margin:0;padding:12px 14px;border-radius:10px;font-size:15px;line-height:1.5;background:#F4F6FA;border-left:4px solid #94A3B8;color:var(--ink)}
+.rk-verdict.bad{background:#FEF2F2;border-left-color:#B91C1C}.rk-verdict.warn{background:#FFF7ED;border-left-color:#C2410C}.rk-verdict.good{background:#F0FDF4;border-left-color:#15803D}
+.rk-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.rk-tiles>div{border-radius:10px;padding:10px 12px;background:#F4F6FA;display:flex;flex-direction:column;gap:2px;border-top:3px solid #94A3B8}
+.rk-tiles small{font-size:12px;color:#556274}.rk-tiles b{font-size:18px;color:var(--ink)}.rk-tiles em{font-style:normal;font-size:12px;color:#556274}
+.rk-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.rk h3{margin:6px 0 4px;font-size:13px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#1A3E9E}
+.rk-band-ends{display:flex;justify-content:space-between;gap:8px;font-size:14px;font-weight:600;color:var(--ink)}
+.rk-band-ends span{display:flex;flex-direction:column}.rk-band-ends span:last-child{text-align:right}.rk-band-ends span.here{text-align:center}
+.rk-band-ends small{font-weight:400;font-size:12px;color:#556274}
+.rk-track{position:relative;height:12px;margin:8px 0 4px;border-radius:6px;background:linear-gradient(90deg,#BBF7D0,#FDE68A 50%,#FECACA)}
+.rk-track i{position:absolute;top:-4px;width:6px;height:20px;margin-left:-3px;border-radius:3px;background:#0F172A;box-shadow:0 0 0 2px #fff}
+.rk-band-scale{display:flex;justify-content:space-between;font-size:12px;color:#64748B}
+.rk-drivers{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;font-size:14px}
+.rk-drivers li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #EEF1F5}
+.rk-drivers li span,.rk-drivers li b{display:flex;flex-direction:column}.rk-drivers li b{text-align:right;font-variant-numeric:tabular-nums}
+.rk-drivers small{font-weight:400;font-size:12px;color:#556274}
+.rk-drivers b.up{color:#C2410C}.rk-drivers b.down{color:#15803D}
+.rk-table th[scope=row]{text-align:left;font-weight:400;color:var(--ink);padding:8px 10px;border-bottom:1px solid #EEF1F5;white-space:nowrap}
+.rk-table td small,.rk-table th small{display:block;font-size:11px;color:var(--muted)}
+.rk-table td.bad,.rk-table small.bad{color:#B91C1C}
+.rk-table tr.m-ask td,.rk-table tr.m-ask th{background:#FFF7ED}
+.rk-table tr.m-recommended td,.rk-table tr.m-recommended th{background:#EEF4FF}
+.rk-table tr.m-floor td,.rk-table tr.m-floor th{background:#F1F5F9}
+.rk-table tr.m-card td,.rk-table tr.m-card th{background:#F8FAFC;box-shadow:inset 0 -2px 0 #CBD5E1}
+.rk-table tr.m-this td,.rk-table tr.m-this th{background:#EEF4FF}
+.rk-pctl{margin:0;font-size:14px;color:var(--ink)}
+.rk-limits{margin:0;padding-left:18px;font-size:13px;color:#475569;line-height:1.5}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:800px){.rk-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.rk-grid2{grid-template-columns:1fr}}

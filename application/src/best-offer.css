@@ -1,0 +1,73 @@
+/* Best offer section of the Pricing intelligence tab. */
+.bo h3{margin:6px 0 0;font-size:13px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#1A3E9E}
+.bo-table th[scope=row]{text-align:left;font-weight:400;color:var(--ink);padding:8px 10px;border-bottom:1px solid #EEF1F5;white-space:nowrap}
+.bo-table thead th{vertical-align:bottom;white-space:normal;min-width:110px}
+.bo-table thead th.rec{background:#EEF4FF}
+.bo-table td small,.bo-table th small{display:block;font-size:11px;color:var(--muted);font-weight:400;white-space:normal}
+.bo-table td.chg{background:#FFF1E0;font-weight:600}
+.bo-table td.none{white-space:normal;color:var(--muted);text-align:center;vertical-align:middle;max-width:180px}
+.bo-table td.say{white-space:normal;font-size:12.5px;line-height:1.45;vertical-align:top;color:var(--ink)}
+.bo-table tfoot th,.bo-table tfoot td{border-bottom:0;padding-top:10px}
+.bo-table small.bad,.bo-table .bad{color:#B91C1C}
+.bo-table tr.out th,.bo-table tr.out td{color:var(--muted)}
+.bo-chart{margin:0}
+.bo-chart figcaption{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px}
+.bo-legend{display:flex;flex-wrap:wrap;gap:6px 16px;list-style:none;margin:0 0 4px;padding:0;font-size:12px;color:var(--muted)}
+.bo-legend li{display:flex;align-items:center;gap:6px}.bo-legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.bo-legend i.dot{background:#94A3B8}.bo-legend i.dot.reduced{background:#7C8DA6;opacity:.45}.bo-legend i.dot.tenure{background:transparent;border:1.5px solid #64748B;box-sizing:border-box}.bo-legend i.ln{width:16px;height:3px;border-radius:2px;background:currentColor;color:var(--ink)}
+.bo-plot{position:relative}.bo-plot svg{width:100%;height:auto;display:block;touch-action:none}
+.bo-grid{stroke:currentColor;stroke-opacity:.14;stroke-width:1;color:var(--ink)}
+.bo-axis{font-size:11px;fill:currentColor;color:var(--muted)}
+.bo-pt{fill:#94A3B8;fill-opacity:.55}.bo-pt.reduced{fill:#7C8DA6;fill-opacity:.35}.bo-pt.tenure{fill:none;stroke:#64748B;stroke-width:1.2;fill-opacity:1}
+.bo-front{fill:none;stroke:currentColor;color:var(--ink);stroke-width:2;stroke-linejoin:round}
+.bo-mark{stroke:#fff;stroke-width:2}
+.bo-letter{font-size:12px;font-weight:700;fill:#fff;pointer-events:none}
+.bo-m{cursor:pointer;outline:none}.bo-m rect{stroke:#fff;stroke-width:2}.bo-m:focus rect,.bo-m:hover rect{stroke:currentColor;color:var(--ink)}
+.bo-key{display:flex;flex-wrap:wrap;gap:6px 18px;list-style:none;margin:0 0 6px;padding:0;font-size:13px;color:var(--ink)}
+.bo-key li{display:flex;align-items:center;gap:6px}
+.bo-chip{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;color:#fff;font-size:12px;font-weight:700;line-height:1}
+.bo-hover{fill:none;stroke:currentColor;color:var(--ink);stroke-width:2}
+.bo-tip{position:absolute;top:10px;transform:translateX(-50%);background:#0F172A;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;display:flex;flex-direction:column;gap:1px;pointer-events:none;white-space:nowrap}
+@media(prefers-color-scheme:dark){.bo-mark{stroke:#0F172A}}
+/* Phones: keep the chart at a readable size and let it scroll sideways, like the tables. */
+@media (max-width:700px){.bo-chart{overflow-x:auto}.bo-plot{min-width:640px}.bo-plot svg{touch-action:pan-x pan-y}}
+
+/* Compare the offers: two bar charts sharing their row labels. */
+.bo-compare{position:relative}
+.bo-cmp{display:grid;grid-template-columns:minmax(200px,270px) minmax(0,1fr) minmax(0,1fr);column-gap:24px;row-gap:2px;align-items:stretch}
+.bo-h{margin:0 0 4px;font-size:13px;font-weight:600;color:var(--ink);letter-spacing:0;text-transform:none}
+.bo-h.acc{grid-column:2;grid-row:1}.bo-h.val{grid-column:3;grid-row:1}
+.bo-lab{grid-column:1;grid-row:calc(var(--i) + 2);display:flex;flex-direction:column;justify-content:center;gap:1px;padding:4px 0;min-height:52px;font-size:14px;color:var(--ink);outline:none}
+.bo-lab.second{display:none}
+.bo-lab:focus-visible{outline:2px solid #75a9fc;outline-offset:2px;border-radius:4px}
+.bo-lab b{font-weight:600}
+.bo-same{font-size:12px;color:var(--muted);font-weight:400}
+.bo-tag{align-self:flex-start;font-size:11px;font-weight:600;color:#B91C1C;border:1px solid #F3B5B5;border-radius:999px;padding:0 7px;margin-top:2px}
+.bo-lev{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;line-height:1.35}
+.bo-caut{font-size:11px;color:var(--ink);background:#EEF2F7;border-radius:999px;padding:0 7px}
+.bo-track{display:flex;align-items:center;min-height:52px;padding-right:76px}
+.bo-track.acc{grid-column:2;grid-row:calc(var(--i) + 2)}.bo-track.val{grid-column:3;grid-row:calc(var(--i) + 2)}
+.bo-plotarea{position:relative;width:100%;height:16px}
+.bo-plotarea u{position:absolute;top:-18px;bottom:-18px;width:1px;background:var(--ink);opacity:.1;text-decoration:none}
+.bo-bar{position:absolute;left:0;top:0;height:16px;border-radius:0 4px 4px 0;display:block;min-width:2px}
+.bo-bar.ref{background:#94A3B8}.bo-bar.best{background:#15803d}
+.bo-end{position:absolute;top:0;line-height:16px;font-style:normal;font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.bo-none{font-size:12px;color:var(--muted)}
+.bo-axisrow{height:20px;padding-right:76px}
+.bo-axisrow.acc{grid-column:2;grid-row:calc(var(--i) + 2)}.bo-axisrow.val{grid-column:3;grid-row:calc(var(--i) + 2)}
+.bo-axisplot{position:relative;height:20px}
+.bo-axisplot span{position:absolute;top:2px;transform:translateX(-50%);font-size:11px;color:var(--muted);white-space:nowrap}
+.bo-axisplot span:first-child{transform:none}
+.bo-rowtip{position:absolute;left:294px;z-index:5;max-width:min(420px,calc(100% - 294px));background:#0F172A;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;display:flex;flex-direction:column;gap:2px;pointer-events:none}
+.bo-rowtip .bad{color:#FCA5A5}
+.bo-leader{stroke:currentColor;color:var(--ink);stroke-width:1;opacity:.55}
+.bo-true{stroke:#fff;stroke-width:1.5}
+@media(max-width:760px){
+  .bo-cmp{grid-template-columns:minmax(0,1fr);column-gap:0}
+  .bo-h,.bo-lab,.bo-track,.bo-axisrow{grid-column:1 !important;grid-row:auto !important;order:var(--o)}
+  .bo-h.val{margin-top:14px}
+  .bo-lab.second{display:flex}
+  .bo-lab{min-height:0;padding:8px 0 2px}
+  .bo-track{min-height:34px;padding-right:84px}
+  .bo-rowtip{left:0;right:0;max-width:none}
+}

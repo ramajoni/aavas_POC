@@ -377,4 +377,4 @@ def test_the_embedding_model_is_in_the_inventory() -> None:
     entry = model_risk.inventory()["embedding_bge_small"]
     assert entry["kind"] == "embedding" and entry["kill_switch"] == "AAVAS_VECTOR_BACKEND=memory"
     assert model_risk.version("embedding_bge_small", entry, {}) == EMBED_MODEL
-    assert model_risk.load("model_risk")["model_risk_config_version"] == "MRM-2026.12"
+    assert model_risk.load("model_risk")["model_risk_config_version"] == "MRM-2026.13"

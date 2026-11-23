@@ -153,7 +153,6 @@ export function DeepDiveContent({ requestId, title }) {
           {d.sensitivity?.label && <p className="dd-note">This customer is <b>{d.sensitivity.label}</b>{d.sensitivity.points_lost_per_25bps == null ? '.' : d.sensitivity.points_lost_per_25bps < 0.05 ? ': at this rate, 0.25% more barely changes whether they accept.' : `: about ${d.sensitivity.points_lost_per_25bps.toFixed(1)} points of acceptance lost for every 0.25% added.`}</p>}
           <ul className="dd-reasons">{d.reasons.map(r => <li key={r.label}><span>{r.label}{typeof r.value === 'string' && r.value && !['True', 'False'].includes(r.value) ? ` (${r.value.replaceAll('_', ' ')})` : ''}</span>
             <b className={r.direction === 'decrease' ? 'down' : 'up'}>{r.direction === 'decrease' ? '−' : '+'}{Math.abs(r.impact_bps || 0).toFixed(0)} bps</b></li>)}</ul>
-          {d.risk?.grade && <p className="dd-note">Risk grade {d.risk.grade}: about {d.risk.annual_pd != null ? `${(d.risk.annual_pd * 100).toFixed(2)}%` : '—'} of similar borrowers default each year.</p>}
         </section>
       </div>
     </div>}

@@ -11,7 +11,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ..intake.applications import LOAN_ID as _LOAN_ID
 from .examples import FINAL_ASSESSMENT, OUTCOME, OVERRIDE, PRE_ASSESSMENT
+
+# One form for a loan id everywhere an id comes in: the same pattern the application endpoints use.
+LOAN_ID_PATTERN = _LOAN_ID.pattern
 
 Segment = Literal["salaried_formal", "salaried_informal",
                   "self_employed_professional", "self_employed_non_professional"]
@@ -38,7 +42,7 @@ class Stage1Request(BaseModel):
 
     model_config = ConfigDict(json_schema_extra={"examples": [PRE_ASSESSMENT]})
 
-    loan_id: str
+    loan_id: str = Field(..., pattern=LOAN_ID_PATTERN)
     segment: Segment
     city: str
     channel: Channel = "branch_walkin"
@@ -104,7 +108,7 @@ class OverrideRequest(BaseModel):
 
     model_config = ConfigDict(json_schema_extra={"examples": [OVERRIDE]})
 
-    loan_id: str
+    loan_id: str = Field(..., pattern=LOAN_ID_PATTERN)
     human_rate: float = Field(..., gt=0, lt=30)
     reason: str
     reason_detail: str | None = None
@@ -118,7 +122,7 @@ class OutcomeRequest(BaseModel):
 
     model_config = ConfigDict(json_schema_extra={"examples": [OUTCOME]})
 
-    loan_id: str
+    loan_id: str = Field(..., pattern=LOAN_ID_PATTERN)
     disbursed: bool
     customer_response: Literal["accepted", "rejected", "negotiated", "deferred"] | None = None
     sanctioned_rate: float | None = Field(None, gt=0, lt=30)

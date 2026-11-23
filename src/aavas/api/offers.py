@@ -33,11 +33,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..analytics import (approval_briefing, area_performance, branch_history, branch_scenarios,
-                         decision_support, manager_checks, portfolio, precedents)
+                         best_offer, decision_support, manager_checks, portfolio, precedents, risk_pricing)
 from ..agents.manager_memory_agent import ManagerMemoryAgent
 from ..governance import decision_logger, model_registry
 from ..intake import applications as intake
 from ..intake import offers
+from .contracts import LOAN_ID_PATTERN
 from ..logging_utils import get_logger
 from . import access
 from . import competitors as competitor_api
@@ -88,7 +89,7 @@ def _own_only(principal: Principal) -> bool:
 
 
 class OfferIn(BaseModel):
-    loan_id: str = Field(..., min_length=1, max_length=64)
+    loan_id: str = Field(..., pattern=LOAN_ID_PATTERN)
     rate: float = Field(..., gt=0, lt=30)
     reason: str | None = Field(None, max_length=64)
     note: str | None = Field(None, max_length=500)
@@ -103,7 +104,7 @@ class CustomerDecisionIn(BaseModel):
 
 
 class RateRequestIn(BaseModel):
-    loan_id: str = Field(..., min_length=1, max_length=64)
+    loan_id: str = Field(..., pattern=LOAN_ID_PATTERN)
     rate: float = Field(..., gt=0, lt=30)
     reason: str = Field(..., min_length=1, max_length=64)
     note: str | None = Field(None, max_length=500)
@@ -132,14 +133,14 @@ def send_offer(body: OfferIn, principal: Principal = Depends(current_principal),
 
 
 @router.get("/offers", summary="Offers sent")
-def list_offers(loan_id: str | None = Query(None),
+def list_offers(loan_id: str | None = Query(None, pattern=LOAN_ID_PATTERN),
                 principal: Principal = Depends(current_principal)) -> dict[str, Any]:
     return {"offers": offers.offers(loan_id=loan_id,
                                     sent_by=principal.name if _own_only(principal) else None)}
 
 
 @router.get("/offers/acceptance", summary="How likely the customer is to accept at the rates given")
-def offer_acceptance(loan_id: str = Query(..., min_length=1, max_length=64),
+def offer_acceptance(loan_id: str = Query(..., pattern=LOAN_ID_PATTERN),
                      rates: str = Query(..., description="Comma-separated rates in per cent, up to 10"),
                      principal: Principal = Depends(current_principal)) -> dict[str, Any]:
     """The final acceptance rate the RM offers at: one number per rate, scored on the
@@ -191,7 +192,7 @@ def request_lower_rate(body: RateRequestIn,
 
 
 @router.get("/rate-requests", summary="Rate requests (an RM sees their own)")
-def list_requests(status: str | None = Query(None), loan_id: str | None = Query(None),
+def list_requests(status: str | None = Query(None), loan_id: str | None = Query(None, pattern=LOAN_ID_PATTERN),
                   principal: Principal = Depends(current_principal)) -> dict[str, Any]:
     rows = offers.requests(status=status, loan_id=loan_id,
                            requested_by=principal.name if _own_only(principal) else None)
@@ -303,6 +304,18 @@ def _scenario_inputs(request_id: str) -> tuple[dict[str, Any], dict[str, Any], p
     return row, payload, branch, effect
 
 
+def _request_and_payload(request_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The request and the decision it was priced on, and nothing else: the routes that only need the
+    file do not load the portfolio or work out the branch's propensity. Same 404s as _scenario_inputs."""
+    row = offers.request(request_id)
+    if row is None:
+        raise HTTPException(404, "no such request")
+    decision = decision_logger.get_decision(row["decision_id"]) if row.get("decision_id") else None
+    if not decision:
+        raise HTTPException(404, "the decision this request was priced on is not on file")
+    return row, decision.get("payload") or {}
+
+
 @router.get("/rate-requests/{request_id}/scenarios",
             summary="Each rate: what the model predicts, and how this branch differs")
 def request_scenarios(request_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
@@ -310,6 +323,22 @@ def request_scenarios(request_id: str, principal: Principal = Depends(current_pr
     row, payload, _, effect = _scenario_inputs(request_id)
     room = offers.headroom(payload, row["loan_id"])
     return competitor_api.clean(branch_scenarios.scenarios(row, payload, ceiling=room["rate"], branch_effect=effect))
+
+
+@router.get("/rate-requests/{request_id}/risk-pricing",
+            summary="The file's risk, what moves it, and what each rate does to affordability, risk cost and value")
+def request_risk_pricing(request_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    _require(principal, AM, ADMIN)
+    row, payload = _request_and_payload(request_id)
+    return competitor_api.clean(risk_pricing.risk_pricing(row, payload))
+
+
+@router.get("/rate-requests/{request_id}/best-offer",
+            summary="The best offers this file could be given by moving the rate, amount, tenure and fee")
+def request_best_offer(request_id: str, principal: Principal = Depends(current_principal)) -> dict[str, Any]:
+    _require(principal, AM, ADMIN)
+    row, payload = _request_and_payload(request_id)
+    return competitor_api.clean(best_offer.best_offers(row, payload))
 
 
 @router.get("/rate-requests/{request_id}/suggestion",

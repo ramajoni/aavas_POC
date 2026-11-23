@@ -1,0 +1,54 @@
+# Best offer: the four levers of an offer, and how the search picks the best ones.
+#
+# Decision support for the area manager. The engine and the pricing policy set the card
+# rate, the floor and the band for each grade and tenure; this file only bounds the search
+# over offers the policy already allows and says how "best" is judged. Nothing here can
+# widen the policy: every offer is checked against pricing_policy.yaml as it stands.
+#
+# Levers: interest rate, loan amount sanctioned, tenure, processing fee.
+
+best_offer_config_version: "OFFER-2026.11"
+
+levers:
+  rate:
+    step_pct: 0.05              # every rate from the floor to the card rate of each grade x tenure
+  tenure:
+    min_months: 36              # the stricter of these and policy constraints wins
+    max_months: 120
+    step_months: 12
+    include_requested: true     # the file's own tenure is always tried
+  loan_amount:
+    # The request, or the most the file qualifies for when that is lower (stressed
+    # capacity, LTV cap, exposure cap). Never above the request.
+    reductions_pct: [10, 20]    # also try 10% and 20% under the request ...
+    flag_reductions: true       # ... marked: the acceptance model has no customers offered less than they asked
+  processing_fee:
+    # The policy publishes one fee (economics.processing_fee_pct, 0.50% of disbursal) and no
+    # waiver rule, so the search only ever waives it; it never raises it.
+    levels_pct: [0.50, 0.25, 0.0]
+    acceptance_effect: apr_equivalent   # no model sees the fee: acceptance is scored at the all-in APR
+  emi:
+    max_increase_pct: 10        # never propose an offer whose EMI is more than 10% above the file's own EMI at the recommendation
+
+# Each objective maximises one measure, subject to another being at least as good as a
+# reference offer: "recommendation" (the system's rate on the file as it is) or "ask"
+# (the RM's requested rate on the file as it is).
+objectives:
+  - key: most_value
+    title: Most value
+    maximise: value
+    at_least: {measure: acceptance, reference: recommendation}
+  - key: most_likely
+    title: Most likely to close
+    maximise: acceptance
+    at_least: {measure: value, reference: recommendation}
+  - key: match_the_ask
+    title: Cheapest way to match the ask
+    maximise: value
+    at_least: {measure: acceptance, reference: ask}
+tie_break: [fewer_changes, value, acceptance]   # prefer the offer that changes fewer levers
+tie_tolerance_pct: 0.5          # offers within this share of the best on the measure being maximised count as tied
+
+display:
+  frontier: true                # acceptance against value, eligible offers only
+  table_rows: 25                # the "every eligible offer" table, sorted by value
