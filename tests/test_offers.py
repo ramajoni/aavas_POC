@@ -266,3 +266,16 @@ def test_the_rm_sees_the_final_acceptance_at_the_rate_they_offer(client) -> None
     assert client.get("/pricing/offers/acceptance?loan_id=OFR-ACC-1&rates=abc", headers=rohit).status_code == 422
     assert client.get("/pricing/offers/acceptance?loan_id=NOPE&rates=10", headers=rohit).status_code == 409
     assert client.get("/pricing/offers/acceptance?loan_id=OFR-ACC-1&rates=10", headers=who(client, "rahul")).status_code == 403
+
+
+def test_an_ask_outside_the_policy_band_is_refused(client) -> None:
+    """No rate outside 13-17% can ever be approved, so the RM cannot request one: on AWS a
+    request at 12.73% reached the area manager's list before this check."""
+    rohit, meera = who(client, "rohit"), who(client, "meera")
+    price(client, rohit, "OFR-BAND-1")
+    refused = client.post("/pricing/rate-requests", headers=rohit, json={
+        "loan_id": "OFR-BAND-1", "rate": 12.73, "reason": "strong_negotiation"})
+    assert refused.status_code == 422, refused.text
+    assert "policy band" in refused.text and "13.00%" in refused.text
+    pending = client.get("/pricing/rate-requests?status=pending", headers=meera).json()["requests"]
+    assert not any(r["loan_id"] == "OFR-BAND-1" for r in pending)

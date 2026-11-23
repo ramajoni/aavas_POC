@@ -16,6 +16,13 @@ still said 0.1.0 then, so decisions priced before 0.6.0 carry `app_version` 0.1.
 ## [Unreleased]
 
 
+## [0.10.1] - 2026-11-23
+
+### Fixed
+- An RM could ask the area manager for a rate outside the policy band (13.00-17.00%): on AWS a
+  request at 12.73% reached the approval list, although no rate below 13% can ever be
+  approved. The request is now refused with the band in the message
+  (`reference.card_rate_floor` to `card_rate_ceiling`). Requests already raised are untouched.
 
 ## [0.10.0] - 2026-11-23
 

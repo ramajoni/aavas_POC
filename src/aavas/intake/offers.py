@@ -44,6 +44,12 @@ def priced(loan_id: str) -> dict[str, Any]:
     return payload
 
 
+def policy_band() -> tuple[float, float]:
+    """The lowest and highest rate the policy allows on any file (13.00-17.00%)."""
+    ref = policy().get("reference") or {}
+    return float(ref.get("card_rate_floor", 13.0)), float(ref.get("card_rate_ceiling", 17.0))
+
+
 def limits(payload: dict[str, Any], rm_bps: float, am_bps: float) -> dict[str, float]:
     rec = float(payload["recommendation"]["recommended_rate"])
     envelope = payload.get("envelope") or {}
@@ -295,6 +301,10 @@ def request_lower_rate(loan_id: str, rate: float, *, reason: str, note: str | No
     payload = priced(loan_id)
     lim = limits(payload, rm_bps, am_bps)
     rate = round(float(rate), 2)
+    lo, hi = policy_band()
+    if not lo <= rate <= hi:
+        raise OfferError(422, f"{rate:.2f}% is outside the policy band of {lo:.2f}% to {hi:.2f}%: "
+                              "no rate outside it can be approved, so it cannot be requested")
     if rate >= lim["recommended"]:
         raise OfferError(422, "no approval is needed at or above the recommendation: send it")
     if rate >= lim["reason_floor"]:
